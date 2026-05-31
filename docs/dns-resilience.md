@@ -9,8 +9,8 @@ DNS is not a helper detail. It is a core runtime dependency. If DNS breaks, rout
 The config uses a mix of:
 
 - FakeDNS for selected domains.
-- External DNS resolver path.
-- Localhost fallback.
+- Tagged Cloudflare and Google external resolver paths.
+- Localhost fallback for private, regional, captive, or enterprise cases.
 - `UseSystem` query strategy.
 - `serveStale`.
 - Routing rules for port 53.
@@ -34,8 +34,8 @@ These are useful, but they need explicit operational behavior.
 
 Do not introduce complex DNS profiles unless maintainers want them. For the current single config:
 
-1. Keep a primary external resolver.
-2. Add a secondary resolver with separate tag and timeout if not already present.
+1. Keep `no-filter-dns-cloudflare` as the primary external resolver path.
+2. Keep `no-filter-dns-google` as a separate secondary resolver path.
 3. Keep local resolver only for private, regional, captive, or enterprise cases.
 4. Keep resolver timeouts low enough that users do not wait excessively.
 5. Keep `serveStale` documented because stale answers can help or confuse.
@@ -46,8 +46,8 @@ Do not introduce complex DNS profiles unless maintainers want them. For the curr
 
 ```text
 Targeted service DNS:
-  primary external resolver with timeout
-  secondary external resolver with timeout
+  no-filter-dns-cloudflare with timeout
+  no-filter-dns-google with timeout
   local resolver only where explicitly intended
 
 Private/local DNS:

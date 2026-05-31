@@ -19,7 +19,8 @@ REQUIRED_INBOUND_TAGS = {"mixed-in", "tls-decrypt-h11", "tls-decrypt-h211"}
 REQUIRED_PORTS = {10808, 11666, 11777}
 EXPECTED_RULE_ORDER = [
     "r010_block_ads",
-    "r020_repack_dns",
+    "r020_repack_dns_cloudflare",
+    "r025_repack_dns_google",
     "r030_dns_port53",
     "r040_direct_private_regional",
     "r100_repack_googlevideo_h11",
@@ -146,6 +147,11 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
             bad_redirects.append(f"{tag} -> {redirect!r}")
         else:
             redirect_targets[tag] = parsed[1]
+    dns_repack_outbounds = {
+        item.get("tag")
+        for item in outbounds
+        if isinstance(item.get("tag"), str) and str(item.get("tag")).startswith("tls-repack-dns")
+    }
     dns = config.get("dns")
     dns_server_tags = set()
     if isinstance(dns, dict) and isinstance(dns.get("servers"), list):
@@ -270,6 +276,20 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
         "id": "route_inbound_references",
         "status": "pass" if not missing_in_refs else "fail",
         "detail": "all route inboundTag values exist as inbound or DNS server tags" if not missing_in_refs else "; ".join(missing_in_refs),
+    })
+    required_dns_server_tags = {"no-filter-dns-cloudflare", "no-filter-dns-google"}
+    required_dns_repack_outbounds = {"tls-repack-dns-cloudflare", "tls-repack-dns-google"}
+    missing_dns_server_tags = sorted(required_dns_server_tags - dns_server_tags)
+    missing_dns_repack_outbounds = sorted(required_dns_repack_outbounds - dns_repack_outbounds)
+    checks.append({
+        "id": "dns_fallback_server_tags",
+        "status": "pass" if not missing_dns_server_tags else "warn",
+        "detail": "Cloudflare and Google DNS fallback server tags present" if not missing_dns_server_tags else "missing: " + ", ".join(missing_dns_server_tags),
+    })
+    checks.append({
+        "id": "dns_fallback_outbounds",
+        "status": "pass" if not missing_dns_repack_outbounds else "warn",
+        "detail": "Cloudflare and Google DNS repack outbounds present" if not missing_dns_repack_outbounds else "missing: " + ", ".join(missing_dns_repack_outbounds),
     })
     checks.append({"id": "dns_port_53_rule", "status": "pass" if dns_port_rule else "warn", "detail": "port 53 rule present" if dns_port_rule else "no explicit port 53 rule found"})
     checks.append({"id": "tcp443_redirect_rule", "status": "pass" if tcp443_redirect_rule else "warn", "detail": "TCP/443 redirect rule present" if tcp443_redirect_rule else "no TCP/443 redirect rule found"})

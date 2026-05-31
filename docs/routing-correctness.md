@@ -31,7 +31,8 @@ Examples:
 
 ```text
 r010_block_ads
-r020_repack_dns
+r020_repack_dns_cloudflare
+r025_repack_dns_google
 r030_dns_port53
 r040_direct_private_regional
 r100_repack_googlevideo_h11
@@ -57,7 +58,8 @@ Maintain this table in `docs/routing-correctness.md` or `configs/route-intent.ym
 | Rule tag | Match | Outbound | Intent | Expected failure behavior |
 |---|---|---|---|---|
 | `r010_block_ads` | ad-category domains | `block` | Reduce ad/tracker traffic | False positive may break some login pages |
-| `r020_repack_dns` | DNS resolver inbound | DNS repack outbound | Keep DNS path reachable | Fallback needed if resolver is down |
+| `r020_repack_dns_cloudflare` | Cloudflare DNS resolver inbound | Cloudflare DNS repack outbound | Keep primary DNS path reachable | Google fallback should handle primary timeout |
+| `r025_repack_dns_google` | Google DNS resolver inbound | Google DNS repack outbound | Keep secondary DNS path reachable | Local resolver remains last-resort/private fallback |
 | `r030_dns_port53` | port 53 | `dns-out` | Handle plain DNS | Local DNS may still be environment-dependent |
 | `r040_direct_private_regional` | private/regional domains | `direct` | Avoid breaking local/regional services | Depends on geosite data |
 | `r100_repack_googlevideo_h11` | Googlevideo through h11 inbound | google repack | Keep video media path working | Breaks if provider/SNI behavior changes |

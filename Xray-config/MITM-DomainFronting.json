@@ -29,6 +29,14 @@
       "dns.redirect": [
         "1.1.1.1",
         "1.0.0.1"
+      ],
+      "dns.cloudflare.redirect": [
+        "1.1.1.1",
+        "1.0.0.1"
+      ],
+      "dns.google.redirect": [
+        "8.8.8.8",
+        "8.8.4.4"
       ]
     },
     "servers": [
@@ -42,10 +50,14 @@
         ]
       },
       {
-        "tag": "no-filter-dns",
+        "tag": "no-filter-dns-cloudflare",
         "address": "h2c://1.1.1.1/dns-query",
-        "timeoutMs": 15000,
-        "finalQuery": true
+        "timeoutMs": 6000
+      },
+      {
+        "tag": "no-filter-dns-google",
+        "address": "h2c://8.8.8.8/dns-query",
+        "timeoutMs": 6000
       },
       {
         "address": "localhost",
@@ -55,7 +67,8 @@
           "geosite:category-ir",
           "full:github.githubassets.com"
         ],
-        "finalQuery": true
+        "finalQuery": true,
+        "timeoutMs": 4000
       }
     ],
     "queryStrategy": "UseSystem",
@@ -204,16 +217,43 @@
       }
     },
     {
-      "tag": "tls-repack-dns",
+      "tag": "tls-repack-dns-cloudflare",
       "protocol": "direct",
       "settings": {
-        "redirect": "dns.redirect:443"
+        "redirect": "dns.cloudflare.redirect:443"
       },
       "streamSettings": {
         "security": "tls",
         "tlsSettings": {
           "serverName": "www.microsoft.com",
           "verifyPeerCertByName": "fromMitM,www.microsoft.com,www.google.com,dns.google,cloudflare-dns.com,one.one.one.one",
+          "alpn": [
+            "fromMitM"
+          ],
+          "fingerprint": "chrome"
+        },
+        "sockopt": {
+          "domainStrategy": "ForceIP",
+          "happyEyeballs": {
+            "tryDelayMs": 300,
+            "prioritizeIPv6": false,
+            "interleave": 2,
+            "maxConcurrentTry": 20
+          }
+        }
+      }
+    },
+    {
+      "tag": "tls-repack-dns-google",
+      "protocol": "direct",
+      "settings": {
+        "redirect": "dns.google.redirect:443"
+      },
+      "streamSettings": {
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "www.google.com",
+          "verifyPeerCertByName": "fromMitM,www.google.com,dns.google,dns.google.com",
           "alpn": [
             "fromMitM"
           ],
@@ -317,11 +357,18 @@
         "ruleTag": "r010_block_ads"
       },
       {
-        "outboundTag": "tls-repack-dns",
+        "outboundTag": "tls-repack-dns-cloudflare",
         "inboundTag": [
-          "no-filter-dns"
+          "no-filter-dns-cloudflare"
         ],
-        "ruleTag": "r020_repack_dns"
+        "ruleTag": "r020_repack_dns_cloudflare"
+      },
+      {
+        "outboundTag": "tls-repack-dns-google",
+        "inboundTag": [
+          "no-filter-dns-google"
+        ],
+        "ruleTag": "r025_repack_dns_google"
       },
       {
         "outboundTag": "dns-out",
