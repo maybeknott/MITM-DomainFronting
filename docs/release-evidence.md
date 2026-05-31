@@ -33,6 +33,9 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
 - Windows and Android client versions tested.
 - DNS fallback result.
 - FakeDNS recovery result.
+- Metadata validation result.
+- Route policy test result.
+- Secret scan result.
 - Known provider failures.
 - Final verdict.
 
@@ -54,6 +57,7 @@ For a normal release:
 - Static preflight with `--skip-cert --skip-runtime` exits successfully.
 - `build_release_manifest.py` exits successfully.
 - Private-key scan in CI passes.
+- Metadata validation and route policy tests pass.
 - Known issues and support matrix are reviewed.
 - Final verdict is written.
 

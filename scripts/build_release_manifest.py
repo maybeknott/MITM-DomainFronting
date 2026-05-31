@@ -80,6 +80,13 @@ def command_result(cmd: List[str], cwd: Path) -> Dict[str, object]:
     }
 
 
+def tracked_command(root: Path, script_name: str, *args: str) -> Dict[str, object]:
+    script = Path(__file__).resolve().parent / script_name
+    if not script.exists():
+        return {"status": "not_run", "reason": f"{script_name} not found"}
+    return command_result([sys.executable, str(script), *args], root)
+
+
 def run_validate(config: Path) -> Dict[str, object]:
     script = Path(__file__).resolve().parent / "validate_config.py"
     if not script.exists():
@@ -90,6 +97,19 @@ def run_validate(config: Path) -> Dict[str, object]:
     except Exception:
         parsed = {"raw_stdout": p.stdout[-2000:], "raw_stderr": p.stderr[-2000:]}
     return {"status": "pass" if p.returncode == 0 else "fail", "returncode": p.returncode, "report": parsed}
+
+
+def geodata_metadata(root: Path) -> List[Dict[str, object]]:
+    entries: List[Dict[str, object]] = []
+    for name in ("geosite.dat", "geoip.dat"):
+        matches = sorted(path for path in root.rglob(name) if ".git" not in path.parts)
+        if not matches:
+            entries.append({"name": name, "status": "not_found", "note": "record runtime package hash if geodata is supplied by client"})
+            continue
+        for path in matches:
+            rel = str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+            entries.append({"name": name, "status": "found", "path": rel, "sha256": sha256_file(path)})
+    return entries
 
 
 def main() -> int:
@@ -150,11 +170,15 @@ def main() -> int:
             "remarks": load_config_remarks(config) if config.exists() else None,
         },
         "validation": run_validate(config) if config.exists() else {"status": "fail", "reason": "config missing"},
+        "metadata_validation": tracked_command(root, "validate_metadata.py"),
+        "route_policy_tests": tracked_command(root, "route_policy_tests.py"),
+        "secret_scan": tracked_command(root, "secret_scan.py"),
         "xray": {
             "binary": args.xray_bin,
             "version": xray_version,
             "config_test": xray_config_test,
         },
+        "geodata": geodata_metadata(root),
         "files": file_entries,
         "notes": [
             "Review warnings before publishing.",
