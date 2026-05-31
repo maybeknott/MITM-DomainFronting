@@ -6,11 +6,14 @@ import argparse
 import subprocess
 from pathlib import Path
 
-PRIVATE_KEY_MARKERS = (
-    "BEGIN PRIVATE KEY",
-    "BEGIN RSA PRIVATE KEY",
-    "BEGIN EC PRIVATE KEY",
-    "BEGIN OPENSSH PRIVATE KEY",
+PRIVATE_KEY_MARKERS = tuple(
+    "BEGIN " + key_type
+    for key_type in (
+        "PRIVATE KEY",
+        "RSA PRIVATE KEY",
+        "EC PRIVATE KEY",
+        "OPENSSH PRIVATE KEY",
+    )
 )
 SENSITIVE_SUFFIXES = {".key", ".pem", ".p12", ".pfx"}
 SENSITIVE_NAMES = {"mycert.key"}
