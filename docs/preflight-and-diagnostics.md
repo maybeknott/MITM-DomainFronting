@@ -49,6 +49,8 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
 | Cert exists | Local CA exists | `mycert.crt` found |
 | Key exists | Issuing key exists | `mycert.key` found |
 | Key permissions | Avoid local overexposure | Not world-readable on POSIX |
+| Cert/key pair | Avoid wrong-pair trust failures | `mitm_trust.py check-pair` passes |
+| Cert expiry | Avoid sudden browser privacy errors | `mitm_trust.py status --json` reports enough days remaining |
 | Static CI mode | Avoid requiring user-local CA in CI | `--skip-cert` is explicit |
 | Static runtime mode | Avoid depending on the CI runner's live ports | `--skip-runtime` is explicit |
 | Route tags | Debug route intent | Every rule has `ruleTag` |

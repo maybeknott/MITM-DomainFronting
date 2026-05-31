@@ -9,14 +9,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import stat
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 
 def sha256_file(path: Path) -> Optional[str]:
@@ -68,6 +70,73 @@ def openssl_info(cert: Path) -> str:
     return p.stdout.strip()
 
 
+def run_openssl(args: List[str], timeout: float = 5.0) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            ["openssl", *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return None
+
+
+def cert_end_date(cert: Path) -> Optional[datetime]:
+    if not cert.exists():
+        return None
+    proc = run_openssl(["x509", "-in", str(cert), "-noout", "-enddate"])
+    if proc is None or proc.returncode != 0:
+        return None
+    line = proc.stdout.strip()
+    if not line.startswith("notAfter="):
+        return None
+    value = line.split("=", 1)[1].strip()
+    for fmt in ("%b %d %H:%M:%S %Y %Z", "%b  %d %H:%M:%S %Y %Z"):
+        try:
+            return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def public_key_fingerprint_from_cert(cert: Path) -> Optional[str]:
+    if not cert.exists():
+        return None
+    proc = run_openssl(["x509", "-in", str(cert), "-pubkey", "-noout"])
+    if proc is None or proc.returncode != 0:
+        return None
+    return hashlib.sha256(proc.stdout.encode("utf-8")).hexdigest()
+
+
+def public_key_fingerprint_from_key(key: Path) -> Optional[str]:
+    if not key.exists():
+        return None
+    proc = run_openssl(["pkey", "-in", str(key), "-pubout"])
+    if proc is None or proc.returncode != 0:
+        return None
+    return hashlib.sha256(proc.stdout.encode("utf-8")).hexdigest()
+
+
+def cert_key_match(cert: Path, key: Path) -> Optional[bool]:
+    cert_fp = public_key_fingerprint_from_cert(cert)
+    key_fp = public_key_fingerprint_from_key(key)
+    if cert_fp is None or key_fp is None:
+        return None
+    return cert_fp == key_fp
+
+
+def key_permissions_ok(key: Path) -> Optional[bool]:
+    if not key.exists():
+        return False
+    if os.name == "nt":
+        return None
+    mode = stat.S_IMODE(key.stat().st_mode)
+    return (mode & 0o077) == 0
+
+
 def key_permission_text(key: Path) -> str:
     if not key.exists():
         return "missing"
@@ -82,19 +151,50 @@ def key_permission_text(key: Path) -> str:
     return f"{oct(mode)}" + (" (" + "; ".join(advice) + ")" if advice else "")
 
 
-def status(cert: Path, key: Path) -> int:
+def status_report(cert: Path, key: Path, warn_expiry_days: int) -> Dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    not_after = cert_end_date(cert)
+    days_remaining = None
+    if not_after is not None:
+        days_remaining = int((not_after - now).total_seconds() // 86400)
+    return {
+        "cert": str(cert),
+        "cert_exists": cert.exists(),
+        "cert_sha256": sha256_file(cert),
+        "cert_not_after_utc": not_after.isoformat() if not_after else None,
+        "cert_days_remaining": days_remaining,
+        "cert_expired": days_remaining is not None and days_remaining < 0,
+        "cert_expires_soon": days_remaining is not None and 0 <= days_remaining <= warn_expiry_days,
+        "key": str(key),
+        "key_exists": key.exists(),
+        "key_permissions": key_permission_text(key),
+        "key_permissions_ok": key_permissions_ok(key),
+        "cert_key_match": cert_key_match(cert, key),
+    }
+
+
+def status(cert: Path, key: Path, warn_expiry_days: int, json_out: bool) -> int:
+    report = status_report(cert, key, warn_expiry_days)
+    if json_out:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0 if report["cert_exists"] and report["key_exists"] and report["cert_key_match"] is not False else 2
     print(f"cert: {cert}")
-    print(f"cert_exists: {cert.exists()}")
-    cert_hash = sha256_file(cert)
-    if cert_hash:
-        print(f"cert_sha256: {cert_hash}")
-        print("cert_sha256_prefix_for_issues: " + cert_hash[:12])
+    print(f"cert_exists: {report['cert_exists']}")
+    if report["cert_sha256"]:
+        print(f"cert_sha256: {report['cert_sha256']}")
+        print("cert_sha256_prefix_for_issues: " + str(report["cert_sha256"])[:12])
+    print(f"cert_not_after_utc: {report['cert_not_after_utc']}")
+    print(f"cert_days_remaining: {report['cert_days_remaining']}")
+    print(f"cert_expired: {report['cert_expired']}")
+    print(f"cert_expires_soon: {report['cert_expires_soon']}")
     print(f"key: {key}")
-    print(f"key_exists: {key.exists()}")
-    print(f"key_permissions: {key_permission_text(key)}")
+    print(f"key_exists: {report['key_exists']}")
+    print(f"key_permissions: {report['key_permissions']}")
+    print(f"key_permissions_ok: {report['key_permissions_ok']}")
+    print(f"cert_key_match: {report['cert_key_match']}")
     print("certificate_info:")
     print(openssl_info(cert))
-    return 0 if cert.exists() and key.exists() else 2
+    return 0 if report["cert_exists"] and report["key_exists"] and report["cert_key_match"] is not False else 2
 
 
 def backup_existing(out_dir: Path) -> None:
@@ -168,6 +268,12 @@ def main() -> int:
     s = sub.add_parser("status")
     s.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
     s.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
+    s.add_argument("--warn-expiry-days", type=int, default=30)
+    s.add_argument("--json", action="store_true")
+
+    cp = sub.add_parser("check-pair")
+    cp.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
+    cp.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
 
     g = sub.add_parser("generate")
     g.add_argument("--out-dir", type=Path, default=Path("Xray-config"))
@@ -185,7 +291,11 @@ def main() -> int:
 
     args = parser.parse_args()
     if args.cmd == "status":
-        return status(args.cert, args.key)
+        return status(args.cert, args.key, args.warn_expiry_days, args.json)
+    if args.cmd == "check-pair":
+        match = cert_key_match(args.cert, args.key)
+        print(f"cert_key_match: {match}")
+        return 0 if match is True else 2
     if args.cmd == "generate":
         return generate(args.out_dir, backup=False)
     if args.cmd == "rotate":
