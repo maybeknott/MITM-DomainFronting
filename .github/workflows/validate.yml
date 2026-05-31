@@ -53,14 +53,7 @@ jobs:
 
       - name: Check that private keys are not committed
         run: |
-          if git ls-files | grep -Ei '(^|/)(mycert\.key|.*\.key|.*\.pem)$'; then
-            echo "Potential private key file is tracked. Remove it from git."
-            exit 1
-          fi
-          if grep -R --line-number --binary-files=without-match 'BEGIN .*PRIVATE KEY' . --exclude-dir=.git; then
-            echo "Private key material found in repository. Remove it."
-            exit 1
-          fi
+          python scripts/secret_scan.py
 
       - name: Shell syntax check
         run: |
