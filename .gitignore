@@ -1,1 +1,28 @@
 /.idea
+
+# Local generated certificates and keys
+mycert.crt
+mycert.key
+*.crt
+*.key
+*.pem
+
+# Local logs, diagnostics, and release evidence
+*.log
+*.tmp
+*.bak
+*.backup
+*.diagnostic.json
+validation-report.json
+checksums.txt
+
+# Xray geodata runtime artifacts, if downloaded locally
+geoip.dat
+geosite.dat
+
+# Python and editor artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
