@@ -30,6 +30,9 @@ MITM-DomainFronting/
     protocol-coverage.md
     platform-compatibility.md
     preflight-and-diagnostics.md
+    decision-engine.md
+    dns-profiles.md
+    operating-profiles.md
     release-engineering.md
     release-evidence.md
     provider-status.md
@@ -54,9 +57,17 @@ MITM-DomainFronting/
     compatibility.yml
     protocols.yml
     dns-edge-cases.yml
+    dns-profiles.yml
     advanced-edge-cases.yml
+    profiles.yml
     provider-status.example.yml
     release-checklist.yml
+
+  providers/
+    dns-resolvers.yml
+    fastly.yml
+    google.yml
+    meta.yml
 
   scripts/
     preflight.py
@@ -64,6 +75,9 @@ MITM-DomainFronting/
     add_rule_tags.py
     mitm_trust.py
     check_dns.py
+    decision_report.py
+    generate_profiles.py
+    validate_metadata.py
     build_release_manifest.py
 
   .github/

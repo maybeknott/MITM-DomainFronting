@@ -1,0 +1,39 @@
+version: 1
+default_profile: dns-balanced
+profiles:
+  dns-strict:
+    purpose: privacy_or_audit_mode
+    external_resolvers:
+      - no-filter-dns-cloudflare
+      - no-filter-dns-google
+    local_dns: private_and_regional_only
+    fallback: external_only_then_fail
+    silent_local_fallback: false
+    serve_stale: documented
+  dns-balanced:
+    purpose: general_reliability
+    external_resolvers:
+      - no-filter-dns-cloudflare
+      - no-filter-dns-google
+    local_dns: private_regional_captive_enterprise
+    fallback: cloudflare_then_google_then_documented_local
+    silent_local_fallback: false
+    serve_stale: documented
+  dns-local-first:
+    purpose: captive_or_enterprise_networks
+    external_resolvers:
+      - no-filter-dns-cloudflare
+      - no-filter-dns-google
+    local_dns: preferred_for_private_and_setup_flows
+    fallback: local_then_external
+    silent_local_fallback: warning_required
+    serve_stale: documented
+  dns-debug:
+    purpose: diagnostics
+    external_resolvers:
+      - no-filter-dns-cloudflare
+      - no-filter-dns-google
+    local_dns: user_selected
+    fallback: report_each_attempt
+    silent_local_fallback: false
+    serve_stale: report_status

@@ -43,6 +43,10 @@ jobs:
             python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
           fi
 
+      - name: Validate metadata
+        run: |
+          python scripts/validate_metadata.py
+
       - name: Check that private keys are not committed
         run: |
           if git ls-files | grep -Ei '(^|/)(mycert\.key|.*\.key|.*\.pem)$'; then

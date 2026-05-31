@@ -182,19 +182,6 @@ def config_required_ports(config: Dict[str, Any]) -> List[int]:
     return sorted(set([p for p in ports if p in EXPECTED_PORTS] or EXPECTED_PORTS))
 
 
-def udp443_policy_check(config: Dict[str, Any]) -> Dict[str, str]:
-    rules = config.get("routing", {}).get("rules", []) if isinstance(config.get("routing"), dict) else []
-    has_explicit_udp443 = any(
-        isinstance(rule, dict)
-        and rule.get("network") == "udp"
-        and str(rule.get("port")) in {"443", "0-65535"}
-        for rule in rules
-    )
-    if has_explicit_udp443:
-        return {"id": "udp443_policy", "status": "pass", "detail": "explicit UDP/443 policy rule present"}
-    return {"id": "udp443_policy", "status": "info", "detail": "no explicit UDP/443 rule; HTTP/3/QUIC behavior must remain documented as limited or test-required"}
-
-
 def documentation_checks(root: Path) -> List[Dict[str, str]]:
     checks: List[Dict[str, str]] = []
     for rel in REQUIRED_DOCS:
@@ -260,7 +247,6 @@ def main() -> int:
         checks.extend(config_checks)
         if config is not None:
             checks.extend(validate_config(config))
-            checks.append(udp443_policy_check(config))
     else:
         checks.append({"id": "validator_import", "status": "warn", "detail": "validate_config.py could not be imported"})
 

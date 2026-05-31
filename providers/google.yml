@@ -1,0 +1,18 @@
+id: google
+status: experimental
+last_tested: 2026-05-31
+routes:
+  - r100_repack_googlevideo_h11
+  - r120_repack_google_h2
+  - r200_redirect_googlevideo_tcp443_h11
+  - r210_redirect_group_tcp443_h2
+tested_with:
+  xray_min: 26.2.6
+failure_policy:
+  strict: block
+  balanced: user_selected_direct_or_report
+known_risks:
+  - provider_policy_change
+  - geosite_drift
+  - dns_drift
+  - quic_udp443

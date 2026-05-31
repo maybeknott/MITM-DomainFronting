@@ -31,6 +31,12 @@ Optional DNS check:
 python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8
 ```
 
+Support-safe decision report:
+
+```bash
+python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --profile balanced
+```
+
 ## Checks
 
 | Check | Why it matters | Pass condition |
@@ -52,6 +58,7 @@ python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8
 | UDP/443 policy | HTTP/3/QUIC claims stay honest | Explicit rule exists or output documents limited/test-required behavior |
 | Documentation coverage | Support reports can be routed | Required operational docs are present |
 | Xray config test | Runtime parser accepts config | `xray run -test` passes when `--xray-bin` is provided |
+| Decision report | Support-safe summary | Redacted JSON contains route/profile/DNS/cert/port states only |
 
 ## Diagnostic output
 

@@ -1,0 +1,17 @@
+id: dns-resolvers
+status: supported_test_required
+last_tested: 2026-05-31
+routes:
+  - r020_repack_dns_cloudflare
+  - r025_repack_dns_google
+  - r030_dns_port53
+tested_with:
+  xray_min: 26.2.6
+failure_policy:
+  strict: secondary_resolver_then_fail
+  balanced: secondary_resolver_then_documented_local
+known_risks:
+  - resolver_timeout
+  - local_dns_hijack
+  - dns64_nat64
+  - https_svcb_changes

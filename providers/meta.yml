@@ -1,0 +1,16 @@
+id: meta
+status: experimental
+last_tested: 2026-05-31
+routes:
+  - r140_repack_meta_h2
+  - r210_redirect_group_tcp443_h2
+tested_with:
+  xray_min: 26.2.6
+failure_policy:
+  strict: block
+  balanced: user_selected_direct_or_report
+known_risks:
+  - provider_policy_change
+  - android_app_trust
+  - certificate_pinning
+  - quic_udp443
