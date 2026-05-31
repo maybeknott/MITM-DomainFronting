@@ -33,6 +33,7 @@ MITM-DomainFronting/
     decision-engine.md
     dns-profiles.md
     operating-profiles.md
+    relay-and-metrics-policy.md
     release-engineering.md
     release-evidence.md
     provider-status.md
@@ -60,6 +61,8 @@ MITM-DomainFronting/
     dns-profiles.yml
     advanced-edge-cases.yml
     profiles.yml
+    relay-profiles.yml
+    metrics-profiles.yml
     provider-status.example.yml
     release-checklist.yml
 

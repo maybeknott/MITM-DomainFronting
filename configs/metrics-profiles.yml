@@ -1,0 +1,23 @@
+version: 1
+default_enabled: false
+profiles:
+  debug-redacted-local:
+    enabled_by_default: false
+    bind: 127.0.0.1
+    payload_logging: false
+    access_log: none
+    allowed_fields:
+      - route_tag
+      - check_id
+      - status
+      - elapsed_ms
+      - resolver_tag
+      - profile
+    forbidden_fields:
+      - private_key
+      - cookie
+      - authorization
+      - request_body
+      - response_body
+      - full_url
+      - decrypted_payload

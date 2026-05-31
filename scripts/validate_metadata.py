@@ -40,6 +40,34 @@ def main() -> int:
     for required in [Path("configs/profiles.yml"), Path("configs/dns-profiles.yml")]:
         if not required.exists():
             errors.append(f"{required}: missing")
+    relay = Path("configs/relay-profiles.yml")
+    if relay.exists():
+        text = relay.read_text(encoding="utf-8")
+        for needle in [
+            "default_enabled: false",
+            "public_open_relays_allowed: false",
+            "authentication_required: true",
+            "owner_metadata_required: true",
+            "payload_logging_allowed: false",
+        ]:
+            if needle not in text:
+                errors.append(f"{relay}: missing guardrail {needle}")
+    else:
+        errors.append(f"{relay}: missing")
+    metrics = Path("configs/metrics-profiles.yml")
+    if metrics.exists():
+        text = metrics.read_text(encoding="utf-8")
+        for needle in [
+            "default_enabled: false",
+            "bind: 127.0.0.1",
+            "payload_logging: false",
+            "access_log: none",
+            "decrypted_payload",
+        ]:
+            if needle not in text:
+                errors.append(f"{metrics}: missing guardrail {needle}")
+    else:
+        errors.append(f"{metrics}: missing")
     if errors:
         for error in errors:
             print(error)

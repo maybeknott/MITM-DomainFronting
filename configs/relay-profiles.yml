@@ -1,0 +1,8 @@
+version: 1
+default_enabled: false
+policy:
+  public_open_relays_allowed: false
+  authentication_required: true
+  owner_metadata_required: true
+  payload_logging_allowed: false
+profiles: []
