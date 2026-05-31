@@ -8,6 +8,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+DEFAULT_LOCAL_PORTS = {
+    "mixed-in": 10808,
+    "tls-decrypt-h11": 11666,
+    "tls-decrypt-h211": 11777,
+}
+
 PROFILE_POLICIES = {
     "strict": {
         "catchall": "block",
@@ -79,6 +85,37 @@ def set_global_catchall(rules: List[Dict[str, Any]], outbound_tag: str) -> None:
             return
 
 
+def apply_port_offset(config: Dict[str, Any], offset: int) -> None:
+    if offset == 0:
+        return
+    replacements = {old: old + offset for old in DEFAULT_LOCAL_PORTS.values()}
+    for old_port, new_port in replacements.items():
+        if not 1 <= new_port <= 65535:
+            raise ValueError(f"port offset produces invalid port: {old_port} -> {new_port}")
+    for inbound in config.get("inbounds", []):
+        if not isinstance(inbound, dict):
+            continue
+        tag = inbound.get("tag")
+        if tag in DEFAULT_LOCAL_PORTS:
+            inbound["port"] = DEFAULT_LOCAL_PORTS[tag] + offset
+    for outbound in config.get("outbounds", []):
+        if not isinstance(outbound, dict):
+            continue
+        settings = outbound.get("settings")
+        if not isinstance(settings, dict):
+            continue
+        redirect = settings.get("redirect")
+        if not isinstance(redirect, str) or ":" not in redirect:
+            continue
+        host, port_text = redirect.rsplit(":", 1)
+        try:
+            port = int(port_text)
+        except ValueError:
+            continue
+        if port in replacements:
+            settings["redirect"] = f"{host}:{replacements[port]}"
+
+
 def make_profile(base: Dict[str, Any], profile: str) -> Dict[str, Any]:
     policy = PROFILE_POLICIES[profile]
     config = copy.deepcopy(base)
@@ -101,13 +138,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate MITM-DomainFronting operating profile configs")
     parser.add_argument("--base", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
     parser.add_argument("--out-dir", type=Path, default=Path("Xray-config"))
+    parser.add_argument("--port-offset", type=int, default=0, help="shift local listener and redirect ports together")
+    parser.add_argument("--suffix", default="", help="filename suffix before .json, for example .altports")
     args = parser.parse_args()
 
     base = load_config(args.base)
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    suffix = args.suffix
+    if args.port_offset and not suffix:
+        direction = "plus" if args.port_offset > 0 else "minus"
+        suffix = f".ports-{direction}{abs(args.port_offset)}"
     for profile in PROFILE_POLICIES:
-        output = args.out_dir / f"MITM-DomainFronting.{profile}.json"
-        output.write_text(json.dumps(make_profile(base, profile), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        output = args.out_dir / f"MITM-DomainFronting.{profile}{suffix}.json"
+        config = make_profile(base, profile)
+        apply_port_offset(config, args.port_offset)
+        output.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(output)
     return 0
 

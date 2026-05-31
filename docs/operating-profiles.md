@@ -26,6 +26,20 @@ Regenerate them with:
 python scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json
 ```
 
+## Alternate Local Ports
+
+If `10808`, `11666`, or `11777` are already occupied, generate a temporary alternate-port set instead of editing only one listener by hand. The generator shifts the public mixed inbound and the internal decrypt listeners together, including redirect outbounds that point back to those local listeners:
+
+```bash
+python scripts/generate_profiles.py \
+  --base Xray-config/MITM-DomainFronting.json \
+  --out-dir Xray-config \
+  --port-offset 100 \
+  --suffix .altports
+```
+
+That example creates files such as `MITM-DomainFronting.strict.altports.json` using `10908`, `11766`, and `11877`. Do not commit local alternate-port outputs unless they are intentionally promoted as supported profiles.
+
 ## Safety Rules
 
 - Profiles must not include private keys or generated certificates.

@@ -197,10 +197,21 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
 
     ports = {item.get("port") for item in inbounds if isinstance(item.get("port"), int)}
     missing_ports = sorted(REQUIRED_PORTS - ports)
+    required_tag_ports = {
+        item.get("tag"): item.get("port")
+        for item in inbounds
+        if item.get("tag") in REQUIRED_INBOUND_TAGS and isinstance(item.get("port"), int)
+    }
+    default_ports_present = not missing_ports
+    required_tags_have_ports = set(required_tag_ports) == REQUIRED_INBOUND_TAGS
     checks.append({
         "id": "required_ports",
-        "status": "pass" if not missing_ports else "fail",
-        "detail": "10808, 11666, 11777 present" if not missing_ports else f"missing ports: {missing_ports}",
+        "status": "pass" if default_ports_present else "warn" if required_tags_have_ports else "fail",
+        "detail": "10808, 11666, 11777 present"
+        if default_ports_present
+        else "required local inbounds use non-default ports: " + ", ".join(f"{tag}={port}" for tag, port in sorted(required_tag_ports.items()))
+        if required_tags_have_ports
+        else f"missing ports: {missing_ports}",
     })
 
     for kind, items in (("inbound", inbounds), ("outbound", outbounds)):
