@@ -85,11 +85,14 @@ Maintain this table in `docs/routing-correctness.md` or `configs/route-intent.ym
 - Every route `outboundTag` exists.
 - Every route `inboundTag` exists.
 - Every route has a `ruleTag` or is reported as missing.
+- Every `ruleTag` is unique and follows `rNNN_name` format.
+- Current route order matches the documented rule-tag sequence.
 - TCP/443 redirect rules are present.
+- Redirect outbounds point to the matching loopback tunnel ports.
 - DNS port 53 rule is present.
 - Final catch-all is explicit.
 - Local inbounds are loopback-bound or are reported as a high-priority warning.
-- Static CIDRs are listed in a rationale table.
+- Static non-catchall CIDRs are listed in the documented rationale set.
 
 ## Keep the current simple behavior
 

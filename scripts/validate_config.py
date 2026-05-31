@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -16,6 +17,29 @@ from typing import Any, Dict, List, Tuple
 LOOPBACK_NAMES = {"127.0.0.1", "::1", "localhost"}
 REQUIRED_INBOUND_TAGS = {"mixed-in", "tls-decrypt-h11", "tls-decrypt-h211"}
 REQUIRED_PORTS = {10808, 11666, 11777}
+EXPECTED_RULE_ORDER = [
+    "r010_block_ads",
+    "r020_repack_dns",
+    "r030_dns_port53",
+    "r040_direct_private_regional",
+    "r100_repack_googlevideo_h11",
+    "r110_block_unmatched_h11",
+    "r120_repack_google_h2",
+    "r130_repack_fastly_h2",
+    "r140_repack_meta_h2",
+    "r150_repack_fastly_ip_h2",
+    "r160_block_unmatched_h2",
+    "r200_redirect_googlevideo_tcp443_h11",
+    "r210_redirect_group_tcp443_h2",
+    "r300_block_static_bad_ranges",
+    "r310_direct_private_regional_ip",
+    "r320_redirect_fastly_ip_tcp443_h2",
+    "r900_direct_global_catchall",
+    "r999_block_final",
+]
+KNOWN_STATIC_CIDRS = {"10.10.34.0/24", "2001:4188:2:600::/64"}
+GLOBAL_CATCHALL_CIDRS = {"0.0.0.0/0", "::/0"}
+RULE_TAG_RE = re.compile(r"^r\d{3}_[a-z0-9_]+$")
 
 
 def load_json(path: Path) -> Tuple[Dict[str, Any] | None, List[Dict[str, str]]]:
@@ -46,6 +70,30 @@ def has_catchall_ip(rule: Dict[str, Any]) -> bool:
 
 def has_final_block(rule: Dict[str, Any]) -> bool:
     return rule.get("outboundTag") == "block" and str(rule.get("port")) == "0-65535"
+
+
+def tag_to_port(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    ports: Dict[str, int] = {}
+    for item in items:
+        tag = item.get("tag")
+        port = item.get("port")
+        if isinstance(tag, str) and isinstance(port, int):
+            ports[tag] = port
+    return ports
+
+
+def parse_loopback_redirect(value: Any) -> Tuple[str, int] | None:
+    if not isinstance(value, str):
+        return None
+    if ":" not in value:
+        return None
+    host, port_text = value.rsplit(":", 1)
+    if host not in LOOPBACK_NAMES:
+        return None
+    try:
+        return host, int(port_text)
+    except ValueError:
+        return None
 
 
 def inbound_listen_status(inbound: Dict[str, Any]) -> Tuple[str, str]:
@@ -84,6 +132,20 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
 
     inbound_tags = {item.get("tag") for item in inbounds if isinstance(item.get("tag"), str)}
     outbound_tags = {item.get("tag") for item in outbounds if isinstance(item.get("tag"), str)}
+    inbound_ports_by_tag = tag_to_port(inbounds)
+    redirect_targets: Dict[str, int] = {}
+    bad_redirects: List[str] = []
+    for outbound in outbounds:
+        tag = outbound.get("tag")
+        settings = outbound.get("settings")
+        redirect = settings.get("redirect") if isinstance(settings, dict) else None
+        if not isinstance(tag, str) or not tag.startswith("redirect-out"):
+            continue
+        parsed = parse_loopback_redirect(redirect)
+        if parsed is None:
+            bad_redirects.append(f"{tag} -> {redirect!r}")
+        else:
+            redirect_targets[tag] = parsed[1]
     dns = config.get("dns")
     dns_server_tags = set()
     if isinstance(dns, dict) and isinstance(dns.get("servers"), list):
@@ -123,8 +185,12 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
             checks.append({"id": f"loopback_{inbound.get('tag', inbound.get('port'))}", "status": status, "detail": detail})
 
     missing_rule_tags = []
+    malformed_rule_tags = []
+    rule_tags = []
     missing_out_refs = []
     missing_in_refs = []
+    redirect_rule_mismatches = []
+    unexpected_static_cidrs = []
     dns_port_rule = False
     tcp443_redirect_rule = False
     catchall_direct = False
@@ -134,8 +200,13 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
         if not isinstance(rule, dict):
             checks.append({"id": f"rule_{idx}_type", "status": "fail", "detail": "rule must be object"})
             continue
-        if "ruleTag" not in rule:
+        rule_tag = rule.get("ruleTag")
+        if not isinstance(rule_tag, str) or not rule_tag:
             missing_rule_tags.append(str(idx))
+        else:
+            rule_tags.append(rule_tag)
+            if not RULE_TAG_RE.match(rule_tag):
+                malformed_rule_tags.append(f"rule[{idx}] -> {rule_tag}")
         out_tag = rule.get("outboundTag")
         if isinstance(out_tag, str) and out_tag not in outbound_tags:
             missing_out_refs.append(f"rule[{idx}] -> {out_tag}")
@@ -148,15 +219,47 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
             dns_port_rule = True
         if str(rule.get("port")) == "443" and rule.get("network") == "tcp" and isinstance(out_tag, str) and out_tag.startswith("redirect-out"):
             tcp443_redirect_rule = True
+            expected_inbound = "tls-decrypt-h11" if out_tag == "redirect-out-h11" else "tls-decrypt-h211"
+            expected_port = inbound_ports_by_tag.get(expected_inbound)
+            redirect_port = redirect_targets.get(out_tag)
+            if expected_port is not None and redirect_port != expected_port:
+                redirect_rule_mismatches.append(f"rule[{idx}] {out_tag} redirects to {redirect_port}, expected {expected_port}")
         if rule.get("outboundTag") == "direct" and has_catchall_ip(rule):
             catchall_direct = True
         if has_final_block(rule):
             final_block = True
+        ips = rule.get("ip")
+        if isinstance(ips, list):
+            literal_cidrs = {
+                str(ip)
+                for ip in ips
+                if "/" in str(ip) and not str(ip).startswith("geoip:") and str(ip) not in GLOBAL_CATCHALL_CIDRS
+            }
+            if literal_cidrs and rule_tag != "r300_block_static_bad_ranges":
+                unexpected_static_cidrs.extend(sorted(literal_cidrs - KNOWN_STATIC_CIDRS))
+            elif literal_cidrs:
+                unexpected_static_cidrs.extend(sorted(literal_cidrs - KNOWN_STATIC_CIDRS))
 
     checks.append({
         "id": "rule_tags",
         "status": "pass" if not missing_rule_tags else "warn",
         "detail": "all rules tagged" if not missing_rule_tags else f"missing ruleTag at indexes: {', '.join(missing_rule_tags)}",
+    })
+    duplicate_rule_tags = sorted(tag for tag, count in tag_counts([{"tag": t} for t in rule_tags]).items() if count > 1)
+    checks.append({
+        "id": "duplicate_rule_tags",
+        "status": "pass" if not duplicate_rule_tags else "fail",
+        "detail": "none" if not duplicate_rule_tags else ", ".join(duplicate_rule_tags),
+    })
+    checks.append({
+        "id": "rule_tag_format",
+        "status": "pass" if not malformed_rule_tags else "warn",
+        "detail": "all ruleTag values match rNNN_name" if not malformed_rule_tags else "; ".join(malformed_rule_tags),
+    })
+    checks.append({
+        "id": "route_order",
+        "status": "pass" if rule_tags == EXPECTED_RULE_ORDER else "warn",
+        "detail": "route order matches documented ruleTag order" if rule_tags == EXPECTED_RULE_ORDER else "ruleTag order differs from docs; review routing-correctness.md",
     })
     checks.append({
         "id": "route_outbound_references",
@@ -170,6 +273,9 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
     })
     checks.append({"id": "dns_port_53_rule", "status": "pass" if dns_port_rule else "warn", "detail": "port 53 rule present" if dns_port_rule else "no explicit port 53 rule found"})
     checks.append({"id": "tcp443_redirect_rule", "status": "pass" if tcp443_redirect_rule else "warn", "detail": "TCP/443 redirect rule present" if tcp443_redirect_rule else "no TCP/443 redirect rule found"})
+    checks.append({"id": "redirect_outbounds", "status": "pass" if not bad_redirects else "fail", "detail": "redirect outbounds target loopback ports" if not bad_redirects else "; ".join(bad_redirects)})
+    checks.append({"id": "redirect_target_ports", "status": "pass" if not redirect_rule_mismatches else "fail", "detail": "redirect rules target their matching local tunnel ports" if not redirect_rule_mismatches else "; ".join(redirect_rule_mismatches)})
+    checks.append({"id": "static_cidr_rationale", "status": "pass" if not unexpected_static_cidrs else "warn", "detail": "only documented static CIDRs are present" if not unexpected_static_cidrs else "review undocumented static CIDRs: " + ", ".join(unexpected_static_cidrs)})
     checks.append({"id": "direct_global_catchall", "status": "pass" if catchall_direct else "warn", "detail": "direct 0.0.0.0/0 and ::/0 catch-all present" if catchall_direct else "no direct global catch-all found"})
     checks.append({"id": "final_block", "status": "pass" if final_block else "warn", "detail": "final block port 0-65535 present" if final_block else "no final block rule found"})
 
