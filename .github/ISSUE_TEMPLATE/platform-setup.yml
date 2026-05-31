@@ -29,6 +29,18 @@ body:
       label: Browser/app/version
     validations:
       required: true
+  - type: dropdown
+    id: capture_mode
+    attributes:
+      label: Capture mode
+      options:
+        - Browser/system proxy
+        - Android VPN-service/TUN
+        - Desktop full-system TUN
+        - Desktop split tunnel
+        - Unknown
+    validations:
+      required: true
   - type: checkboxes
     id: completed
     attributes:
@@ -40,6 +52,8 @@ body:
         - label: Imported Xray config
         - label: Confirmed ports 10808, 11666, 11777 are not occupied by another program
         - label: Ran preflight script
+        - label: Checked proxy/VPN/TUN conflict warnings
+        - label: Confirmed whether this is browser-only or independent-app behavior
   - type: textarea
     id: issue
     attributes:

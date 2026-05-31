@@ -10,7 +10,7 @@ body:
     id: service
     attributes:
       label: Service or protocol
-      description: Example: WebSocket, HTTP/3, a provider-backed domain category, Android browser flow.
+      description: "Example: WebSocket, HTTP/3, a provider-backed domain category, Android browser flow."
     validations:
       required: true
   - type: dropdown
@@ -37,6 +37,18 @@ body:
       label: Platform/client/browser tested
     validations:
       required: true
+  - type: dropdown
+    id: support_expectation
+    attributes:
+      label: Requested support state
+      options:
+        - documented limitation
+        - experimental
+        - supported/test-required
+        - unsupported clarification
+        - unknown
+    validations:
+      required: true
   - type: textarea
     id: observed
     attributes:
@@ -47,4 +59,4 @@ body:
     id: route_dns
     attributes:
       label: Route/DNS evidence if available
-      description: Route tag, DNS check summary, preflight summary. Redact sensitive data.
+      description: Route tag, DNS check summary including qtype if relevant, profile, preflight summary. Redact sensitive data.

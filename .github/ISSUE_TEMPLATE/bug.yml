@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Config version / remarks
-      description: Example: MITM-DomainFronting_v22
+      description: "Example: MITM-DomainFronting_v22"
     validations:
       required: true
   - type: dropdown
@@ -30,7 +30,7 @@ body:
     id: client
     attributes:
       label: Client and version
-      description: Example: v2rayN version, v2rayNG version, Xray version
+      description: "Example: v2rayN version, v2rayNG version, Xray version"
     validations:
       required: true
   - type: input
@@ -38,6 +38,20 @@ body:
     attributes:
       label: Browser/app and version
       description: State whether this is browser or independent app.
+    validations:
+      required: true
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Operating profile
+      options:
+        - Base config
+        - strict
+        - balanced
+        - compatibility
+        - debug
+        - alternate local ports
+        - unknown
     validations:
       required: true
   - type: dropdown
@@ -61,6 +75,11 @@ body:
       label: Redacted preflight output
       description: Paste output from scripts/preflight.py after reviewing it for sensitive info.
       render: json
+  - type: textarea
+    id: route_protocol_dns
+    attributes:
+      label: Route, protocol, and DNS facts
+      description: Include routeTag, protocol class, DNS qtype summary, QUIC/UDP state, and proxy/VPN/TUN warnings if available. Do not paste full URLs with tokens.
   - type: textarea
     id: steps
     attributes:
