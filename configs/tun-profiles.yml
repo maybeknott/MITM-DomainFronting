@@ -1,0 +1,31 @@
+version: 1
+default_profile: browser-proxy-first
+profiles:
+  browser-proxy-first:
+    capture_scope: browser_or_system_proxy
+    default_enabled: true
+    requires_external_vpn_service: false
+    dns_policy: dns-balanced
+    app_compatibility: browser_or_proxy_aware_apps_only
+    failure_policy: warn_on_app_specific_failures
+  android-browser-safe:
+    capture_scope: vpn_service_client_to_browser
+    default_enabled: false
+    requires_external_vpn_service: true
+    dns_policy: dns-balanced
+    app_compatibility: limited_by_user_ca_pinning_ct_and_custom_trust
+    failure_policy: do_not_claim_independent_app_support_from_browser_success
+  desktop-full-system-strict:
+    capture_scope: full_system
+    default_enabled: false
+    requires_external_vpn_service: false
+    dns_policy: dns-strict
+    app_compatibility: platform_and_app_specific
+    failure_policy: stop_on_vpn_proxy_or_dns_conflict
+  desktop-split-tunnel:
+    capture_scope: selected_routes
+    default_enabled: false
+    requires_external_vpn_service: false
+    dns_policy: dns-local-first
+    app_compatibility: route_and_dns_policy_dependent
+    failure_policy: keep_private_lan_direct_and_review_dns_capture

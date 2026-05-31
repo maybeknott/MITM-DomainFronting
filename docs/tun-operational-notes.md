@@ -13,6 +13,8 @@ TUN mode can capture more traffic than browser proxy mode. Treat it as platform-
 
 ## Browser Proxy vs TUN
 
+The structured profile definitions live in [tun-profiles.yml](../configs/tun-profiles.yml). They are policy metadata, not additional runtime configs.
+
 | Mode | Scope | Main risk | Support note |
 |---|---|---|---|
 | Browser/system proxy | Usually browser-oriented | Apps may bypass proxy | Preferred first troubleshooting path |
@@ -45,3 +47,12 @@ Android checks:
 ## Support Boundary
 
 Do not mark an app as supported only because a browser works on the same device. App support needs its own evidence.
+
+## Profile Policy
+
+| Profile | Scope | Default | DNS policy | Failure policy |
+|---|---|---|---|---|
+| `browser-proxy-first` | Browser or explicit system proxy | Yes | `dns-balanced` | Warn on app-specific failures |
+| `android-browser-safe` | External VPN-service client feeding browser-oriented traffic | No | `dns-balanced` | Do not infer independent app support |
+| `desktop-full-system-strict` | Full-system capture | No | `dns-strict` | Stop on VPN, proxy, or DNS conflict |
+| `desktop-split-tunnel` | Selected routes | No | `dns-local-first` | Keep private LAN direct and review DNS capture |

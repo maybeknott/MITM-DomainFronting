@@ -107,6 +107,21 @@ def main() -> int:
                 errors.append(f"{metrics}: missing guardrail {needle}")
     else:
         errors.append(f"{metrics}: missing")
+    tun = Path("configs/tun-profiles.yml")
+    if tun.exists():
+        text = tun.read_text(encoding="utf-8")
+        for needle in [
+            "browser-proxy-first:",
+            "android-browser-safe:",
+            "desktop-full-system-strict:",
+            "desktop-split-tunnel:",
+            "requires_external_vpn_service: true",
+            "stop_on_vpn_proxy_or_dns_conflict",
+        ]:
+            if needle not in text:
+                errors.append(f"{tun}: missing guardrail {needle}")
+    else:
+        errors.append(f"{tun}: missing")
     if errors:
         for error in errors:
             print(error)
