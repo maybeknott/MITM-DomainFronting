@@ -47,6 +47,10 @@ jobs:
         run: |
           python scripts/validate_metadata.py
 
+      - name: Run route policy tests
+        run: |
+          python scripts/route_policy_tests.py
+
       - name: Check that private keys are not committed
         run: |
           if git ls-files | grep -Ei '(^|/)(mycert\.key|.*\.key|.*\.pem)$'; then

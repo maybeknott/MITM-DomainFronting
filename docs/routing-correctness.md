@@ -96,6 +96,14 @@ Maintain this table in `docs/routing-correctness.md` or `configs/route-intent.ym
 - Local inbounds are loopback-bound or are reported as a high-priority warning.
 - Static non-catchall CIDRs are listed in the documented rationale set.
 
+`python scripts/route_policy_tests.py` should verify:
+
+- The base config keeps its documented direct global catch-all.
+- Profile configs have exactly one explicit UDP/443 policy rule.
+- Strict profile blocks the global catch-all and UDP/443.
+- Balanced and compatibility profiles keep direct fallback and direct UDP/443 with documented warning.
+- Debug profile keeps access logs disabled and blocks UDP/443 to surface QUIC mismatch.
+
 ## Keep the current simple behavior
 
 This document does not require strict/balanced/debug profile generation. The recommended minimum is:
