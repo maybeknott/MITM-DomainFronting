@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import runpy
 import subprocess
 import sys
 import threading
@@ -14,9 +15,10 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 
-ROOT = Path(__file__).resolve().parents[1]
+IS_FROZEN = bool(getattr(sys, "frozen", False))
+ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 CONFIG = ROOT / "Xray-config" / "MITM-DomainFronting.json"
 CERT = ROOT / "Xray-config" / "mycert.crt"
@@ -44,6 +46,8 @@ class CommandSpec:
 
 
 def py_script(name: str, *args: str) -> list[str]:
+    if IS_FROZEN:
+        return [sys.executable, "--backend", name, *args]
     return [sys.executable, str(SCRIPTS / name), *args]
 
 
@@ -68,6 +72,31 @@ def run_command(args: Iterable[str], timeout: int = 120) -> tuple[int, str]:
     if proc.stderr:
         output += ("\n" if output else "") + proc.stderr
     return proc.returncode, output.strip()
+
+
+def run_backend(script_name: str, args: list[str]) -> int:
+    if Path(script_name).name != script_name or not script_name.endswith(".py"):
+        print(f"Invalid backend script: {script_name}")
+        return 2
+    script = SCRIPTS / script_name
+    if not script.exists():
+        print(f"Backend script not found: {short_path(script)}")
+        return 2
+    os.chdir(ROOT)
+    sys.path.insert(0, str(SCRIPTS))
+    sys.path.insert(0, str(ROOT))
+    sys.argv = [str(script), *args]
+    try:
+        runpy.run_path(str(script), run_name="__main__")
+    except SystemExit as exc:
+        code = exc.code
+        if isinstance(code, int):
+            return code
+        if code:
+            print(code)
+            return 1
+        return 0
+    return 0
 
 
 def read_json_config() -> dict:
@@ -417,6 +446,8 @@ def self_test() -> int:
 
 
 def main() -> int:
+    if len(sys.argv) >= 3 and sys.argv[1] == "--backend":
+        return run_backend(sys.argv[2], sys.argv[3:])
     parser = argparse.ArgumentParser(description="Launch the MITM-DomainFronting local GUI")
     parser.add_argument("--self-test", action="store_true", help="validate GUI dependencies without opening a window")
     args = parser.parse_args()

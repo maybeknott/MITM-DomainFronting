@@ -40,3 +40,31 @@ python scripts/gui.py --self-test
 ```
 
 This checks that the expected local scripts and primary config are present without opening a window.
+
+## Build The Windows EXE
+
+Double-click:
+
+```text
+build_gui_exe.bat
+```
+
+Or run:
+
+```powershell
+py scripts\build_gui_exe.py
+```
+
+The builder installs PyInstaller if it is missing, compiles the GUI, and copies the local backend scripts, configs, docs, providers, and runtime JSON files into:
+
+```text
+dist\MITM-DomainFronting-Control-Center\
+```
+
+Launch:
+
+```text
+dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe
+```
+
+The generated `build/` and `dist/` folders are local packaging artifacts and must not be committed.

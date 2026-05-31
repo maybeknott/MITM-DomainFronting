@@ -29,3 +29,7 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+
+# Local packaging outputs
+build/
+dist/

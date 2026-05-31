@@ -161,3 +161,11 @@ python scripts/gui.py
 ```
 
 The GUI runs local validation, preflight, DNS checks, profile generation, and certificate status helpers without uploading diagnostics or keys.
+
+Build a Windows desktop executable:
+
+```powershell
+build_gui_exe.bat
+```
+
+The generated executable is written under `dist\MITM-DomainFronting-Control-Center\`.

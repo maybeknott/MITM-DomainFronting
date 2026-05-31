@@ -14,6 +14,7 @@ MITM-DomainFronting/
   CHANGELOG.md
   SUPPORT_MATRIX.md
   KNOWN_ISSUES.md
+  build_gui_exe.bat
   .gitignore
 
   Xray-config/
@@ -79,6 +80,7 @@ MITM-DomainFronting/
     preflight.py
     validate_config.py
     add_rule_tags.py
+    build_gui_exe.py
     mitm_trust.py
     check_dns.py
     decision_report.py
