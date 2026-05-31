@@ -161,7 +161,7 @@ Local desktop GUI:
 python scripts/gui.py
 ```
 
-The GUI runs local validation, preflight, DNS checks, profile generation, and certificate status helpers without uploading diagnostics or keys.
+The GUI opens on a **Start Here** flow for new users. It runs local validation, safe auto-fix checks, optional dependency installers, preflight, DNS checks, profile generation, and certificate status helpers without uploading diagnostics or keys.
 
 Build a Windows desktop executable:
 

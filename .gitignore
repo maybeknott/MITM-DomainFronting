@@ -22,6 +22,8 @@ Xray-config/MITM-DomainFronting.*.ports-minus*.json
 # Xray geodata runtime artifacts, if downloaded locally
 geoip.dat
 geosite.dat
+xray/
+Xray-config/xray/
 
 # Local browser integration profiles (diagnostics + CloakBrowser stealth)
 browser-profiles/

@@ -18,8 +18,11 @@ py scripts\gui.py
 
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, and decision report.
+- Provides a **Fixes and Help** tab with safe local repair actions.
 - Regenerates standard operating profiles.
 - Generates optional alternate-port profile files for local port conflicts.
+- Runs a safe auto-fix sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.
+- Provides one-click installers for optional diagnostics dependencies, Playwright Chromium, CloakBrowser, PyInstaller, and a local Xray runtime download.
 - Runs DNS query-type sweeps for `A`, `AAAA`, `HTTPS`, and `SVCB`.
 - Shows certificate status and certificate/key pair checks.
 - Runs the **two-part browser model** from the **Browser** tab:
@@ -37,6 +40,8 @@ py scripts\gui.py
 - It does not inspect browser payloads.
 - It does not commit generated files.
 - Local CA files and alternate-port outputs remain subject to `.gitignore` and normal review.
+- Auto-fix and dependency buttons do not install certificate trust, change system proxy settings, or delete browser profiles.
+- Xray download writes local runtime files under `xray/`, which is ignored by git.
 
 ## Self-Test
 
@@ -73,3 +78,11 @@ dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe
 ```
 
 The generated `build/` and `dist/` folders are local packaging artifacts and must not be committed.
+
+## Packaged Backend Checks
+
+The Windows executable runs backend scripts through the same bundled GUI executable. The builder includes backend-only Python standard-library modules, and `--self-test` checks that packaged backend commands can start:
+
+```powershell
+dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe --self-test
+```

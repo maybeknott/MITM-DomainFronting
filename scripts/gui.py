@@ -9,6 +9,7 @@ import runpy
 import subprocess
 import sys
 import threading
+import traceback
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,7 @@ CERT = ROOT / "Xray-config" / "mycert.crt"
 KEY = ROOT / "Xray-config" / "mycert.key"
 BROWSER_CONFIG = ROOT / "configs" / "browser-integration.json"
 CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
+XRAY_RELEASES_URL = "https://github.com/XTLS/Xray-core/releases"
 
 COLORS = {
     "bg": "#f5f7fb",
@@ -47,7 +49,54 @@ class CommandSpec:
     args: tuple[str, ...]
 
 
-def py_script(name: str, *args: str) -> list[str]:
+def find_host_python() -> list[str] | None:
+    candidates: list[list[str]] = []
+    env_python = os.environ.get("PYTHON", "").strip()
+    if env_python:
+        candidates.append([env_python])
+    if os.name == "nt":
+        candidates.extend([["py", "-3"], ["py"]])
+    candidates.append(["python"])
+    if not IS_FROZEN:
+        candidates.insert(0, [sys.executable])
+    for candidate in candidates:
+        try:
+            proc = subprocess.run(
+                [*candidate, "-c", "import sys; print(sys.executable)"],
+                cwd=str(ROOT),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=8,
+                check=False,
+            )
+        except Exception:
+            continue
+        if proc.returncode == 0:
+            return candidate
+    return None
+
+
+def find_local_xray() -> Path | None:
+    candidates = [
+        ROOT / "xray" / "xray.exe",
+        ROOT / "xray" / "xray",
+        ROOT / "Xray-config" / "xray.exe",
+        ROOT / "Xray-config" / "xray",
+        ROOT / "Xray-config" / "xray" / "xray.exe",
+        ROOT / "Xray-config" / "xray" / "xray",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def py_script(name: str, *args: str, prefer_host: bool = False) -> list[str]:
+    if prefer_host:
+        host_python = find_host_python()
+        if host_python is not None:
+            return [*host_python, str(SCRIPTS / name), *args]
     if IS_FROZEN:
         return [sys.executable, "--backend", name, *args]
     return [sys.executable, str(SCRIPTS / name), *args]
@@ -98,6 +147,10 @@ def run_backend(script_name: str, args: list[str]) -> int:
             print(code)
             return 1
         return 0
+    except Exception as exc:  # noqa: BLE001
+        print(f"Backend script failed: {script_name}: {exc}", file=sys.stderr)
+        traceback.print_exc()
+        return 1
     return 0
 
 
@@ -177,8 +230,10 @@ class App(tk.Tk):
         tk.Label(sidebar, text=str(ROOT), bg="#111827", fg="#94a3b8", font=("Segoe UI", 8), wraplength=230, justify="left", anchor="w").pack(fill="x", padx=22, pady=(10, 22))
 
         self.nav_buttons: list[tuple[str, Callable[[], None]]] = [
+            ("Start Here", lambda: self.tabs.select(self.start_tab)),
             ("Dashboard", lambda: self.tabs.select(self.dashboard_tab)),
             ("Validation", lambda: self.tabs.select(self.validation_tab)),
+            ("Fixes and Help", lambda: self.tabs.select(self.fixes_tab)),
             ("Profiles and DNS", lambda: self.tabs.select(self.profiles_tab)),
             ("Certificates", lambda: self.tabs.select(self.certs_tab)),
             ("Browser", lambda: self.tabs.select(self.browser_tab)),
@@ -213,21 +268,27 @@ class App(tk.Tk):
         self.tabs = ttk.Notebook(content)
         self.tabs.pack(fill="both", expand=True, padx=24, pady=(0, 10))
 
+        self.start_tab = self._tab()
         self.dashboard_tab = self._tab()
         self.validation_tab = self._tab()
+        self.fixes_tab = self._tab()
         self.profiles_tab = self._tab()
         self.certs_tab = self._tab()
         self.browser_tab = self._tab()
         self.docs_tab = self._tab()
+        self.tabs.add(self.start_tab, text="Start Here")
         self.tabs.add(self.dashboard_tab, text="Dashboard")
         self.tabs.add(self.validation_tab, text="Validation")
+        self.tabs.add(self.fixes_tab, text="Fixes and Help")
         self.tabs.add(self.profiles_tab, text="Profiles and DNS")
         self.tabs.add(self.certs_tab, text="Certificates")
         self.tabs.add(self.browser_tab, text="Browser")
         self.tabs.add(self.docs_tab, text="Docs")
 
+        self._build_start_here()
         self._build_dashboard()
         self._build_validation()
+        self._build_fixes_help()
         self._build_profiles_dns()
         self._build_certs()
         self._build_browser()
@@ -243,11 +304,51 @@ class App(tk.Tk):
         tk.Label(frame, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 12, "bold"), anchor="w").pack(fill="x", padx=16, pady=(14, 4))
         return frame
 
+    def _build_start_here(self) -> None:
+        intro = tk.Label(
+            self.start_tab,
+            text="Recommended first run: check the config, install optional tools only if you need browser probes, create your own local CA, then test one browser page.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=900,
+            justify="left",
+            anchor="w",
+        )
+        intro.pack(fill="x", pady=(0, 12))
+
+        flow = tk.Frame(self.start_tab, bg=COLORS["panel"])
+        flow.pack(fill="x", pady=(0, 14))
+        steps = [
+            ("1. Validate", "Confirms config, routes, metadata, and static preflight.", self.safe_auto_fix, "Run Safe Auto-Fix", "Accent.TButton"),
+            ("2. Dependencies", "Adds Playwright, CloakBrowser, PyInstaller, and local Xray only when needed.", self.install_optional_dependencies, "Install Optional Dependencies", "Soft.TButton"),
+            ("3. Certificate", "Creates personal local CA files; trust-store install stays manual.", self.generate_ca, "Generate Local CA", "Danger.TButton"),
+            ("4. Browser Probe", "Loads a page through 127.0.0.1:10808 after Xray is running.", self.run_browser_diagnostics, "Run Diagnostics Probe", "Accent.TButton"),
+        ]
+        for index, (title, detail, command, button, style) in enumerate(steps):
+            card = self._card(flow, title)
+            card.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 10, 0), pady=(0, 10))
+            flow.columnconfigure(index, weight=1)
+            tk.Label(card, text=detail, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=210, justify="left", anchor="nw").pack(fill="x", padx=16, pady=(2, 12))
+            ttk.Button(card, text=button, style=style, command=command).pack(anchor="w", padx=16, pady=(0, 16))
+
+        help_card = self._card(self.start_tab, "When Something Fails")
+        help_card.pack(fill="x", pady=(0, 14))
+        help_text = (
+            "WARN usually means the local machine is not fully set up yet: missing CA files, Xray not running, proxy already enabled, "
+            "or optional browser dependencies not installed. FAIL means a config or script check needs attention before release."
+        )
+        tk.Label(help_card, text=help_text, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=900, justify="left", anchor="w").pack(fill="x", padx=16, pady=(4, 10))
+        row = tk.Frame(help_card, bg=COLORS["panel"])
+        row.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(row, text="Explain Output", style="Soft.TButton", command=self.explain_output).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Open Troubleshooting Docs", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
+
     def _build_dashboard(self) -> None:
         grid = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         grid.pack(fill="x")
         self.status_labels: dict[str, tk.Label] = {}
-        for index, title in enumerate(("Config", "Certificate", "Profiles", "Browser", "Privacy")):
+        for index, title in enumerate(("Config", "Certificate", "Profiles", "Dependencies", "Browser", "Privacy")):
             card = self._card(grid, title)
             card.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 12, 0), pady=(0, 14))
             grid.columnconfigure(index, weight=1)
@@ -261,6 +362,7 @@ class App(tk.Tk):
         row.pack(fill="x", padx=16, pady=(8, 16))
         for spec in self.validation_commands[:3]:
             ttk.Button(row, text=spec.label, style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Diagnostics Browser Probe", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
 
     @property
@@ -292,6 +394,57 @@ class App(tk.Tk):
         ttk.Button(controls, text="Clear Output", style="Soft.TButton", command=lambda: self.output.delete("1.0", "end")).pack(side="left")
         ttk.Button(controls, text="Copy Output", style="Soft.TButton", command=self.copy_output).pack(side="left", padx=8)
         tk.Label(controls, text="Output is always visible in the bottom panel.", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left", padx=8)
+
+    def _build_fixes_help(self) -> None:
+        intro = tk.Label(
+            self.fixes_tab,
+            text="Use these when diagnostics are noisy or the app feels stuck. Fixes stay local and do not install certificate trust.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            anchor="w",
+        )
+        intro.pack(fill="x", pady=(0, 12))
+
+        quick = self._card(self.fixes_tab, "Safe repair sequence")
+        quick.pack(fill="x", pady=(0, 14))
+        tk.Label(
+            quick,
+            text="Regenerates profile JSON, creates alternate-port profiles, validates metadata/routes/protocols, and runs static preflight.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=820,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(4, 10))
+        qrow = tk.Frame(quick, bg=COLORS["panel"])
+        qrow.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(qrow, text="Run Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
+        ttk.Button(qrow, text="Install Optional Dependencies", style="Accent.TButton", command=self.install_optional_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(qrow, text="Reset GUI Defaults", style="Soft.TButton", command=self.reset_gui_defaults).pack(side="left", padx=(0, 10))
+        ttk.Button(qrow, text="Open Preflight Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
+
+        common = self._card(self.fixes_tab, "Common fixes")
+        common.pack(fill="x", pady=(0, 14))
+        row = tk.Frame(common, bg=COLORS["panel"])
+        row.pack(fill="x", padx=16, pady=(8, 8))
+        ttk.Button(row, text="Regenerate Profiles", style="Accent.TButton", command=self.generate_standard_profiles).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Create Alternate Ports", style="Soft.TButton", command=self.generate_alt_profiles).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Certificate Status", style="Soft.TButton", command=self.cert_status).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="FakeDNS Recovery", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "fakedns-recovery.md")).pack(side="left")
+
+        row2 = tk.Frame(common, bg=COLORS["panel"])
+        row2.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(row2, text="Install Diagnostics", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Install Stealth", style="Soft.TButton", command=self.install_stealth_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Browser Install Hints", style="Soft.TButton", command=self.browser_install_hints).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Open Xray Releases", style="Soft.TButton", command=lambda: webbrowser.open(XRAY_RELEASES_URL)).pack(side="left")
+
+        row3 = tk.Frame(common, bg=COLORS["panel"])
+        row3.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(row3, text="Install PyInstaller", style="Soft.TButton", command=self.install_pyinstaller).pack(side="left", padx=(0, 10))
+        ttk.Button(row3, text="Download Xray", style="Soft.TButton", command=self.download_xray).pack(side="left", padx=(0, 10))
+        ttk.Button(row3, text="Open GUI Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "gui.md")).pack(side="left", padx=(0, 10))
+        ttk.Button(row3, text="Open Xray-config Folder", style="Soft.TButton", command=lambda: self.open_path(ROOT / "Xray-config")).pack(side="left")
 
     def _build_output_pane(self, parent: tk.Widget) -> None:
         outer = tk.Frame(parent, bg=COLORS["bg"])
@@ -468,6 +621,14 @@ class App(tk.Tk):
         self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
+        host_python = find_host_python()
+        local_xray = find_local_xray()
+        dep_lines = [
+            f"Python: {'found' if host_python else 'missing'}",
+            f"Xray: {short_path(local_xray) if local_xray else 'not local'}",
+            "Install buttons available",
+        ]
+        self.status_labels["Dependencies"].configure(text="\n".join(dep_lines), fg=COLORS["green"] if host_python and local_xray else COLORS["amber"])
         browser_cfg = read_browser_integration()
         proxy = browser_cfg.get("default_proxy", "socks5://127.0.0.1:10808")
         diag_ok = (SCRIPTS / "browser_diagnostics.py").exists()
@@ -496,6 +657,31 @@ class App(tk.Tk):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def run_sequence(self, label: str, steps: list[tuple[str, list[str], int]]) -> None:
+        self.current_process_label.set(f"Running: {label}")
+        self._append_output(f"\n== {label} ==\n")
+
+        def worker() -> None:
+            chunks: list[str] = []
+            final_code = 0
+            for step_label, args, timeout in steps:
+                chunks.append(f"\n-- {step_label} --\n$ {' '.join(args)}")
+                try:
+                    code, output = run_command(args, timeout=timeout)
+                except subprocess.TimeoutExpired as exc:
+                    code, output = 124, f"Timed out after {exc.timeout} seconds"
+                except Exception as exc:  # noqa: BLE001
+                    code, output = 1, str(exc)
+                if output:
+                    chunks.append(output)
+                chunks.append(f"[{'PASS' if code == 0 else 'WARN/FAIL'}] {step_label} exited with code {code}")
+                if code != 0 and final_code == 0:
+                    final_code = code
+            text = "\n".join(chunks)
+            self.after(0, lambda: self._finish_command(label, final_code, text, None))
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None) -> None:
         status = "PASS" if code == 0 else "WARN/FAIL"
         self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n")
@@ -513,6 +699,35 @@ class App(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(text)
         self.current_process_label.set("Output copied")
+
+    def explain_output(self) -> None:
+        self._append_output(
+            "\nOutput guide:\n"
+            "  PASS: the check completed successfully.\n"
+            "  WARN/FAIL: read the last lines above first; they usually name the missing file, dependency, port, or route.\n"
+            "  Static preflight WARN about Windows proxy: review system proxy to avoid proxy loops.\n"
+            "  Missing certificate: use Generate Local CA, then install mycert.crt manually into the intended trust store.\n"
+            "  Browser dependency errors: use Install Diagnostics or Install Stealth in Fixes and Help.\n"
+        )
+
+    def copy_issue_summary(self) -> None:
+        data = read_json_config()
+        profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        summary = "\n".join([
+            "MITM-DomainFronting redacted issue summary",
+            f"Config: {short_path(CONFIG)}",
+            f"Remarks: {data.get('remarks', 'unknown')}",
+            f"Xray min: {data.get('version', {}).get('min') if isinstance(data.get('version'), dict) else 'unknown'}",
+            f"Certificate present: crt={CERT.exists()} key={KEY.exists()}",
+            f"Generated profiles: {len(profiles)}",
+            f"Host Python: {' '.join(find_host_python() or ['missing'])}",
+            f"Local Xray: {short_path(find_local_xray()) if find_local_xray() else 'missing'}",
+            "Sensitive data intentionally omitted: private keys, cookies, full URLs, request bodies.",
+        ])
+        self.clipboard_clear()
+        self.clipboard_append(summary)
+        self._append_output("\nCopied redacted issue summary to clipboard.\n" + summary + "\n")
+        self.current_process_label.set("Issue summary copied")
 
     def generate_standard_profiles(self) -> None:
         self.run_async("Generate standard profiles", py_script("generate_profiles.py", "--base", str(CONFIG)))
@@ -536,6 +751,140 @@ class App(tk.Tk):
         for resolver in [item.strip() for item in self.dns_resolvers.get().split(",") if item.strip()]:
             args.extend(["--resolver", resolver])
         self.run_async("DNS query type sweep", args, timeout=45)
+
+    def host_python_or_warn(self) -> list[str] | None:
+        host_python = find_host_python()
+        if host_python is None:
+            messagebox.showwarning(
+                "Python not found",
+                "A normal Python installation is required for one-click dependency installs. Install Python 3, then retry.",
+            )
+            self._append_output("\nNo host Python found. Install Python 3, then retry dependency fixes.\n")
+        return host_python
+
+    def reset_gui_defaults(self) -> None:
+        browser_cfg = read_browser_integration()
+        self.browser_url.set("https://example.com")
+        self.browser_proxy.set(str(browser_cfg.get("default_proxy", "socks5://127.0.0.1:10808")))
+        self.browser_executable.set("")
+        self.browser_fingerprint_seed.set("")
+        self.browser_headless.set(False)
+        self.browser_geoip.set(False)
+        self.browser_humanize.set(bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
+        self.dns_domain.set("example.com")
+        self.dns_resolvers.set("1.1.1.1, 8.8.8.8")
+        self.profile_offset.set("100")
+        self.profile_suffix.set(".altports")
+        self._append_output("\nGUI defaults restored: proxy, DNS resolvers, target URL, and alternate-port settings.\n")
+        self.current_process_label.set("Defaults restored")
+
+    def browser_install_hints(self) -> None:
+        host_python = find_host_python()
+        python_hint = " ".join(host_python) if host_python else "python"
+        self._append_output(
+            "\nBrowser dependency hints:\n"
+            f"  Host Python detected: {python_hint}\n"
+            f"  Diagnostics: {python_hint} -m pip install -r requirements-browser-diagnostics.txt\n"
+            f"  Diagnostics browser: {python_hint} -m playwright install chromium\n"
+            f"  Linux deps if needed: {python_hint} -m playwright install-deps chromium\n"
+            f"  Stealth: {python_hint} -m pip install -r requirements-browser-stealth.txt\n"
+            f"  CloakBrowser setup: {python_hint} -m cloakbrowser install\n"
+            f"  Xray releases: {XRAY_RELEASES_URL}\n  Project: {CLOAKBROWSER_URL}\n"
+        )
+
+    def install_diagnostics_dependencies(self) -> None:
+        host_python = self.host_python_or_warn()
+        if host_python is None:
+            return
+        steps = [
+            ("Upgrade pip", [*host_python, "-m", "pip", "install", "--upgrade", "pip"], 300),
+            ("Install Playwright package", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-diagnostics.txt")], 600),
+            ("Install Playwright Chromium", [*host_python, "-m", "playwright", "install", "chromium"], 900),
+        ]
+        self.run_sequence("Install Diagnostics Dependencies", steps)
+
+    def install_stealth_dependencies(self) -> None:
+        host_python = self.host_python_or_warn()
+        if host_python is None:
+            return
+        steps = [
+            ("Upgrade pip", [*host_python, "-m", "pip", "install", "--upgrade", "pip"], 300),
+            ("Install CloakBrowser package", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-stealth.txt")], 600),
+            ("Run CloakBrowser setup", [*host_python, "-m", "cloakbrowser", "install"], 900),
+        ]
+        self.run_sequence("Install Stealth Dependencies", steps)
+
+    def install_pyinstaller(self) -> None:
+        host_python = self.host_python_or_warn()
+        if host_python is None:
+            return
+        self.run_sequence("Install PyInstaller", [("Install PyInstaller", [*host_python, "-m", "pip", "install", "--upgrade", "pyinstaller"], 600)])
+
+    def download_xray(self) -> None:
+        if not messagebox.askyesno(
+            "Download Xray",
+            "Download the latest Xray runtime from GitHub into the local xray folder?",
+        ):
+            return
+        self.run_sequence("Download Xray", [("Download Xray runtime", py_script("install_xray.py", "--out-dir", str(ROOT / "xray")), 300)])
+
+    def install_optional_dependencies(self) -> None:
+        host_python = self.host_python_or_warn()
+        if host_python is None:
+            return
+        steps = [
+            ("Upgrade pip", [*host_python, "-m", "pip", "install", "--upgrade", "pip"], 300),
+            ("Install diagnostics dependencies", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-diagnostics.txt")], 600),
+            ("Install Playwright Chromium", [*host_python, "-m", "playwright", "install", "chromium"], 900),
+            ("Install stealth dependencies", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-stealth.txt")], 600),
+            ("Run CloakBrowser setup", [*host_python, "-m", "cloakbrowser", "install"], 900),
+            ("Install PyInstaller", [*host_python, "-m", "pip", "install", "--upgrade", "pyinstaller"], 600),
+        ]
+        self.run_sequence("Install Optional Dependencies", steps)
+
+    def safe_auto_fix(self) -> None:
+        if not CONFIG.exists():
+            messagebox.showerror("Missing config", f"Primary config not found: {short_path(CONFIG)}")
+            return
+        if not self.browser_proxy.get().strip() or not self.dns_resolvers.get().strip():
+            self.reset_gui_defaults()
+        try:
+            offset = int(self.profile_offset.get())
+        except ValueError:
+            offset = 100
+            self.profile_offset.set(str(offset))
+        suffix = self.profile_suffix.get().strip() or ".altports"
+        self.profile_suffix.set(suffix)
+        steps: list[tuple[str, list[str], int]] = [
+            ("Regenerate standard profiles", py_script("generate_profiles.py", "--base", str(CONFIG)), 120),
+            (
+                "Create alternate-port profiles",
+                py_script(
+                    "generate_profiles.py",
+                    "--base",
+                    str(CONFIG),
+                    "--out-dir",
+                    str(ROOT / "Xray-config"),
+                    "--port-offset",
+                    str(offset),
+                    "--suffix",
+                    suffix,
+                ),
+                120,
+            ),
+            ("Validate config", py_script("validate_config.py", str(CONFIG)), 120),
+            ("Route policy tests", py_script("route_policy_tests.py"), 120),
+            ("Protocol policy tests", py_script("protocol_policy_tests.py"), 120),
+            ("Metadata validation", py_script("validate_metadata.py"), 120),
+            ("Static preflight", py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"), 120),
+            ("Secret scan", py_script("secret_scan.py"), 120),
+        ]
+        if (not CERT.exists() or not KEY.exists()) and messagebox.askyesno(
+            "Local CA files missing",
+            "mycert.crt or mycert.key is missing. Generate local CA files now? This does not install trust.",
+        ):
+            steps.append(("Generate or rotate local CA", py_script("mitm_trust.py", "rotate", "--out-dir", str(ROOT / "Xray-config")), 120))
+        self.run_sequence("Safe Auto-Fix", steps)
 
     def cert_status(self) -> None:
         self.run_async("Certificate status", py_script("mitm_trust.py", "status", "--cert", str(CERT), "--key", str(KEY), "--json"))
@@ -563,7 +912,7 @@ class App(tk.Tk):
         except ValueError as exc:
             messagebox.showerror("Browser probe", str(exc))
             return
-        args = list(py_script("browser_diagnostics.py", "--url", url, "--proxy", proxy, "--cert", str(CERT)))
+        args = list(py_script("browser_diagnostics.py", "--url", url, "--proxy", proxy, "--cert", str(CERT), prefer_host=True))
         executable = self.browser_executable.get().strip()
         if executable:
             args.extend(["--executable", executable])
@@ -577,7 +926,7 @@ class App(tk.Tk):
         except ValueError as exc:
             messagebox.showerror("Browser probe", str(exc))
             return
-        args = list(py_script("browser_stealth.py", "--url", url, "--proxy", proxy, "--cert", str(CERT)))
+        args = list(py_script("browser_stealth.py", "--url", url, "--proxy", proxy, "--cert", str(CERT), prefer_host=True))
         if self.browser_headless.get():
             args.append("--headless")
         if self.browser_geoip.get():
@@ -590,7 +939,8 @@ class App(tk.Tk):
         self.run_async("Stealth browser probe (CloakBrowser)", args, timeout=180)
 
     def check_cloakbrowser_installed(self) -> None:
-        code, output = run_command([sys.executable, "-c", "import cloakbrowser; print(cloakbrowser.__file__)"], timeout=30)
+        host_python = find_host_python() or [sys.executable]
+        code, output = run_command([*host_python, "-c", "import cloakbrowser; print(cloakbrowser.__file__)"], timeout=30)
         if code == 0:
             self._append_output(f"\nCloakBrowser import OK\n{output}\n")
             self.current_process_label.set("CloakBrowser: installed")
@@ -598,7 +948,8 @@ class App(tk.Tk):
             self._append_output(
                 f"\nCloakBrowser not installed.\n{output}\n"
                 f"Run: pip install -r requirements-browser-stealth.txt\n"
-                f"Then: python -m cloakbrowser install\nProject: {CLOAKBROWSER_URL}\n"
+                f"Then: python -m cloakbrowser install\n"
+                f"Or click Install Stealth in Fixes and Help.\nProject: {CLOAKBROWSER_URL}\n"
             )
             self.current_process_label.set("CloakBrowser: not installed")
 
@@ -655,6 +1006,7 @@ def self_test() -> int:
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
         SCRIPTS / "browser_stealth.py",
+        SCRIPTS / "install_xray.py",
         BROWSER_CONFIG,
         ROOT / "docs" / "chromium-integration.md",
     ]
@@ -662,6 +1014,14 @@ def self_test() -> int:
     if missing:
         print("GUI self-test failed; missing: " + ", ".join(missing))
         return 2
+    if IS_FROZEN:
+        for script_name in ("preflight.py", "check_dns.py", "route_policy_tests.py", "install_xray.py"):
+            code, output = run_command([sys.executable, "--backend", script_name, "--help"], timeout=30)
+            if code != 0:
+                print(f"GUI self-test failed; backend {script_name} did not start")
+                if output:
+                    print(output)
+                return code or 1
     print("GUI self-test passed")
     return 0
 

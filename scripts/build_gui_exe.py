@@ -35,6 +35,21 @@ FALLBACK_TOP_FILES = (
 )
 EXCLUDED_OUTPUT_PARTS = {"build", "dist", ".git", "__pycache__"}
 EXCLUDED_RUNTIME_NAMES = {"mycert.crt", "mycert.key", "validation-report.json", "checksums.txt"}
+BACKEND_HIDDEN_IMPORTS = (
+    "copy",
+    "datetime",
+    "hashlib",
+    "platform",
+    "random",
+    "re",
+    "shutil",
+    "socket",
+    "stat",
+    "struct",
+    "time",
+    "urllib.request",
+    "zipfile",
+)
 
 
 def run(cmd: list[str], *, timeout: int = 300) -> None:
@@ -73,6 +88,7 @@ def tracked_files() -> list[Path]:
     if proc.returncode != 0:
         return fallback_source_files()
     files: list[Path] = []
+    seen: set[Path] = set()
     for line in proc.stdout.splitlines():
         rel = line.strip().replace("\\", "/")
         if not rel:
@@ -81,7 +97,14 @@ def tracked_files() -> list[Path]:
             continue
         if any(rel.startswith(prefix) for prefix in EXCLUDED_TRACKED_PREFIXES):
             continue
-        files.append(ROOT / rel)
+        path = ROOT / rel
+        files.append(path)
+        seen.add(path.resolve())
+    for path in fallback_source_files():
+        resolved = path.resolve()
+        if resolved not in seen:
+            files.append(path)
+            seen.add(resolved)
     return files
 
 
@@ -135,6 +158,7 @@ def build_exe(skip_install: bool) -> Path:
         str(BUILD_DIR),
         "--specpath",
         str(SPEC_DIR),
+        *[item for module in BACKEND_HIDDEN_IMPORTS for item in ("--hidden-import", module)],
         str(ROOT / "scripts" / "gui.py"),
     ], timeout=900)
     copy_runtime_files()
