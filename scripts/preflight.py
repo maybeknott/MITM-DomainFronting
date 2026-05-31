@@ -34,6 +34,23 @@ except Exception:  # noqa: BLE001
 EXPECTED_PORTS = [10808, 11666, 11777]
 BAD_LISTEN_ADDRS = {"0.0.0.0", "::", "[::]", "*"}
 LOOPBACK_ADDRS = {"127.0.0.1", "::1", "localhost"}
+PROXY_ENV_VARS = {
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+}
+VPN_INTERFACE_KEYWORDS = {
+    "tailscale",
+    "tun",
+    "tap",
+    "vpn",
+    "wireguard",
+    "wintun",
+    "openvpn",
+    "zerotier",
+    "cloudflare warp",
+}
 REQUIRED_DOCS = [
     "docs/protocol-coverage.md",
     "docs/platform-compatibility.md",
@@ -114,6 +131,60 @@ def run_cmd(cmd: List[str], timeout: float = 5.0) -> str:
         return p.stdout or ""
     except Exception:
         return ""
+
+
+def proxy_environment_checks() -> List[Dict[str, str]]:
+    found = sorted({
+        name.upper()
+        for name, value in os.environ.items()
+        if name.upper() in PROXY_ENV_VARS and value
+    })
+    if not found:
+        return [{"id": "proxy_env", "status": "pass", "detail": "no standard proxy environment variables set"}]
+    return [{
+        "id": "proxy_env",
+        "status": "warn",
+        "detail": "proxy environment variables are set; review for proxy-chain loops: " + ", ".join(found),
+    }]
+
+
+def windows_proxy_check() -> List[Dict[str, str]]:
+    if platform.system().lower() != "windows":
+        return []
+    key = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    enabled = run_cmd(["reg", "query", key, "/v", "ProxyEnable"], timeout=3)
+    server = run_cmd(["reg", "query", key, "/v", "ProxyServer"], timeout=3)
+    if not enabled:
+        return [{"id": "system_proxy", "status": "info", "detail": "Windows proxy registry state unavailable"}]
+    enabled_on = "0x1" in enabled.lower()
+    server_set = "ProxyServer" in server
+    if enabled_on:
+        detail = "Windows user proxy is enabled"
+        if server_set:
+            detail += "; proxy server value is configured but redacted"
+        return [{"id": "system_proxy", "status": "warn", "detail": detail}]
+    if server_set:
+        return [{"id": "system_proxy", "status": "info", "detail": "Windows proxy is disabled; stored proxy server value is redacted"}]
+    return [{"id": "system_proxy", "status": "pass", "detail": "Windows user proxy is disabled"}]
+
+
+def interface_conflict_checks() -> List[Dict[str, str]]:
+    system = platform.system().lower()
+    if system == "windows":
+        output = run_cmd(["netsh", "interface", "show", "interface"], timeout=5)
+    else:
+        output = run_cmd(["ip", "link", "show"], timeout=5) or run_cmd(["ifconfig"], timeout=5)
+    if not output:
+        return [{"id": "vpn_tun_interfaces", "status": "info", "detail": "interface list unavailable"}]
+    lowered = output.lower()
+    matched = sorted({keyword for keyword in VPN_INTERFACE_KEYWORDS if keyword in lowered})
+    if matched:
+        return [{
+            "id": "vpn_tun_interfaces",
+            "status": "warn",
+            "detail": "possible VPN/TUN interface keywords observed; review capture conflicts: " + ", ".join(matched),
+        }]
+    return [{"id": "vpn_tun_interfaces", "status": "pass", "detail": "no common VPN/TUN interface keywords observed"}]
 
 
 def collect_listener_lines() -> List[str]:
@@ -249,6 +320,10 @@ def main() -> int:
             checks.extend(validate_config(config))
     else:
         checks.append({"id": "validator_import", "status": "warn", "detail": "validate_config.py could not be imported"})
+
+    checks.extend(proxy_environment_checks())
+    checks.extend(windows_proxy_check())
+    checks.extend(interface_conflict_checks())
 
     if args.skip_cert:
         checks.append({"id": "cert_checks", "status": "info", "detail": "skipped by --skip-cert"})

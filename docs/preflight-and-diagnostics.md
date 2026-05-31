@@ -53,6 +53,9 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
 | Cert expiry | Avoid sudden browser privacy errors | `mitm_trust.py status --json` reports enough days remaining |
 | Static CI mode | Avoid requiring user-local CA in CI | `--skip-cert` is explicit |
 | Static runtime mode | Avoid depending on the CI runner's live ports | `--skip-runtime` is explicit |
+| Proxy environment | Avoid proxy-chain loops | Standard proxy environment variables are absent or reviewed |
+| System proxy | Avoid routing into an existing OS proxy unexpectedly | OS proxy state is disabled or explicitly understood |
+| VPN/TUN interfaces | Avoid capture, DNS, and route conflicts | No common VPN/TUN interface keywords are active, or conflict is reviewed |
 | Route tags | Debug route intent | Every rule has `ruleTag` |
 | Route references | No broken target tags | All outbounds/inbounds exist |
 | DNS health | Resolver path likely works | Resolver returns response or times out clearly |
@@ -101,5 +104,6 @@ Users can paste:
 - config version/remarks;
 - preflight JSON after reviewing it;
 - DNS check summary;
+- proxy/VPN/TUN warnings if present;
 - route tag if available;
 - whether the issue is browser-only or app-specific.
