@@ -51,6 +51,10 @@ jobs:
         run: |
           python scripts/route_policy_tests.py
 
+      - name: Run protocol policy tests
+        run: |
+          python scripts/protocol_policy_tests.py
+
       - name: Check that private keys are not committed
         run: |
           python scripts/secret_scan.py

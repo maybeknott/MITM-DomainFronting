@@ -82,6 +82,7 @@ MITM-DomainFronting/
     check_dns.py
     decision_report.py
     generate_profiles.py
+    protocol_policy_tests.py
     validate_metadata.py
     build_release_manifest.py
 
