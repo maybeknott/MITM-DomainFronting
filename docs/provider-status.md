@@ -36,6 +36,7 @@ When a provider stops working, do not start by adding domains blindly. First col
 - If support claims change, update `SUPPORT_MATRIX.md`.
 - If failure is user-visible, update `KNOWN_ISSUES.md`.
 - If provider metadata changes, update the matching file in `providers/`.
+- Every route listed in `providers/*.yml` must match a real `ruleTag` in the primary config.
 - If domains or IP ranges are added, record the reason and rollback path.
 - If behavior depends on geosite/geoip data, record the data source and hash in release evidence.
 

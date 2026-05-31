@@ -3,15 +3,42 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from pathlib import Path
 
 DATE_RE = re.compile(r"last_tested:\s*(\d{4}-\d{2}-\d{2})")
 ID_RE = re.compile(r"^id:\s*([a-z0-9-]+)\s*$", re.MULTILINE)
 STATUS_RE = re.compile(r"^status:\s*([a-z0-9_-]+)\s*$", re.MULTILINE)
+LIST_ITEM_RE = re.compile(r"^\s*-\s*([A-Za-z0-9_.:-]+)\s*$", re.MULTILINE)
 
 
-def validate_provider(path: Path) -> list[str]:
+def route_tags_from_config(path: Path) -> set[str]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rules = data.get("routing", {}).get("rules", [])
+    if not isinstance(rules, list):
+        return set()
+    return {
+        rule.get("ruleTag")
+        for rule in rules
+        if isinstance(rule, dict) and isinstance(rule.get("ruleTag"), str)
+    }
+
+
+def list_values_under(text: str, key: str) -> list[str]:
+    match = re.search(rf"^{re.escape(key)}:\s*$", text, flags=re.MULTILINE)
+    if not match:
+        return []
+    tail = text[match.end():]
+    block_lines: list[str] = []
+    for line in tail.splitlines():
+        if line and not line.startswith((" ", "\t", "-")):
+            break
+        block_lines.append(line)
+    return LIST_ITEM_RE.findall("\n".join(block_lines))
+
+
+def validate_provider(path: Path, known_route_tags: set[str]) -> list[str]:
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
     if not ID_RE.search(text):
@@ -24,17 +51,29 @@ def validate_provider(path: Path) -> list[str]:
         errors.append(f"{path}: missing failure_policy")
     if "known_risks:" not in text:
         errors.append(f"{path}: missing known_risks")
+    routes = list_values_under(text, "routes")
+    if not routes:
+        errors.append(f"{path}: missing routes")
+    for route in routes:
+        if route not in known_route_tags:
+            errors.append(f"{path}: unknown route tag {route}")
     return errors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate provider and profile metadata")
     parser.add_argument("--providers-dir", type=Path, default=Path("providers"))
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
     args = parser.parse_args()
     errors: list[str] = []
+    try:
+        known_route_tags = route_tags_from_config(args.config)
+    except Exception as exc:  # noqa: BLE001
+        known_route_tags = set()
+        errors.append(f"{args.config}: cannot read route tags: {exc}")
     if args.providers_dir.exists():
         for path in sorted(args.providers_dir.glob("*.yml")):
-            errors.extend(validate_provider(path))
+            errors.extend(validate_provider(path, known_route_tags))
     else:
         errors.append(f"{args.providers_dir}: missing providers directory")
     for required in [Path("configs/profiles.yml"), Path("configs/dns-profiles.yml")]:
