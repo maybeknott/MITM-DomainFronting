@@ -153,3 +153,11 @@ python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
+
+Local desktop GUI:
+
+```bash
+python scripts/gui.py
+```
+
+The GUI runs local validation, preflight, DNS checks, profile generation, and certificate status helpers without uploading diagnostics or keys.

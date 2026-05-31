@@ -15,6 +15,9 @@ mycert.key
 *.diagnostic.json
 validation-report.json
 checksums.txt
+Xray-config/MITM-DomainFronting.*.altports.json
+Xray-config/MITM-DomainFronting.*.ports-plus*.json
+Xray-config/MITM-DomainFronting.*.ports-minus*.json
 
 # Xray geodata runtime artifacts, if downloaded locally
 geoip.dat

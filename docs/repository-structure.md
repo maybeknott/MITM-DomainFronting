@@ -2,7 +2,7 @@
 
 ## Goal
 
-Keep the repository simple while making it easier to review, test, troubleshoot, and release. This structure does not require multiple generated configs or a complex build system. It keeps the current `Xray-config/MITM-DomainFronting.json` as the main user-facing config.
+Keep the repository simple while making it easier to review, test, troubleshoot, and release. The primary user-facing runtime config remains `Xray-config/MITM-DomainFronting.json`; generated profiles, metadata, diagnostics, and the local GUI are supporting tools around that config.
 
 ## Recommended tree
 
@@ -32,6 +32,7 @@ MITM-DomainFronting/
     preflight-and-diagnostics.md
     decision-engine.md
     dns-profiles.md
+    gui.md
     operating-profiles.md
     relay-and-metrics-policy.md
     release-engineering.md
@@ -82,7 +83,10 @@ MITM-DomainFronting/
     check_dns.py
     decision_report.py
     generate_profiles.py
+    gui.py
     protocol_policy_tests.py
+    route_policy_tests.py
+    secret_scan.py
     validate_metadata.py
     build_release_manifest.py
 
@@ -110,14 +114,14 @@ MITM-DomainFronting/
 
 This structure intentionally does not require:
 
-- multiple runtime profiles;
-- a config generator;
 - a database;
 - a server;
 - telemetry;
 - account login;
 - automatic upload of diagnostics;
 - automatic OS-wide certificate installation.
+
+Generated operating profiles and the local GUI are optional repository tools. They must preserve the single primary config workflow and must not introduce telemetry, remote services, or automatic trust-store changes.
 
 ## Minimum adoption checklist
 
