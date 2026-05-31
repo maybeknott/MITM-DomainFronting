@@ -61,6 +61,12 @@ Captive portal:
 
 ## DNS test plan
 
+Run a query-type-aware diagnostic when checking HTTPS/SVCB drift:
+
+```bash
+python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8 --all-types
+```
+
 ### Test 1: Resolver timeout
 
 - Disable or blackhole the primary resolver in a lab.

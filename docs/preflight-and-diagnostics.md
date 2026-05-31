@@ -31,6 +31,12 @@ Optional DNS check:
 python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8
 ```
 
+Query-type-aware DNS check:
+
+```bash
+python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8 --all-types
+```
+
 Support-safe decision report:
 
 ```bash

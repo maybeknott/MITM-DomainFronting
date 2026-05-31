@@ -82,15 +82,18 @@ def main() -> int:
     parser.add_argument("--domain", default="example.com")
     parser.add_argument("--resolver", action="append", default=[], help="resolver IPv4 address; repeatable")
     parser.add_argument("--qtype", choices=sorted(QTYPE), default="A")
+    parser.add_argument("--all-types", action="store_true", help="query A, AAAA, HTTPS, and SVCB")
     parser.add_argument("--timeout", type=float, default=3.0)
     parser.add_argument("--skip-system", action="store_true")
     args = parser.parse_args()
 
     checks: List[Dict[str, object]] = []
+    qtypes = sorted(QTYPE) if args.all_types else [args.qtype]
     if not args.skip_system:
         checks.append(system_resolve(args.domain, args.timeout))
     for resolver in args.resolver:
-        checks.append(query_udp(resolver, args.domain, args.qtype, args.timeout))
+        for qtype in qtypes:
+            checks.append(query_udp(resolver, args.domain, qtype, args.timeout))
 
     overall = "pass" if all(c.get("status") == "pass" for c in checks) else "warn"
     print(json.dumps({"overall": overall, "checks": checks}, indent=2, ensure_ascii=False))
