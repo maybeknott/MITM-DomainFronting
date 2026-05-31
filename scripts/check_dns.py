@@ -94,6 +94,13 @@ def main() -> int:
     for resolver in args.resolver:
         for qtype in qtypes:
             checks.append(query_udp(resolver, args.domain, qtype, args.timeout))
+    if not checks:
+        checks.append({
+            "resolver": "none",
+            "domain": args.domain,
+            "status": "warn",
+            "error": "no DNS checks were requested; remove --skip-system or add --resolver",
+        })
 
     overall = "pass" if all(c.get("status") == "pass" for c in checks) else "warn"
     print(json.dumps({"overall": overall, "checks": checks}, indent=2, ensure_ascii=False))

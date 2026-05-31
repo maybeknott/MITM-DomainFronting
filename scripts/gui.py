@@ -388,7 +388,8 @@ class App(tk.Tk):
             style="Soft.TButton",
             command=lambda: self._append_output(
                 "\nDiagnostics install:\n  pip install -r requirements-browser-diagnostics.txt\n"
-                "  playwright install-deps chromium\n"
+                "  playwright install chromium\n"
+                "  # Linux only, if dependencies are missing: playwright install-deps chromium\n"
             ),
         ).pack(side="left", padx=(0, 10))
         if os.name == "nt":

@@ -6,7 +6,8 @@ Uses stock Chromium (Playwright + optional system Chrome/Edge) through the local
 mixed inbound proxy. This path validates proxy wiring, certificate trust, and
 page load — not anti-bot or fingerprint evasion.
 
-Install: pip install playwright && playwright install-deps chromium
+Install: pip install playwright && playwright install chromium
+Linux dependencies, when needed: playwright install-deps chromium
 """
 from __future__ import annotations
 
@@ -74,12 +75,13 @@ def run_diagnostics_probe(
         from playwright.sync_api import sync_playwright
     except ImportError:
         telemetry["execution_state"]["execution_exception"] = (
-            "playwright not installed; run: pip install playwright && playwright install-deps chromium"
+            "playwright not installed; run: pip install playwright && playwright install chromium"
         )
         return telemetry
 
     started = time.perf_counter()
     with sync_playwright() as pw:
+        context = None
         try:
             context = pw.chromium.launch_persistent_context(
                 user_data_dir=str(profile_dir),
@@ -104,12 +106,17 @@ def run_diagnostics_probe(
             telemetry["network_telemetry"]["certificate_chain_state"] = (
                 "ignore_https_errors" if telemetry["execution_state"]["page_load_success"] else "verify_failed"
             )
-            context.close()
         except Exception as exc:  # noqa: BLE001
             telemetry["execution_state"]["execution_exception"] = str(exc)
             telemetry["network_telemetry"]["handshake_latency_ms"] = int(
                 (time.perf_counter() - started) * 1000
             )
+        finally:
+            if context is not None:
+                try:
+                    context.close()
+                except Exception:
+                    pass
 
     return telemetry
 

@@ -1,5 +1,5 @@
 name: Bug report
-about: Report a setup, routing, DNS, certificate, or compatibility problem
+description: Report a setup, routing, DNS, certificate, or compatibility problem
 title: "[Bug]: "
 labels: [bug]
 body:

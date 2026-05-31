@@ -1,5 +1,5 @@
 name: Platform setup help
-about: Setup issue for Windows, Android, macOS, or Linux
+description: Setup issue for Windows, Android, macOS, or Linux
 labels: [setup]
 body:
   - type: markdown

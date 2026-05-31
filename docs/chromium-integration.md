@@ -53,8 +53,10 @@ python scripts\preflight.py --config Xray-config\MITM-DomainFronting.json --cert
 
 ```powershell
 pip install -r requirements-browser-diagnostics.txt
-playwright install-deps chromium
+playwright install chromium
 ```
+
+On Linux, if system libraries are missing, also run `playwright install-deps chromium`.
 
 **Run:**
 

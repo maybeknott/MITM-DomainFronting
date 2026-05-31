@@ -13,15 +13,22 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 
 if ($Mode -eq "Stealth") {
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $python) {
+    $PythonCommand = $null
+    if ($env:PYTHON) {
+        $PythonCommand = $env:PYTHON
+    } elseif (Get-Command py -ErrorAction SilentlyContinue) {
+        $PythonCommand = "py"
+    } elseif (Get-Command python -ErrorAction SilentlyContinue) {
+        $PythonCommand = "python"
+    }
+    if (-not $PythonCommand) {
         Write-Error "Python is required for Stealth mode (CloakBrowser). Install Python 3 and: pip install cloakbrowser"
     }
     $stealthScript = Join-Path $PSScriptRoot "browser_stealth.py"
     $pyArgs = @($stealthScript, "--url", $Url, "--proxy", $Proxy)
     if ($Headless) { $pyArgs += "--headless" }
     Write-Host "Stealth path: CloakBrowser (https://github.com/CloakHQ/CloakBrowser) via $Proxy"
-    & python @pyArgs
+    & $PythonCommand @pyArgs
     exit $LASTEXITCODE
 }
 

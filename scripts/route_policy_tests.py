@@ -24,6 +24,19 @@ def rule_by_tag(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return {rule.get("ruleTag"): rule for rule in rules(config) if isinstance(rule.get("ruleTag"), str)}
 
 
+def profile_name(config: Dict[str, Any], path: Path) -> str:
+    remarks = config.get("remarks")
+    if isinstance(remarks, str):
+        for profile in ("strict", "balanced", "compatibility", "debug"):
+            if remarks.endswith("_" + profile) or profile in remarks.split("_"):
+                return profile
+    parts = path.stem.split(".")
+    for profile in ("strict", "balanced", "compatibility", "debug"):
+        if profile in parts:
+            return profile
+    return ""
+
+
 def check_base(config: Dict[str, Any], path: Path) -> List[str]:
     errors: List[str] = []
     by_tag = rule_by_tag(config)
@@ -36,7 +49,7 @@ def check_base(config: Dict[str, Any], path: Path) -> List[str]:
 
 def check_profile(config: Dict[str, Any], path: Path) -> List[str]:
     errors: List[str] = []
-    name = path.stem.rsplit(".", 1)[-1]
+    name = profile_name(config, path)
     by_tag = rule_by_tag(config)
     udp_rules = [rule for rule in rules(config) if rule.get("network") == "udp" and str(rule.get("port")) == "443"]
     if len(udp_rules) != 1:
@@ -70,7 +83,7 @@ def main() -> int:
         config = load(path)
         if path.name == "MITM-DomainFronting.json":
             errors.extend(check_base(config, path))
-        elif ".strict." in path.name or path.name.endswith(".strict.json") or any(path.name.endswith(f".{p}.json") for p in ("balanced", "compatibility", "debug")):
+        elif profile_name(config, path):
             errors.extend(check_profile(config, path))
     if errors:
         for error in errors:

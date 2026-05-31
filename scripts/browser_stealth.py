@@ -74,8 +74,6 @@ def run_stealth_probe(
         headless=headless,
     )
     telemetry["execution_state"]["certificate_trust_hint"] = cert_trust_hint(cert_path)
-    telemetry["fingerprint_validation"]["navigator_webdriver_shadowed"] = True
-    telemetry["fingerprint_validation"]["canvas_noise_injected"] = True
     telemetry["execution_state"]["mitigation_remediation"] = (
         "cloakbrowser_humanize" if humanize else "cloakbrowser_default_stealth"
     )
@@ -90,6 +88,7 @@ def run_stealth_probe(
         return telemetry
 
     started = time.perf_counter()
+    context = None
     try:
         context = launch_persistent_context(
             str(profile_dir),
@@ -100,6 +99,8 @@ def run_stealth_probe(
             args=launch_args,
             ignore_https_errors=True,
         )
+        telemetry["fingerprint_validation"]["navigator_webdriver_shadowed"] = True
+        telemetry["fingerprint_validation"]["canvas_noise_injected"] = True
         page = context.new_page()
         page.set_default_navigation_timeout(navigation_timeout_ms)
         response = page.goto(url, wait_until="domcontentloaded")
@@ -115,12 +116,17 @@ def run_stealth_probe(
         )
         telemetry["network_telemetry"]["certificate_chain_state"] = "ignore_https_errors"
         telemetry["fingerprint_validation"]["tls_fingerprint_ja3_matches_browser"] = True
-        context.close()
     except Exception as exc:  # noqa: BLE001
         telemetry["execution_state"]["execution_exception"] = str(exc)
         telemetry["network_telemetry"]["handshake_latency_ms"] = int(
             (time.perf_counter() - started) * 1000
         )
+    finally:
+        if context is not None:
+            try:
+                context.close()
+            except Exception:
+                pass
 
     return telemetry
 

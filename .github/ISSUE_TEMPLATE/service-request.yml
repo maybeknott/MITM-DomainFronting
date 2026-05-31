@@ -1,5 +1,5 @@
 name: Service/protocol compatibility request
-about: Request documentation or testing for a service/protocol
+description: Request documentation or testing for a service/protocol
 labels: [compatibility]
 body:
   - type: markdown

@@ -13,7 +13,7 @@ The route table is the most important correctness surface in the repository. A s
 | Missing inbound target | A route references a nonexistent inbound | CI validation fails |
 | Unclear catch-all behavior | Unsupported traffic may be direct or blocked unexpectedly | Document final rules and test them |
 | Duplicate tag names | Debug output becomes ambiguous | CI validation fails |
-| Static CIDR without rationale | Future reviewers cannot know why it exists | Add comment in docs or route-intent table |
+| Static CIDR without rationale | Future reviewers cannot know why it exists | Add comment in the route intent table |
 | Protocol ambiguity | TCP and UDP may behave differently | Explicitly document network field and UDP policy |
 | Geosite/GeoIP drift | Same config behaves differently with different data versions | Record geosite/geoip hashes in release evidence |
 
@@ -53,7 +53,7 @@ r999_block_final
 
 ## Route intent table
 
-Maintain this table in `docs/routing-correctness.md` or `configs/route-intent.yml`.
+Maintain this table in `docs/routing-correctness.md`.
 
 | Rule tag | Match | Outbound | Intent | Expected failure behavior |
 |---|---|---|---|---|
@@ -106,7 +106,7 @@ Maintain this table in `docs/routing-correctness.md` or `configs/route-intent.ym
 
 ## Keep the current simple behavior
 
-This document does not require strict/balanced/debug profile generation. The recommended minimum is:
+This document does not replace the primary single-config workflow. Generated strict/balanced/compatibility/debug profiles are optional artifacts derived from the primary config. The recommended minimum is:
 
 1. Keep one config.
 2. Add rule tags.
