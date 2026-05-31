@@ -150,6 +150,6 @@ Useful maintainer checks:
 
 ```bash
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
-python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt
+python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```

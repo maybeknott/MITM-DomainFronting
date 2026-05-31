@@ -1,10 +1,4 @@
 {
-  "__Credits__": {
-    "creator": "@patterniha",
-    "donate1": "USDT (BEP20): 0x76a768B53Ca77B43086946315f0BDF21156bF424",
-    "donate2": "USDT (TRC20): TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o",
-    "donate3": "TON (TON): UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i"
-  },
   "remarks": "MITM-DomainFronting_v22",
   "version": {
     "min": "26.2.6"
