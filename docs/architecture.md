@@ -8,6 +8,7 @@ This document explains the current simple architecture without requiring a redes
 
 ```text
 Browser / local app using proxy or TUN
+  (diagnostics: stock Chromium; stealth default: CloakBrowser — see docs/chromium-integration.md)
         |
         v
 mixed-in :10808

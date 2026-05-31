@@ -16,6 +16,20 @@
 python scripts\preflight.py --config Xray-config\MITM-DomainFronting.json --cert Xray-config\mycert.crt --key Xray-config\mycert.key
 ```
 
+## Browser integration (two paths)
+
+| Path | When to use | Command |
+|------|-------------|---------|
+| **Diagnostics** | Proxy, CA, and page load checks | `python scripts\browser_diagnostics.py --url https://example.com` |
+| **Stealth (default)** | Anti-bot / fingerprint / CAPTCHA flows | `pip install -r requirements-browser-stealth.txt` then `python scripts\browser_stealth.py --url …` |
+
+Stealth uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) by default; diagnostics uses stock Chrome/Playwright. Both send traffic to `socks5://127.0.0.1:10808`. See [`chromium-integration.md`](chromium-integration.md).
+
+```powershell
+.\scripts\launch_browser_mitm.ps1 -Mode Diagnostics -Url https://example.com
+.\scripts\launch_browser_mitm.ps1 -Mode Stealth -Url https://example.com
+```
+
 ## Common failures
 
 | Symptom | Cause | Fix |

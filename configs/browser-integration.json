@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "mixed_in_port": 10808,
+  "default_proxy": "socks5://127.0.0.1:10808",
+  "stealth": {
+    "engine": "cloakbrowser",
+    "project_url": "https://github.com/CloakHQ/CloakBrowser",
+    "pypi_package": "cloakbrowser",
+    "profile_dir": "browser-profiles/stealth-cloakbrowser",
+    "default_headless": false,
+    "default_humanize": true
+  },
+  "diagnostics": {
+    "engine": "playwright-chromium",
+    "profile_dir": "browser-profiles/diagnostics-playwright",
+    "default_headless": false,
+    "windows_chrome_paths": [
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
+    ]
+  },
+  "transport_hardening_args": [
+    "--disable-quic",
+    "--disable-udp-proxies"
+  ]
+}

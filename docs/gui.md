@@ -22,6 +22,11 @@ py scripts\gui.py
 - Generates optional alternate-port profile files for local port conflicts.
 - Runs DNS query-type sweeps for `A`, `AAAA`, `HTTPS`, and `SVCB`.
 - Shows certificate status and certificate/key pair checks.
+- Runs the **two-part browser model** from the **Browser** tab:
+  - **Diagnostics** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).
+  - **Stealth** — [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) via `browser_stealth.py` (fingerprint and anti-bot path; default stealth engine).
+- Shared fields: target URL and proxy (`socks5://127.0.0.1:10808` by default, from `configs/browser-integration.json`).
+- Optional: launch stock Chrome on Windows through `launch_browser_mitm.ps1`, check whether `cloakbrowser` imports, open `docs/chromium-integration.md`.
 - Opens local documentation.
 
 ## Safety Boundaries

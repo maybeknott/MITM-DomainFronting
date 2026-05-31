@@ -49,6 +49,7 @@ MITM-DomainFronting/
     ca-expired-certificate-recovery.md
     ca-wrong-certificate-recovery.md
     listener-binding.md
+    chromium-integration.md
     firewall-and-network-testing.md
     fakedns-recovery.md
     assumptions-and-unknowns.md
@@ -67,6 +68,7 @@ MITM-DomainFronting/
     metrics-profiles.yml
     tun-profiles.yml
     health-checks.yml
+    browser-integration.json
     provider-status.example.yml
     release-checklist.yml
 
@@ -91,6 +93,10 @@ MITM-DomainFronting/
     secret_scan.py
     validate_metadata.py
     build_release_manifest.py
+    browser_common.py
+    browser_diagnostics.py
+    browser_stealth.py
+    launch_browser_mitm.ps1
 
   .github/
     ISSUE_TEMPLATE/

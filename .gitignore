@@ -23,6 +23,9 @@ Xray-config/MITM-DomainFronting.*.ports-minus*.json
 geoip.dat
 geosite.dat
 
+# Local browser integration profiles (diagnostics + CloakBrowser stealth)
+browser-profiles/
+
 # Python and editor artifacts
 __pycache__/
 *.pyc

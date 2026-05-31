@@ -23,6 +23,8 @@ SCRIPTS = ROOT / "scripts"
 CONFIG = ROOT / "Xray-config" / "MITM-DomainFronting.json"
 CERT = ROOT / "Xray-config" / "mycert.crt"
 KEY = ROOT / "Xray-config" / "mycert.key"
+BROWSER_CONFIG = ROOT / "configs" / "browser-integration.json"
+CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
 
 COLORS = {
     "bg": "#f5f7fb",
@@ -107,6 +109,17 @@ def read_json_config() -> dict:
         return {}
 
 
+def read_browser_integration() -> dict:
+    try:
+        data = json.loads(BROWSER_CONFIG.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {
+            "default_proxy": "socks5://127.0.0.1:10808",
+            "stealth": {"project_url": CLOAKBROWSER_URL},
+        }
+
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -119,6 +132,14 @@ class App(tk.Tk):
         self.profile_suffix = tk.StringVar(value=".altports")
         self.dns_domain = tk.StringVar(value="example.com")
         self.dns_resolvers = tk.StringVar(value="1.1.1.1, 8.8.8.8")
+        browser_cfg = read_browser_integration()
+        self.browser_url = tk.StringVar(value="https://example.com")
+        self.browser_proxy = tk.StringVar(value=str(browser_cfg.get("default_proxy", "socks5://127.0.0.1:10808")))
+        self.browser_executable = tk.StringVar(value="")
+        self.browser_fingerprint_seed = tk.StringVar(value="")
+        self.browser_headless = tk.BooleanVar(value=False)
+        self.browser_geoip = tk.BooleanVar(value=False)
+        self.browser_humanize = tk.BooleanVar(value=bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
         self._configure_style()
         self._build_layout()
         self.refresh_status()
@@ -160,6 +181,7 @@ class App(tk.Tk):
             ("Validation", lambda: self.tabs.select(self.validation_tab)),
             ("Profiles and DNS", lambda: self.tabs.select(self.profiles_tab)),
             ("Certificates", lambda: self.tabs.select(self.certs_tab)),
+            ("Browser", lambda: self.tabs.select(self.browser_tab)),
             ("Documentation", lambda: self.tabs.select(self.docs_tab)),
         ]
         for text, command in self.nav_buttons:
@@ -195,17 +217,20 @@ class App(tk.Tk):
         self.validation_tab = self._tab()
         self.profiles_tab = self._tab()
         self.certs_tab = self._tab()
+        self.browser_tab = self._tab()
         self.docs_tab = self._tab()
         self.tabs.add(self.dashboard_tab, text="Dashboard")
         self.tabs.add(self.validation_tab, text="Validation")
         self.tabs.add(self.profiles_tab, text="Profiles and DNS")
         self.tabs.add(self.certs_tab, text="Certificates")
+        self.tabs.add(self.browser_tab, text="Browser")
         self.tabs.add(self.docs_tab, text="Docs")
 
         self._build_dashboard()
         self._build_validation()
         self._build_profiles_dns()
         self._build_certs()
+        self._build_browser()
         self._build_docs()
         self._build_output_pane(content)
         self._append_output("Ready. All actions run locally in this repository.\n")
@@ -222,7 +247,7 @@ class App(tk.Tk):
         grid = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         grid.pack(fill="x")
         self.status_labels: dict[str, tk.Label] = {}
-        for index, title in enumerate(("Config", "Certificate", "Profiles", "Privacy")):
+        for index, title in enumerate(("Config", "Certificate", "Profiles", "Browser", "Privacy")):
             card = self._card(grid, title)
             card.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 12, 0), pady=(0, 14))
             grid.columnconfigure(index, weight=1)
@@ -234,8 +259,9 @@ class App(tk.Tk):
         actions.pack(fill="x", pady=(4, 14))
         row = tk.Frame(actions, bg=COLORS["panel"])
         row.pack(fill="x", padx=16, pady=(8, 16))
-        for spec in self.validation_commands[:4]:
+        for spec in self.validation_commands[:3]:
             ttk.Button(row, text=spec.label, style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Diagnostics Browser Probe", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
 
     @property
     def validation_commands(self) -> list[CommandSpec]:
@@ -319,10 +345,103 @@ class App(tk.Tk):
         ttk.Button(row, text="Generate Local CA", style="Danger.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Xray-config Folder", style="Soft.TButton", command=lambda: self.open_path(ROOT / "Xray-config")).pack(side="left")
 
+    def _build_browser(self) -> None:
+        intro = (
+            "Two-part browser model: Diagnostics verifies proxy and CA wiring with stock Chromium. "
+            "Stealth uses CloakBrowser (default) for fingerprint and anti-bot evasion. "
+            "Both paths send traffic to the local mixed inbound only."
+        )
+        tk.Label(self.browser_tab, text=intro, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=820, justify="left", anchor="w").pack(fill="x", pady=(0, 12))
+
+        shared = self._card(self.browser_tab, "Shared settings")
+        shared.pack(fill="x", pady=(0, 14))
+        row = tk.Frame(shared, bg=COLORS["panel"])
+        row.pack(fill="x", padx=16, pady=(4, 16))
+        tk.Label(row, text="Target URL", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left")
+        ttk.Entry(row, textvariable=self.browser_url, width=42).pack(side="left", padx=6)
+        tk.Label(row, text="Proxy", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left")
+        ttk.Entry(row, textvariable=self.browser_proxy, width=30).pack(side="left", padx=6)
+        ttk.Button(row, text="Open integration doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")).pack(side="left", padx=10)
+
+        diag = self._card(self.browser_tab, "Path 1 — Diagnostics (stock Chromium)")
+        diag.pack(fill="x", pady=(0, 14))
+        tk.Label(
+            diag,
+            text="Playwright + optional system Chrome/Edge. Use after preflight passes to confirm page load through mixed-in.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=780,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(2, 8))
+        drow = tk.Frame(diag, bg=COLORS["panel"])
+        drow.pack(fill="x", padx=16, pady=(0, 8))
+        tk.Label(drow, text="Chrome path (optional)", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left")
+        ttk.Entry(drow, textvariable=self.browser_executable, width=48).pack(side="left", padx=6)
+        drow2 = tk.Frame(diag, bg=COLORS["panel"])
+        drow2.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Checkbutton(drow2, text="Headless", variable=self.browser_headless).pack(side="left", padx=(0, 12))
+        ttk.Button(drow2, text="Run diagnostics probe", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
+        ttk.Button(
+            drow2,
+            text="Install hint (Playwright)",
+            style="Soft.TButton",
+            command=lambda: self._append_output(
+                "\nDiagnostics install:\n  pip install -r requirements-browser-diagnostics.txt\n"
+                "  playwright install-deps chromium\n"
+            ),
+        ).pack(side="left", padx=(0, 10))
+        if os.name == "nt":
+            ttk.Button(drow2, text="Launch stock Chrome (PS)", style="Soft.TButton", command=self.launch_diagnostics_chrome_ps).pack(side="left")
+
+        stealth = self._card(self.browser_tab, "Path 2 — Stealth (CloakBrowser, default)")
+        stealth.pack(fill="x", pady=(0, 14))
+        stealth_url = read_browser_integration().get("stealth", {}).get("project_url", CLOAKBROWSER_URL)
+        tk.Label(
+            stealth,
+            text=f"Default engine: CloakBrowser — {stealth_url}",
+            bg=COLORS["panel"],
+            fg=COLORS["ink"],
+            wraplength=780,
+            justify="left",
+            anchor="w",
+            font=("Segoe UI", 10, "bold"),
+        ).pack(fill="x", padx=16, pady=(2, 4))
+        tk.Label(
+            stealth,
+            text="Application-layer evasion only. Xray still owns MITM, routing, and domain fronting.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=780,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(0, 8))
+        srow = tk.Frame(stealth, bg=COLORS["panel"])
+        srow.pack(fill="x", padx=16, pady=(0, 8))
+        tk.Label(srow, text="Fingerprint seed", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left")
+        ttk.Entry(srow, textvariable=self.browser_fingerprint_seed, width=16).pack(side="left", padx=6)
+        ttk.Checkbutton(srow, text="geoip (timezone/locale from proxy)", variable=self.browser_geoip).pack(side="left", padx=12)
+        ttk.Checkbutton(srow, text="humanize", variable=self.browser_humanize).pack(side="left", padx=12)
+        srow2 = tk.Frame(stealth, bg=COLORS["panel"])
+        srow2.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(srow2, text="Run stealth probe", style="Accent.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
+        ttk.Button(
+            srow2,
+            text="Install hint (CloakBrowser)",
+            style="Soft.TButton",
+            command=lambda: self._append_output(
+                f"\nStealth install:\n  pip install -r requirements-browser-stealth.txt\n"
+                f"  python -m cloakbrowser install\n  Project: {stealth_url}\n"
+            ),
+        ).pack(side="left", padx=(0, 10))
+        ttk.Button(srow2, text="Open CloakBrowser on GitHub", style="Soft.TButton", command=lambda: webbrowser.open(stealth_url)).pack(side="left", padx=(0, 10))
+        ttk.Button(srow2, text="Check CloakBrowser import", style="Soft.TButton", command=self.check_cloakbrowser_installed).pack(side="left")
+
     def _build_docs(self) -> None:
         docs = [
             ("README", ROOT / "README.md"),
             ("Operating profiles", ROOT / "docs" / "operating-profiles.md"),
+            ("Chromium integration", ROOT / "docs" / "chromium-integration.md"),
             ("Preflight and diagnostics", ROOT / "docs" / "preflight-and-diagnostics.md"),
             ("Certificate lifecycle", ROOT / "docs" / "certificate-lifecycle.md"),
             ("DNS resilience", ROOT / "docs" / "dns-resilience.md"),
@@ -348,6 +467,14 @@ class App(tk.Tk):
         self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
+        browser_cfg = read_browser_integration()
+        proxy = browser_cfg.get("default_proxy", "socks5://127.0.0.1:10808")
+        diag_ok = (SCRIPTS / "browser_diagnostics.py").exists()
+        stealth_ok = (SCRIPTS / "browser_stealth.py").exists()
+        self.status_labels["Browser"].configure(
+            text=f"proxy: {proxy}\ndiagnostics: {'ready' if diag_ok else 'missing'}\nstealth: CloakBrowser",
+            fg=COLORS["green"] if diag_ok and stealth_ok else COLORS["amber"],
+        )
         self.status_labels["Privacy"].configure(text="No telemetry\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
 
     def run_spec(self, spec: CommandSpec) -> None:
@@ -420,6 +547,94 @@ class App(tk.Tk):
             return
         self.run_async("Generate local CA", py_script("mitm_trust.py", "generate", "--out-dir", str(ROOT / "Xray-config")), timeout=60)
 
+    def _browser_common_args(self) -> tuple[str, str]:
+        url = self.browser_url.get().strip()
+        proxy = self.browser_proxy.get().strip()
+        if not url:
+            raise ValueError("Enter a target URL.")
+        if not proxy:
+            raise ValueError("Enter a proxy URL (default: socks5://127.0.0.1:10808).")
+        return url, proxy
+
+    def run_browser_diagnostics(self) -> None:
+        try:
+            url, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("Browser probe", str(exc))
+            return
+        args = list(py_script("browser_diagnostics.py", "--url", url, "--proxy", proxy, "--cert", str(CERT)))
+        executable = self.browser_executable.get().strip()
+        if executable:
+            args.extend(["--executable", executable])
+        if self.browser_headless.get():
+            args.append("--headless")
+        self.run_async("Diagnostics browser probe", args, timeout=180)
+
+    def run_browser_stealth(self) -> None:
+        try:
+            url, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("Browser probe", str(exc))
+            return
+        args = list(py_script("browser_stealth.py", "--url", url, "--proxy", proxy, "--cert", str(CERT)))
+        if self.browser_headless.get():
+            args.append("--headless")
+        if self.browser_geoip.get():
+            args.append("--geoip")
+        if not self.browser_humanize.get():
+            args.append("--no-humanize")
+        seed = self.browser_fingerprint_seed.get().strip()
+        if seed:
+            args.extend(["--fingerprint-seed", seed])
+        self.run_async("Stealth browser probe (CloakBrowser)", args, timeout=180)
+
+    def check_cloakbrowser_installed(self) -> None:
+        code, output = run_command([sys.executable, "-c", "import cloakbrowser; print(cloakbrowser.__file__)"], timeout=30)
+        if code == 0:
+            self._append_output(f"\nCloakBrowser import OK\n{output}\n")
+            self.current_process_label.set("CloakBrowser: installed")
+        else:
+            self._append_output(
+                f"\nCloakBrowser not installed.\n{output}\n"
+                f"Run: pip install -r requirements-browser-stealth.txt\n"
+                f"Then: python -m cloakbrowser install\nProject: {CLOAKBROWSER_URL}\n"
+            )
+            self.current_process_label.set("CloakBrowser: not installed")
+
+    def launch_diagnostics_chrome_ps(self) -> None:
+        ps1 = SCRIPTS / "launch_browser_mitm.ps1"
+        if not ps1.exists():
+            messagebox.showwarning("Missing script", f"Not found: {short_path(ps1)}")
+            return
+        try:
+            url, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("Browser launch", str(exc))
+            return
+        args = [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(ps1),
+            "-Mode",
+            "Diagnostics",
+            "-Url",
+            url,
+            "-Proxy",
+            proxy,
+        ]
+        if self.browser_headless.get():
+            args.append("-Headless")
+        self._append_output(f"\n$ {' '.join(args)}\n")
+        try:
+            subprocess.Popen(args, cwd=str(ROOT))
+            self.current_process_label.set("Launched stock Chrome (diagnostics)")
+            self._append_output("Started Chrome in a separate process. Check the browser window.\n")
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Launch failed", str(exc))
+
     def open_path(self, path: Path) -> None:
         target = path.resolve()
         if not target.exists():
@@ -436,6 +651,11 @@ def self_test() -> int:
         SCRIPTS / "generate_profiles.py",
         SCRIPTS / "mitm_trust.py",
         SCRIPTS / "check_dns.py",
+        SCRIPTS / "browser_common.py",
+        SCRIPTS / "browser_diagnostics.py",
+        SCRIPTS / "browser_stealth.py",
+        BROWSER_CONFIG,
+        ROOT / "docs" / "chromium-integration.md",
     ]
     missing = [short_path(path) for path in required if not path.exists()]
     if missing:
