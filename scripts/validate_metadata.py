@@ -122,6 +122,24 @@ def main() -> int:
                 errors.append(f"{tun}: missing guardrail {needle}")
     else:
         errors.append(f"{tun}: missing")
+    health = Path("configs/health-checks.yml")
+    if health.exists():
+        text = health.read_text(encoding="utf-8")
+        for needle in [
+            "local_only: true",
+            "payload_logging: false",
+            "local_ports:",
+            "certificate:",
+            "dns:",
+            "routing:",
+            "environment:",
+            "strict_mode_no_direct_leak",
+            "vpn_tun_interface_conflict",
+        ]:
+            if needle not in text:
+                errors.append(f"{health}: missing guardrail {needle}")
+    else:
+        errors.append(f"{health}: missing")
     if errors:
         for error in errors:
             print(error)

@@ -64,6 +64,7 @@ MITM-DomainFronting/
     relay-profiles.yml
     metrics-profiles.yml
     tun-profiles.yml
+    health-checks.yml
     provider-status.example.yml
     release-checklist.yml
 

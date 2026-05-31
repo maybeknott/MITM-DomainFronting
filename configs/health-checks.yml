@@ -1,0 +1,47 @@
+version: 1
+reporting:
+  local_only: true
+  payload_logging: false
+  redacted_by_default: true
+checks:
+  local_ports:
+    - mixed-in
+    - tls-decrypt-h11
+    - tls-decrypt-h211
+  certificate:
+    - key_exists
+    - key_permissions
+    - cert_key_pair_matches
+    - cert_expiry
+  dns:
+    - primary_resolver_configured
+    - fallback_resolver_configured
+    - private_domain_handling
+    - dns64_nat64_test_required
+  routing:
+    - route_tag_presence
+    - duplicate_rule_tags
+    - route_target_references
+    - strict_mode_no_direct_leak
+    - unsupported_udp443_policy
+  environment:
+    - proxy_environment
+    - system_proxy
+    - vpn_tun_interface_conflict
+failure_policy:
+  strict:
+    unknown_non_private: block
+    provider_down: block
+    quic_unsupported: block_or_documented_downgrade
+  balanced:
+    unknown_non_private: direct_with_documented_warning
+    provider_down: user_selected_direct_or_report
+    quic_unsupported: direct_with_documented_warning
+  compatibility:
+    unknown_non_private: direct_with_warning
+    provider_down: direct_with_warning
+    quic_unsupported: direct_with_warning
+  debug:
+    unknown_non_private: direct
+    provider_down: report_route_status_without_payloads
+    quic_unsupported: tag_udp_decision
