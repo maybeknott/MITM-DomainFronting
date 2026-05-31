@@ -29,6 +29,57 @@ def load_config_remarks(config: Path) -> Optional[str]:
         return None
 
 
+def run_git(root: Path, args: List[str]) -> Optional[str]:
+    try:
+        p = subprocess.run(
+            ["git", *args],
+            cwd=str(root),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return None
+    if p.returncode != 0:
+        return None
+    return p.stdout.strip()
+
+
+def git_metadata(root: Path) -> Dict[str, object]:
+    status = run_git(root, ["status", "--porcelain"])
+    return {
+        "commit": run_git(root, ["rev-parse", "HEAD"]),
+        "branch": run_git(root, ["branch", "--show-current"]),
+        "is_dirty": bool(status),
+        "dirty_entries": status.splitlines()[:50] if status else [],
+    }
+
+
+def command_result(cmd: List[str], cwd: Path) -> Dict[str, object]:
+    try:
+        p = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {"status": "not_run", "reason": f"{cmd[0]} not found"}
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "not_run", "reason": str(exc)}
+    return {
+        "status": "pass" if p.returncode == 0 else "fail",
+        "returncode": p.returncode,
+        "stdout": p.stdout.strip()[-2000:],
+        "stderr": p.stderr.strip()[-2000:],
+    }
+
+
 def run_validate(config: Path) -> Dict[str, object]:
     script = Path(__file__).resolve().parent / "validate_config.py"
     if not script.exists():
@@ -48,6 +99,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=Path("validation-report.json"))
     parser.add_argument("--checksums", type=Path, default=Path("checksums.txt"))
     parser.add_argument("--include", action="append", default=[], help="extra file to checksum; repeatable")
+    parser.add_argument("--xray-bin", default="xray", help="Xray binary for optional version and config-test evidence")
+    parser.add_argument("--skip-xray-test", action="store_true", help="do not attempt xray run -test")
     args = parser.parse_args()
 
     root = args.root.resolve()
@@ -60,6 +113,10 @@ def main() -> int:
         root / "SUPPORT_MATRIX.md",
         root / "KNOWN_ISSUES.md",
         root / "CHANGELOG.md",
+        root / "SECURITY.md",
+        root / "PRIVACY.md",
+        root / "THREAT_MODEL.md",
+        root / ".github" / "workflows" / "validate.yml",
     ]
     files.extend([p for p in default_candidates if p.exists()])
     files.extend([(root / p).resolve() for p in map(Path, args.include)])
@@ -75,9 +132,17 @@ def main() -> int:
 
     (root / args.checksums).write_text("\n".join(checksum_lines) + "\n", encoding="utf-8")
 
+    xray_version = command_result([args.xray_bin, "version"], root)
+    xray_config_test = (
+        {"status": "not_run", "reason": "--skip-xray-test was set"}
+        if args.skip_xray_test
+        else command_result([args.xray_bin, "run", "-test", "-config", str(config)], root)
+    )
+
     report = {
         "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "generated_by": "scripts/build_release_manifest.py",
+        "repository": git_metadata(root),
         "config": {
             "path": str(config.relative_to(root)) if config.exists() and config.is_relative_to(root) else str(config),
             "exists": config.exists(),
@@ -85,11 +150,17 @@ def main() -> int:
             "remarks": load_config_remarks(config) if config.exists() else None,
         },
         "validation": run_validate(config) if config.exists() else {"status": "fail", "reason": "config missing"},
+        "xray": {
+            "binary": args.xray_bin,
+            "version": xray_version,
+            "config_test": xray_config_test,
+        },
         "files": file_entries,
         "notes": [
             "Review warnings before publishing.",
             "Attach checksums.txt and this validation report to the release.",
             "Do not include mycert.key or user-local mycert.crt in release artifacts.",
+            "A dirty repository can be acceptable for draft evidence, but final release evidence should be generated from a clean commit.",
         ],
     }
     (root / args.out).write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

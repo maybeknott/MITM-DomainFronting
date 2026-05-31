@@ -13,6 +13,18 @@ python scripts/preflight.py \
   --key Xray-config/mycert.key
 ```
 
+Optional Xray config test:
+
+```bash
+python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --xray-bin xray --no-dns
+```
+
+Static-only CI check without user-local CA files:
+
+```bash
+python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+```
+
 Optional DNS check:
 
 ```bash
@@ -31,10 +43,15 @@ python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8
 | Cert exists | Local CA exists | `mycert.crt` found |
 | Key exists | Issuing key exists | `mycert.key` found |
 | Key permissions | Avoid local overexposure | Not world-readable on POSIX |
+| Static CI mode | Avoid requiring user-local CA in CI | `--skip-cert` is explicit |
+| Static runtime mode | Avoid depending on the CI runner's live ports | `--skip-runtime` is explicit |
 | Route tags | Debug route intent | Every rule has `ruleTag` |
 | Route references | No broken target tags | All outbounds/inbounds exist |
 | DNS health | Resolver path likely works | Resolver returns response or times out clearly |
 | Geodata presence | Route lists available | `geoip.dat` and `geosite.dat` present where expected |
+| UDP/443 policy | HTTP/3/QUIC claims stay honest | Explicit rule exists or output documents limited/test-required behavior |
+| Documentation coverage | Support reports can be routed | Required operational docs are present |
+| Xray config test | Runtime parser accepts config | `xray run -test` passes when `--xray-bin` is provided |
 
 ## Diagnostic output
 

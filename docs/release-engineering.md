@@ -36,14 +36,21 @@ CHANGELOG.md
 
 ```bash
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
+python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
+```
+
+For a local maintainer machine with generated CA material, also run:
+
+```bash
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
-python scripts/build_release_manifest.py --root . --out validation-report.json
 ```
 
 If Xray is available:
 
 ```bash
 xray run -test -config Xray-config/MITM-DomainFronting.json
+python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --xray-bin xray
 ```
 
 ## Release checklist
@@ -62,6 +69,8 @@ xray run -test -config Xray-config/MITM-DomainFronting.json
 - [ ] Known issues updated.
 - [ ] Checksums generated.
 - [ ] Validation report attached.
+- [ ] Git commit, branch, and dirty-tree state recorded.
+- [ ] Xray version and config-test result recorded when available.
 - [ ] Final verdict written.
 
 ## `validation-report.json` fields
@@ -81,6 +90,15 @@ xray run -test -config Xray-config/MITM-DomainFronting.json
     "rule_tags": "warn",
     "loopback_bindings": "warn",
     "xray_run_test": "pass|fail|not_run"
+  },
+  "repository": {
+    "commit": "...",
+    "branch": "main",
+    "is_dirty": false
+  },
+  "xray": {
+    "version": {"status": "pass"},
+    "config_test": {"status": "pass|fail|not_run"}
   },
   "tested_with": {
     "xray": "...",

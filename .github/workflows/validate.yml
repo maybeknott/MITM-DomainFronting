@@ -32,7 +32,7 @@ jobs:
       - name: Run preflight static checks if config present
         run: |
           if [ -f Xray-config/MITM-DomainFronting.json ]; then
-            python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns || true
+            python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
           fi
 
       - name: Check that private keys are not committed
@@ -53,7 +53,7 @@ jobs:
       - name: Build release manifest dry run
         run: |
           if [ -f Xray-config/MITM-DomainFronting.json ]; then
-            python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt || true
+            python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
           fi
 
       - name: Upload validation artifacts

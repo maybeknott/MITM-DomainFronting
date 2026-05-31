@@ -31,6 +31,9 @@ MITM-DomainFronting/
     platform-compatibility.md
     preflight-and-diagnostics.md
     release-engineering.md
+    release-evidence.md
+    provider-status.md
+    tun-operational-notes.md
     certificate-lifecycle.md
     ca-install-guide.md
     ca-verify-guide.md
@@ -51,6 +54,7 @@ MITM-DomainFronting/
     compatibility.yml
     protocols.yml
     dns-edge-cases.yml
+    advanced-edge-cases.yml
     provider-status.example.yml
     release-checklist.yml
 

@@ -34,6 +34,16 @@ except Exception:  # noqa: BLE001
 EXPECTED_PORTS = [10808, 11666, 11777]
 BAD_LISTEN_ADDRS = {"0.0.0.0", "::", "[::]", "*"}
 LOOPBACK_ADDRS = {"127.0.0.1", "::1", "localhost"}
+REQUIRED_DOCS = [
+    "docs/protocol-coverage.md",
+    "docs/platform-compatibility.md",
+    "docs/dns-resilience.md",
+    "docs/fakedns-recovery.md",
+    "docs/release-engineering.md",
+    "docs/provider-status.md",
+    "docs/tun-operational-notes.md",
+    "docs/release-evidence.md",
+]
 
 
 def check_file(path: Path, check_id: str, label: str) -> Dict[str, str]:
@@ -172,6 +182,61 @@ def config_required_ports(config: Dict[str, Any]) -> List[int]:
     return sorted(set([p for p in ports if p in EXPECTED_PORTS] or EXPECTED_PORTS))
 
 
+def udp443_policy_check(config: Dict[str, Any]) -> Dict[str, str]:
+    rules = config.get("routing", {}).get("rules", []) if isinstance(config.get("routing"), dict) else []
+    has_explicit_udp443 = any(
+        isinstance(rule, dict)
+        and rule.get("network") == "udp"
+        and str(rule.get("port")) in {"443", "0-65535"}
+        for rule in rules
+    )
+    if has_explicit_udp443:
+        return {"id": "udp443_policy", "status": "pass", "detail": "explicit UDP/443 policy rule present"}
+    return {"id": "udp443_policy", "status": "info", "detail": "no explicit UDP/443 rule; HTTP/3/QUIC behavior must remain documented as limited or test-required"}
+
+
+def documentation_checks(root: Path) -> List[Dict[str, str]]:
+    checks: List[Dict[str, str]] = []
+    for rel in REQUIRED_DOCS:
+        path = root / rel
+        checks.append({
+            "id": "doc_" + rel.replace("/", "_").replace(".", "_"),
+            "status": "pass" if path.exists() else "warn",
+            "detail": "present" if path.exists() else f"missing: {rel}",
+        })
+    return checks
+
+
+def geodata_checks(root: Path) -> List[Dict[str, str]]:
+    checks: List[Dict[str, str]] = []
+    for name in ("geosite.dat", "geoip.dat"):
+        matches = [p for p in root.rglob(name) if ".git" not in p.parts]
+        if matches:
+            digest = sha256_file(matches[0])
+            checks.append({"id": f"geodata_{name}", "status": "info", "detail": f"{matches[0]} sha256={digest}"})
+        else:
+            checks.append({"id": f"geodata_{name}", "status": "info", "detail": "not found in repo; record client/runtime package hash during release"})
+    return checks
+
+
+def xray_config_test(config: Path, xray_bin: str) -> Dict[str, str]:
+    try:
+        proc = subprocess.run(
+            [xray_bin, "run", "-test", "-config", str(config)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=20,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {"id": "xray_run_test", "status": "info", "detail": f"{xray_bin!r} not found; skipped"}
+    except Exception as exc:  # noqa: BLE001
+        return {"id": "xray_run_test", "status": "warn", "detail": str(exc)}
+    detail = (proc.stdout or "").strip().replace("\n", " | ")[-1200:]
+    return {"id": "xray_run_test", "status": "pass" if proc.returncode == 0 else "fail", "detail": detail or f"exit={proc.returncode}"}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run local MITM-DomainFronting preflight checks")
     parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
@@ -179,6 +244,9 @@ def main() -> int:
     parser.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--no-dns", action="store_true", help="skip system DNS resolution check")
+    parser.add_argument("--skip-cert", action="store_true", help="skip local certificate/key checks for CI or static-only validation")
+    parser.add_argument("--skip-runtime", action="store_true", help="skip live local port/listener checks")
+    parser.add_argument("--xray-bin", default=None, help="optional Xray binary for xray run -test")
     args = parser.parse_args()
 
     checks: List[Dict[str, str]] = []
@@ -192,29 +260,40 @@ def main() -> int:
         checks.extend(config_checks)
         if config is not None:
             checks.extend(validate_config(config))
+            checks.append(udp443_policy_check(config))
     else:
         checks.append({"id": "validator_import", "status": "warn", "detail": "validate_config.py could not be imported"})
 
-    checks.append(check_file(args.cert, "cert_exists", "certificate"))
-    checks.append(check_file(args.key, "key_exists", "private key"))
-    cert_hash = sha256_file(args.cert)
-    if cert_hash:
-        checks.append({"id": "cert_sha256", "status": "info", "detail": cert_hash})
-    checks.extend(openssl_cert_info(args.cert))
-    checks.append(check_key_permissions(args.key))
+    if args.skip_cert:
+        checks.append({"id": "cert_checks", "status": "info", "detail": "skipped by --skip-cert"})
+    else:
+        checks.append(check_file(args.cert, "cert_exists", "certificate"))
+        checks.append(check_file(args.key, "key_exists", "private key"))
+        cert_hash = sha256_file(args.cert)
+        if cert_hash:
+            checks.append({"id": "cert_sha256", "status": "info", "detail": cert_hash})
+        checks.extend(openssl_cert_info(args.cert))
+        checks.append(check_key_permissions(args.key))
 
     ports = config_required_ports(config) if config else EXPECTED_PORTS
-    for port in ports:
-        accepts_local_connection = can_connect_local(port)
-        checks.append({
-            "id": f"connect_127_0_0_1_{port}",
-            "status": "pass" if accepts_local_connection else "info",
-            "detail": "listener accepted local TCP connection" if accepts_local_connection else "not listening on 127.0.0.1 now; OK if client is stopped",
-        })
-    checks.extend(listener_exposure_checks(ports))
+    if args.skip_runtime:
+        checks.append({"id": "runtime_listener_checks", "status": "info", "detail": "skipped by --skip-runtime"})
+    else:
+        for port in ports:
+            accepts_local_connection = can_connect_local(port)
+            checks.append({
+                "id": f"connect_127_0_0_1_{port}",
+                "status": "pass" if accepts_local_connection else "info",
+                "detail": "listener accepted local TCP connection" if accepts_local_connection else "not listening on 127.0.0.1 now; OK if client is stopped",
+            })
+        checks.extend(listener_exposure_checks(ports))
 
     if not args.no_dns:
         checks.append(basic_dns_check())
+    checks.extend(documentation_checks(Path.cwd()))
+    checks.extend(geodata_checks(Path.cwd()))
+    if args.xray_bin:
+        checks.append(xray_config_test(args.config, args.xray_bin))
 
     if summarize:
         overall = summarize(checks)

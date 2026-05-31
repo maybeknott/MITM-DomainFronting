@@ -1,0 +1,68 @@
+version: 1
+dns:
+  resolver_timeout:
+    risk: service_failure
+    required_handling: multi_resolver_fallback
+  local_dns_hijack:
+    risk: wrong_destination
+    required_handling: document_local_fallback_and_test_targeted_domains
+  dns64_nat64:
+    risk: ipv4_assumptions_fail
+    required_handling: ipv6_only_tests
+  https_svcb_changes:
+    risk: protocol_negotiation_changes
+    required_handling: query_type_aware_tests
+  fakedns_stale_cache:
+    risk: network_broken_after_exit
+    required_handling: recovery_guide
+  captive_portal_dns:
+    risk: setup_impossible
+    required_handling: captive_troubleshooting
+  enterprise_split_dns:
+    risk: internal_domains_break
+    required_handling: private_domain_local_policy
+  dns_loop:
+    risk: self_referential_resolver_path
+    required_handling: loop_detection
+transport:
+  quic_enabled:
+    risk: traffic_bypasses_tcp_path
+    required_handling: udp_443_policy
+  http2_grpc:
+    risk: stream_behavior_differs
+    required_handling: h2_tests
+  websocket_upgrade:
+    risk: header_proxy_behavior_differs
+    required_handling: http11_upgrade_test
+  webrtc_stun_turn:
+    risk: udp_heavy_flows
+    required_handling: unsupported_or_degraded_state
+  ipv6_preference:
+    risk: route_mismatch
+    required_handling: ipv6_test_matrix
+provider:
+  provider_policy_change:
+    risk: service_breakage
+    required_handling: provider_status_register
+  geosite_drift:
+    risk: wrong_route
+    required_handling: geodata_hash_and_release_notes
+  san_change:
+    risk: verify_name_failure
+    required_handling: validation_tests
+  http_421_403:
+    risk: provider_rejection
+    required_handling: documented_provider_limitation
+certificate:
+  wrong_certificate:
+    risk: privacy_error_or_wrong_trust
+    required_handling: fingerprint_verification
+  shared_key:
+    risk: critical_compromise
+    required_handling: rotate_and_remove
+  expired_certificate:
+    risk: sudden_browser_errors
+    required_handling: expiry_check_and_regeneration
+  separate_browser_store:
+    risk: cert_installed_but_browser_fails
+    required_handling: browser_specific_guide
