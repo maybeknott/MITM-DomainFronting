@@ -1,0 +1,24 @@
+provider:
+  id: fastly
+  status: experimental
+  last_tested: "YYYY-MM-DD"
+  tested_with:
+    os: ""
+    client: ""
+    xray: ""
+    browser: ""
+    geosite_sha256: ""
+    geoip_sha256: ""
+  route_tags:
+    - r130_repack_fastly_h2
+    - r150_repack_fastly_ip_h2
+    - r320_redirect_fastly_ip_tcp443_h2
+  known_risks:
+    - provider_policy_change
+    - geosite_drift
+    - geoip_drift
+    - regional_cdn_behavior
+    - ipv6_difference
+  known_working_targets: []
+  known_failing_targets: []
+  rollback_note: "If provider route breaks, revert to previous known-good route table or disable the affected rule after review."

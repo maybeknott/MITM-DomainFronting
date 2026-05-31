@@ -1,0 +1,41 @@
+version: 1
+edge_cases:
+  resolver_timeout:
+    risk: service_failure
+    required_handling: multi_resolver_fallback
+    validation: simulate_primary_timeout
+
+  local_dns_hijack:
+    risk: wrong_destination
+    required_handling: avoid_silent_local_fallback_for_targeted_domains
+    validation: lab_dns_returns_wrong_answer
+
+  dns64_nat64:
+    risk: ipv4_assumptions_fail
+    required_handling: ipv6_only_tests
+    validation: ipv6_only_or_nat64_lab
+
+  https_svcb_record_changes:
+    risk: protocol_negotiation_changes
+    required_handling: qtype_aware_tests
+    validation: query_a_aaaa_https_svcb
+
+  fakedns_stale_cache:
+    risk: network_broken_after_exit
+    required_handling: recovery_guide
+    validation: start_stop_flush_cache_test
+
+  captive_portal_dns:
+    risk: setup_impossible
+    required_handling: captive_portal_troubleshooting_note
+    validation: captive_portal_or_lab_hijack
+
+  enterprise_split_dns:
+    risk: internal_domains_break
+    required_handling: private_domain_local_policy
+    validation: internal_suffix_query
+
+  dns_loop:
+    risk: self_referential_resolver_path
+    required_handling: loop_detection
+    validation: preflight_resolver_route_analysis

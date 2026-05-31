@@ -1,0 +1,65 @@
+version: 1
+last_updated: "YYYY-MM-DD"
+
+platforms:
+  windows:
+    status: supported
+    clients:
+      v2rayN:
+        status: supported
+        tested_versions: []
+        required_checks:
+          - certificate_installed
+          - ports_10808_11666_11777_loopback
+          - config_imported_with_xray_core
+    known_issues:
+      - browser_certificate_store_mismatch
+      - port_conflict
+
+  android:
+    status: browser_oriented
+    clients:
+      v2rayNG:
+        status: supported_browser_oriented
+        tested_versions: []
+        required_checks:
+          - hev_tun_enabled_when_needed
+          - user_ca_installed
+          - browser_supports_user_ca
+    app_support:
+      default: limited
+      reasons:
+        - apps_may_ignore_user_ca
+        - apps_may_pin_certificates
+        - apps_may_use_custom_network_stack
+        - apps_may_use_quic_webrtc
+
+  macos:
+    status: test_required
+    clients: {}
+
+  linux:
+    status: test_required
+    clients: {}
+
+browsers:
+  chromium_desktop:
+    status: supported_if_ca_trusted
+  chromium_android:
+    status: supported_if_user_ca_trusted
+  firefox_desktop:
+    status: supported_if_ca_store_configured
+  firefox_android:
+    status: requires_user_ca_setting
+
+networks:
+  normal_home_lan:
+    status: supported
+  public_wifi:
+    status: supported_if_loopback_only_and_firewall_ok
+  captive_portal:
+    status: troubleshooting_required
+  ipv6_only_nat64:
+    status: test_required
+  enterprise_split_dns:
+    status: test_required

@@ -1,0 +1,81 @@
+# Platform Compatibility
+
+## Objective
+
+Clarify what is expected to work on each platform without creating complex user choices. The current simple path remains:
+
+1. Generate local certificate and key.
+2. Import the config.
+3. Trust the certificate in the relevant OS/browser store.
+4. Run the client.
+5. Use supported browsers/apps according to platform limitations.
+
+## Compatibility summary
+
+| Platform | Expected support | Main constraints | Required docs |
+|---|---|---|---|
+| Windows | Primary supported platform | Certificate trust store, v2rayN path, local ports | Windows guide + CA install/verify |
+| Android non-root | Browser-oriented support | User CA limitations, app pinning, HEV TUN behavior | Android guide + app limitation section |
+| macOS | Should be supportable but must be tested | Keychain trust settings, firewall, browser trust | macOS guide |
+| Linux | Should be supportable but distro-dependent | CA trust path, NetworkManager, browser stores | Linux guide |
+
+## Browser compatibility
+
+| Browser class | Expected behavior | Notes |
+|---|---|---|
+| Chromium-based desktop | Usually works if CA is trusted by OS/browser | Verify certificate fingerprint |
+| Chromium-based Android | Usually best non-root Android path | Some devices vary |
+| Firefox desktop | May use its own trust behavior depending on settings | Verify browser store separately |
+| Firefox Android | May require third-party CA setting | Document exact steps |
+| Browser with ECH/HTTP3 forced | May behave differently | Test and document |
+
+## Android app compatibility
+
+Many Android apps do not trust user-installed CAs, use certificate pinning, use custom trust stores, or rely heavily on QUIC/WebRTC. Those apps may fail even when the browser works. This is a platform/app design limit, not always a config bug.
+
+Classify Android reports as:
+
+```text
+android_browser_supported
+android_app_unknown
+android_app_pinned_or_custom_trust
+android_app_udp_heavy
+android_app_unsupported_without_app_cooperation
+```
+
+## Platform checklist
+
+For each release, maintain this table:
+
+| Item | Windows | Android | macOS | Linux |
+|---|---|---|---|---|
+| Xray version tested |  |  |  |  |
+| Client version tested |  |  |  |  |
+| Browser version tested |  |  |  |  |
+| CA generation tested |  |  |  |  |
+| CA install tested |  |  |  |  |
+| CA verify tested |  |  |  |  |
+| Local ports checked |  |  |  |  |
+| DNS check passed |  |  |  |  |
+| FakeDNS recovery tested |  |  |  |  |
+| IPv6 tested |  |  |  |  |
+| QUIC behavior documented |  |  |  |  |
+| Known unsupported app classes documented |  |  |  |  |
+
+## Public Wi-Fi, LAN, and hostile local network assumptions
+
+The method should be treated as a local-only tool. All local listeners should bind to `127.0.0.1` or `::1`. On public Wi-Fi or hostile LANs, a listener bound to `0.0.0.0` or a LAN IP may be reachable by other devices.
+
+Required tests:
+
+- Public Wi-Fi scenario: confirm local ports are not reachable from another device.
+- LAN scenario: confirm no LAN address is listening on 10808, 11666, or 11777.
+- Hostile local network scenario: confirm firewall blocks inbound traffic and only loopback clients can connect.
+
+## Known limitation language for README
+
+Recommended wording:
+
+```text
+This method is mainly browser-oriented. On Android without root, independent apps may fail because they can ignore user-installed CAs, use certificate pinning, or use network stacks that do not follow browser trust settings. A browser working does not guarantee every app will work.
+```

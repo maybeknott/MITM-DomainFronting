@@ -1,0 +1,16 @@
+version: 1
+release_checklist:
+  json_parse: required
+  xray_run_test: required_if_xray_available
+  route_reference_validation: required
+  rule_tag_validation: recommended
+  loopback_binding_review: required
+  dns_resolver_review: required
+  fakedns_recovery_doc_review: required
+  certificate_generation_test: required
+  certificate_status_test: required
+  support_matrix_update: required
+  known_issues_update: required
+  checksums: required
+  validation_report: required
+  final_verdict: required

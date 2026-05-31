@@ -1,0 +1,73 @@
+version: 1
+last_updated: "YYYY-MM-DD"
+
+protocols:
+  tcp_443_https:
+    status: supported
+    required_tests:
+      - route_tag_match
+      - certificate_trust
+      - provider_route
+
+  http_1_1_tls:
+    status: supported
+    edge_cases:
+      - websocket_upgrade
+      - keepalive
+      - redirects
+
+  http_2_tls:
+    status: supported
+    edge_cases:
+      - grpc
+      - multiplexing
+      - stream_reset
+
+  http_3_quic_udp_443:
+    status: limited_or_unknown
+    expected_behavior: document_per_browser
+    tests:
+      - udp_443_route
+      - browser_http3_enabled_disabled
+
+  dns_udp_tcp_53:
+    status: supported
+    tests:
+      - resolver_timeout
+      - private_domain
+      - nxdomain
+
+  doh:
+    status: resolver_dependent
+    tests:
+      - resolver_tls_path
+      - fallback
+
+  dot:
+    status: not_explicitly_supported_unless_configured
+
+  doq:
+    status: not_explicitly_supported_unless_configured
+
+  websocket:
+    status: test_required
+    depends_on:
+      - http_1_1_tls
+
+  grpc:
+    status: test_required
+    depends_on:
+      - http_2_tls
+
+  webrtc_stun_turn:
+    status: degraded_or_unknown
+    reason: udp_heavy_app_browser_specific
+
+  ipv6:
+    status: test_required
+
+  nat64_dns64:
+    status: test_required
+
+  private_lan:
+    status: direct_expected
