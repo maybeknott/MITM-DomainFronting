@@ -1,0 +1,82 @@
+name: Bug report
+about: Report a setup, routing, DNS, certificate, or compatibility problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not upload `mycert.key`, full request logs, cookies, Authorization headers, or screenshots containing tokens. Redact full URLs if they contain private tokens.
+  - type: input
+    id: version
+    attributes:
+      label: Config version / remarks
+      description: Example: MITM-DomainFronting_v22
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - Android
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client and version
+      description: Example: v2rayN version, v2rayNG version, Xray version
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser/app and version
+      description: State whether this is browser or independent app.
+    validations:
+      required: true
+  - type: dropdown
+    id: problem_area
+    attributes:
+      label: Problem area
+      options:
+        - Certificate/privacy error
+        - DNS/resolver problem
+        - Routing/service problem
+        - Android app compatibility
+        - QUIC/UDP/media problem
+        - FakeDNS/network broken after stopping
+        - Port/listener problem
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: preflight
+    attributes:
+      label: Redacted preflight output
+      description: Paste output from scripts/preflight.py after reviewing it for sensitive info.
+      render: json
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give exact, minimal steps. Do not include private tokens or request bodies.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

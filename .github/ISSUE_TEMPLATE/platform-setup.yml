@@ -1,0 +1,48 @@
+name: Platform setup help
+about: Setup issue for Windows, Android, macOS, or Linux
+labels: [setup]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not upload `mycert.key`. For certificate issues, share only the first 12 characters of the certificate SHA-256 fingerprint.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - Android
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client/version
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser/app/version
+    validations:
+      required: true
+  - type: checkboxes
+    id: completed
+    attributes:
+      label: Completed steps
+      options:
+        - label: Generated local `mycert.crt` and `mycert.key`
+        - label: Installed `mycert.crt` into OS/browser trust store
+        - label: Verified certificate fingerprint
+        - label: Imported Xray config
+        - label: Confirmed ports 10808, 11666, 11777 are not occupied by another program
+        - label: Ran preflight script
+  - type: textarea
+    id: issue
+    attributes:
+      label: What failed?
+    validations:
+      required: true

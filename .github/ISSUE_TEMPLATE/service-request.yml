@@ -1,0 +1,50 @@
+name: Service/protocol compatibility request
+about: Request documentation or testing for a service/protocol
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is for compatibility tracking. Do not post private keys, cookies, request bodies, or account screenshots.
+  - type: input
+    id: service
+    attributes:
+      label: Service or protocol
+      description: Example: WebSocket, HTTP/3, a provider-backed domain category, Android browser flow.
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Main protocol class
+      options:
+        - TCP/443 HTTPS
+        - HTTP/1.1
+        - HTTP/2
+        - HTTP/3/QUIC/UDP
+        - DNS
+        - DoH/DoT/DoQ
+        - WebSocket
+        - gRPC
+        - WebRTC/STUN/TURN
+        - IPv6/NAT64
+        - Unknown
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform/client/browser tested
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: route_dns
+    attributes:
+      label: Route/DNS evidence if available
+      description: Route tag, DNS check summary, preflight summary. Redact sensitive data.
