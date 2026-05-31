@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Tuple
 LOOPBACK_NAMES = {"127.0.0.1", "::1", "localhost"}
 REQUIRED_INBOUND_TAGS = {"mixed-in", "tls-decrypt-h11", "tls-decrypt-h211"}
 REQUIRED_PORTS = {10808, 11666, 11777}
-EXPECTED_RULE_ORDER = [
+EXPECTED_RULE_ORDER_BASE = [
     "r010_block_ads",
     "r020_repack_dns_cloudflare",
     "r025_repack_dns_google",
@@ -36,6 +36,23 @@ EXPECTED_RULE_ORDER = [
     "r310_direct_private_regional_ip",
     "r320_redirect_fastly_ip_tcp443_h2",
     "r900_direct_global_catchall",
+    "r999_block_final",
+]
+EXPECTED_RULE_ORDER_WITH_DIRECT_UDP = [
+    *EXPECTED_RULE_ORDER_BASE[:5],
+    "r050_direct_quic_udp443",
+    *EXPECTED_RULE_ORDER_BASE[5:],
+]
+EXPECTED_RULE_ORDER_WITH_BLOCK_UDP = [
+    *EXPECTED_RULE_ORDER_BASE[:5],
+    "r050_block_quic_udp443",
+    *EXPECTED_RULE_ORDER_BASE[5:],
+]
+EXPECTED_RULE_ORDER_STRICT = [
+    *EXPECTED_RULE_ORDER_BASE[:5],
+    "r050_block_quic_udp443",
+    *EXPECTED_RULE_ORDER_BASE[5:-2],
+    "r900_block_global_catchall",
     "r999_block_final",
 ]
 KNOWN_STATIC_CIDRS = {"10.10.34.0/24", "2001:4188:2:600::/64"}
@@ -71,6 +88,14 @@ def has_catchall_ip(rule: Dict[str, Any]) -> bool:
 
 def has_final_block(rule: Dict[str, Any]) -> bool:
     return rule.get("outboundTag") == "block" and str(rule.get("port")) == "0-65535"
+
+
+def infer_profile(config: Dict[str, Any]) -> str:
+    remarks = str(config.get("remarks", "")).lower()
+    for profile in ("strict", "balanced", "compatibility", "debug"):
+        if remarks.endswith("_" + profile) or profile in remarks.split("_"):
+            return profile
+    return "base"
 
 
 def tag_to_port(items: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -116,6 +141,7 @@ def inbound_listen_status(inbound: Dict[str, Any]) -> Tuple[str, str]:
 
 def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
     checks: List[Dict[str, str]] = []
+    profile = infer_profile(config)
     inbounds = config.get("inbounds", [])
     outbounds = config.get("outbounds", [])
     routing = config.get("routing", {})
@@ -200,6 +226,8 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
     dns_port_rule = False
     tcp443_redirect_rule = False
     catchall_direct = False
+    catchall_block = False
+    udp443_policy = False
     final_block = False
 
     for idx, rule in enumerate(rules):
@@ -232,6 +260,10 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
                 redirect_rule_mismatches.append(f"rule[{idx}] {out_tag} redirects to {redirect_port}, expected {expected_port}")
         if rule.get("outboundTag") == "direct" and has_catchall_ip(rule):
             catchall_direct = True
+        if rule.get("outboundTag") == "block" and has_catchall_ip(rule):
+            catchall_block = True
+        if str(rule.get("port")) == "443" and rule.get("network") == "udp":
+            udp443_policy = True
         if has_final_block(rule):
             final_block = True
         ips = rule.get("ip")
@@ -262,10 +294,18 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
         "status": "pass" if not malformed_rule_tags else "warn",
         "detail": "all ruleTag values match rNNN_name" if not malformed_rule_tags else "; ".join(malformed_rule_tags),
     })
+    expected_orders = {
+        "base": [EXPECTED_RULE_ORDER_BASE],
+        "balanced": [EXPECTED_RULE_ORDER_WITH_DIRECT_UDP],
+        "compatibility": [EXPECTED_RULE_ORDER_WITH_DIRECT_UDP],
+        "debug": [EXPECTED_RULE_ORDER_WITH_BLOCK_UDP],
+        "strict": [EXPECTED_RULE_ORDER_STRICT],
+    }
+    route_order_ok = rule_tags in expected_orders.get(profile, [EXPECTED_RULE_ORDER_BASE])
     checks.append({
         "id": "route_order",
-        "status": "pass" if rule_tags == EXPECTED_RULE_ORDER else "warn",
-        "detail": "route order matches documented ruleTag order" if rule_tags == EXPECTED_RULE_ORDER else "ruleTag order differs from docs; review routing-correctness.md",
+        "status": "pass" if route_order_ok else "warn",
+        "detail": f"route order matches documented {profile} ruleTag order" if route_order_ok else "ruleTag order differs from docs; review routing-correctness.md",
     })
     checks.append({
         "id": "route_outbound_references",
@@ -296,7 +336,11 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
     checks.append({"id": "redirect_outbounds", "status": "pass" if not bad_redirects else "fail", "detail": "redirect outbounds target loopback ports" if not bad_redirects else "; ".join(bad_redirects)})
     checks.append({"id": "redirect_target_ports", "status": "pass" if not redirect_rule_mismatches else "fail", "detail": "redirect rules target their matching local tunnel ports" if not redirect_rule_mismatches else "; ".join(redirect_rule_mismatches)})
     checks.append({"id": "static_cidr_rationale", "status": "pass" if not unexpected_static_cidrs else "warn", "detail": "only documented static CIDRs are present" if not unexpected_static_cidrs else "review undocumented static CIDRs: " + ", ".join(unexpected_static_cidrs)})
-    checks.append({"id": "direct_global_catchall", "status": "pass" if catchall_direct else "warn", "detail": "direct 0.0.0.0/0 and ::/0 catch-all present" if catchall_direct else "no direct global catch-all found"})
+    checks.append({"id": "udp443_policy", "status": "pass" if udp443_policy or profile == "base" else "warn", "detail": "explicit UDP/443 profile policy present" if udp443_policy else "base config has no explicit UDP/443 policy; profile configs should"})
+    if profile == "strict":
+        checks.append({"id": "strict_global_catchall", "status": "pass" if catchall_block else "fail", "detail": "strict profile blocks global catch-all" if catchall_block else "strict profile must block global catch-all"})
+    else:
+        checks.append({"id": "direct_global_catchall", "status": "pass" if catchall_direct else "warn", "detail": "direct 0.0.0.0/0 and ::/0 catch-all present" if catchall_direct else "no direct global catch-all found"})
     checks.append({"id": "final_block", "status": "pass" if final_block else "warn", "detail": "final block port 0-65535 present" if final_block else "no final block rule found"})
 
     if isinstance(dns, dict):

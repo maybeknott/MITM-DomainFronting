@@ -1,0 +1,27 @@
+version: 1
+default_profile: balanced
+profiles:
+  strict:
+    purpose: fail_closed_targeted_testing
+    non_private_catchall: block
+    udp_443: block
+    logs: minimal
+    default_for_first_time_user: true
+  balanced:
+    purpose: current_user_friendly_behavior
+    non_private_catchall: direct
+    udp_443: direct_with_documented_warning
+    logs: minimal
+    default_for_first_time_user: false
+  compatibility:
+    purpose: captive_or_app_troubleshooting
+    non_private_catchall: direct
+    udp_443: direct_with_warning
+    logs: minimal
+    default_for_first_time_user: false
+  debug:
+    purpose: deterministic_redacted_diagnostics
+    non_private_catchall: direct
+    udp_443: block_to_surface_quic_mismatch
+    logs: info_without_access_log
+    default_for_first_time_user: false

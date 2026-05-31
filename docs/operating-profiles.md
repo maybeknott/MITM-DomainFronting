@@ -1,0 +1,47 @@
+# Operating Profiles
+
+The primary import file remains `Xray-config/MITM-DomainFronting.json`. Additional profiles make failure policy explicit for testing and support.
+
+## Profiles
+
+| Profile | Purpose | Unsupported non-private traffic | UDP/443 / QUIC policy | Logs |
+|---|---|---|---|---|
+| `strict` | Safer fail-closed testing | Block | Block | Minimal |
+| `balanced` | Current user-friendly behavior | Direct | Direct with documented warning | Minimal |
+| `compatibility` | Captive portal or app troubleshooting | Direct | Direct with warning | Minimal |
+| `debug` | Deterministic redacted diagnostics | Direct | Block to surface QUIC mismatch | `info` log level, no access log |
+
+## Generated Files
+
+```text
+Xray-config/MITM-DomainFronting.strict.json
+Xray-config/MITM-DomainFronting.balanced.json
+Xray-config/MITM-DomainFronting.compatibility.json
+Xray-config/MITM-DomainFronting.debug.json
+```
+
+Regenerate them with:
+
+```bash
+python scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json
+```
+
+## Safety Rules
+
+- Profiles must not include private keys or generated certificates.
+- Debug profile must not enable request-body, cookie, authorization-header, or decrypted payload logging.
+- Strict profile must not silently direct-route unknown non-private traffic.
+- Compatibility profile must not be presented as more private or safer than strict.
+- Profile docs, `configs/profiles.yml`, generated JSON, and validator expectations must be updated together.
+
+## Triage Mapping
+
+| Detected condition | Suggested profile | Rule |
+|---|---|---|
+| First-time user | `strict` | Safer fail-closed baseline |
+| DNS primary timeout | `balanced` | Uses tagged DNS fallback |
+| Captive portal | `compatibility` | Temporary troubleshooting only |
+| Android browser | `balanced` | Browser-oriented, app claims separate |
+| Debugging route behavior | `debug` | Redacted diagnostics only |
+| Missing CA trust | stop | Do not auto-install silently |
+| Weak key permissions | stop | Fix before running |

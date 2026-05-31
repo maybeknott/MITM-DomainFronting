@@ -29,6 +29,14 @@ jobs:
             echo "Xray-config/MITM-DomainFronting.json not present in this branch"
           fi
 
+      - name: Validate generated profile configs
+        run: |
+          python scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json
+          git diff --exit-code -- Xray-config/MITM-DomainFronting.*.json
+          for config in Xray-config/MITM-DomainFronting*.json; do
+            python scripts/validate_config.py "$config"
+          done
+
       - name: Run preflight static checks if config present
         run: |
           if [ -f Xray-config/MITM-DomainFronting.json ]; then
