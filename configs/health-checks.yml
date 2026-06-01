@@ -28,6 +28,10 @@ checks:
     - proxy_environment
     - system_proxy
     - vpn_tun_interface_conflict
+    - captive_portal_warning
+  policy:
+    - policy_recommendation_read_only
+    - auto_switch_disabled
 failure_policy:
   strict:
     unknown_non_private: block

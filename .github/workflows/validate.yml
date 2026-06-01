@@ -85,6 +85,15 @@ jobs:
         run: |
           python scripts/transport_experiment_validate.py
 
+      - name: Validate config-src manifest
+        run: |
+          python scripts/config_src_validate.py --run-steps
+
+      - name: Lab evidence bundle (best-effort)
+        continue-on-error: true
+        run: |
+          python scripts/lab_evidence_run.py
+
       - name: Run browser probe semantics regression checks
         run: |
           python scripts/browser_probe_semantics_test.py

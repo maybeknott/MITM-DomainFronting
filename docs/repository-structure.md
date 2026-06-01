@@ -75,6 +75,10 @@ MITM-DomainFronting/
     provider-status.example.yml
     release-checklist.yml
 
+  config-src/
+    manifest.json
+    README.md
+
   providers/
     dns-resolvers.yml
     fastly.yml
@@ -109,10 +113,15 @@ MITM-DomainFronting/
     geodata_pin.py
     provider_dossier_validate.py
     health_probe.py
-    health_probe.py
     route_intent_sync.py
+    config_src_validate.py
+    config_src_build.py
+    lab_evidence_run.py
     transport_experiment_validate.py
     launch_browser_mitm.ps1
+
+  docs/
+    lab-evidence-checklist.md
 
   .github/
     ISSUE_TEMPLATE/

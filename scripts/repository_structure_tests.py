@@ -59,6 +59,12 @@ REQUIRED_FILES = [
     "scripts/health_probe.py",
     "scripts/route_intent_sync.py",
     "scripts/transport_experiment_validate.py",
+    "config-src/manifest.json",
+    "config-src/README.md",
+    "scripts/config_src_validate.py",
+    "scripts/config_src_build.py",
+    "scripts/lab_evidence_run.py",
+    "docs/lab-evidence-checklist.md",
     "release-geodata-lock.example.json",
     "scripts/gui.py",
     "scripts/build_gui_exe.py",
@@ -78,6 +84,8 @@ SHOULD_BE_IGNORED = [
     "browser-profiles/stealth-cloakbrowser",
     "build/_tmp",
     "dist/_tmp",
+    "build/config",
+    "lab-evidence.bundle.json",
 ]
 
 

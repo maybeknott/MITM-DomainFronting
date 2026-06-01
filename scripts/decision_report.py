@@ -22,6 +22,14 @@ try:
     from platform_capability_check import build_report as build_platform_capability_report  # noqa: E402
 except Exception:  # noqa: BLE001
     build_platform_capability_report = None
+try:
+    from preflight import captive_portal_warning_check  # noqa: E402
+except Exception:  # noqa: BLE001
+    captive_portal_warning_check = None
+try:
+    from health_probe import build_policy_recommendation  # noqa: E402
+except Exception:  # noqa: BLE001
+    build_policy_recommendation = None
 
 PROFILE_RULES = {
     "strict": "block_unknown_non_private_and_udp443",
@@ -148,6 +156,16 @@ def main() -> int:
             "This report is redacted and never includes URLs, cookies, payloads, or private-key contents.",
         ],
     }
+    if captive_portal_warning_check is not None:
+        report["captive_portal"] = captive_portal_warning_check()
+    if build_policy_recommendation is not None:
+        health_checks = {
+            "local_ports": [{"id": f"port_{p}", "status": "pass" if port_state(p) == "listening-loopback" else "warn", "detail": port_state(p)} for p in (10808, 11666, 11777)],
+            "certificate": [{"id": "crt_exists", "status": "pass" if exists(args.cert) else "warn"}],
+            "dns": [{"id": "dns_config", "status": "pass" if dns_tags(config or {}).get("primary") == "configured" else "warn"}],
+            "trust_store": trust_store_status(args.cert),
+        }
+        report["policy_recommendation"] = build_policy_recommendation(health_checks, validation, Path("."))
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 2 if validation == "fail" else 0
 

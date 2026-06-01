@@ -381,6 +381,10 @@ class App(tk.Tk):
             CommandSpec("Provider Dossiers", "Provider metadata, route-tag linkage, and rollback/evidence checks.", tuple(py_script("provider_dossier_validate.py"))),
             CommandSpec("Geodata Pin Verify", "Verifies geodata lock file when present; info-only if absent.", tuple(py_script("geodata_pin.py", "--verify"))),
             CommandSpec("Health Probe", "Redacted health report for ports/cert/trust/dns/providers.", tuple(py_script("health_probe.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--providers-dir", str(ROOT / "providers")))),
+            CommandSpec("Route Intent Sync", "Compare config ruleTags against configs/route-intent.json.", tuple(py_script("route_intent_sync.py", str(CONFIG)))),
+            CommandSpec("Config-src Validate", "Validate config-src manifest and run build-time checks.", tuple(py_script("config_src_validate.py", "--run-steps"))),
+            CommandSpec("Transport Governance", "Validate transport experiment manifest guardrails.", tuple(py_script("transport_experiment_validate.py"))),
+            CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py"))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
             CommandSpec("Decision Report", "Redacted local decision summary.", tuple(py_script("decision_report.py", "--config", str(CONFIG), "--profile", "balanced"))),
         ]
@@ -432,6 +436,8 @@ class App(tk.Tk):
         row = tk.Frame(health, bg=COLORS["panel"])
         row.pack(fill="x", padx=16, pady=(0, 16))
         ttk.Button(row, text="Run Health Probe", style="Accent.TButton", command=self.run_health_probe).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Run Lab Evidence", style="Soft.TButton", command=self.run_lab_evidence).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Run Decision Report", style="Soft.TButton", command=self.run_decision_report).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Health Policy", style="Soft.TButton", command=lambda: self.open_path(ROOT / "configs" / "health-checks.yml")).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Decision Engine Doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "decision-engine.md")).pack(side="left")
 
@@ -829,6 +835,16 @@ class App(tk.Tk):
             args.extend(["--xray-bin", str(xray)])
         self.run_async("Health probe", args, timeout=180)
 
+    def run_lab_evidence(self) -> None:
+        self.run_async("Lab evidence bundle", py_script("lab_evidence_run.py"), timeout=240)
+
+    def run_decision_report(self) -> None:
+        self.run_async(
+            "Decision report",
+            py_script("decision_report.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--profile", "balanced"),
+            timeout=120,
+        )
+
     def run_browser_smoke(self) -> None:
         try:
             url, proxy = self._browser_common_args()
@@ -1104,6 +1120,12 @@ def self_test() -> int:
         SCRIPTS / "dns_lab_harness.py",
         SCRIPTS / "fakedns_recovery_check.py",
         SCRIPTS / "install_xray.py",
+        SCRIPTS / "route_intent_sync.py",
+        SCRIPTS / "config_src_validate.py",
+        SCRIPTS / "lab_evidence_run.py",
+        SCRIPTS / "transport_experiment_validate.py",
+        ROOT / "config-src" / "manifest.json",
+        ROOT / "docs" / "lab-evidence-checklist.md",
         BROWSER_CONFIG,
         ROOT / "docs" / "chromium-integration.md",
     ]

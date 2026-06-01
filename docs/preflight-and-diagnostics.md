@@ -65,6 +65,8 @@ Support-safe decision report:
 python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --profile balanced
 ```
 
+The decision report includes captive portal warnings and the same read-only `policy_recommendation` block as the health probe. For repeatable lab scenarios, see [`lab-evidence-checklist.md`](lab-evidence-checklist.md) and `python scripts/lab_evidence_run.py`.
+
 ## Checks
 
 | Check | Why it matters | Pass condition |

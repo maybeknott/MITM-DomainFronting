@@ -246,16 +246,50 @@ def _classify_nat64(a_check: Dict[str, object], aaaa_check: Dict[str, object]) -
     return "unknown"
 
 
+def _system_a_probe(domain: str, timeout: float) -> Dict[str, object]:
+    old = socket.getdefaulttimeout()
+    start = time.time()
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.getaddrinfo(domain, 443, family=socket.AF_INET, type=socket.SOCK_STREAM)
+        return {
+            "resolver": "system",
+            "domain": domain,
+            "qtype": "A",
+            "status": "pass",
+            "elapsed_ms": int((time.time() - start) * 1000),
+            "answers": 1,
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "resolver": "system",
+            "domain": domain,
+            "qtype": "A",
+            "status": "warn",
+            "elapsed_ms": int((time.time() - start) * 1000),
+            "error": str(exc),
+            "answers": 0,
+        }
+    finally:
+        socket.setdefaulttimeout(old)
+
+
 def scenario_nat64_dns64(domain: str, resolvers: List[str], timeout: float) -> Dict[str, object]:
-    checks: List[Dict[str, object]] = []
+    checks: List[Dict[str, object]] = [system_resolve(domain, timeout), _system_a_probe(domain, timeout)]
     for resolver in resolvers:
         a_result = query_udp(resolver, domain, "A", timeout)
         aaaa_result = query_udp(resolver, domain, "AAAA", timeout)
         a_result["record_type"] = "A"
         aaaa_result["record_type"] = "AAAA"
         checks.extend([a_result, aaaa_result])
-    classification = _classify_nat64(checks[0], checks[1]) if len(checks) >= 2 else "unknown"
+    resolver_a = next((c for c in checks if c.get("record_type") == "A" and c.get("resolver") != "system"), checks[-2] if len(checks) >= 2 else {})
+    resolver_aaaa = next((c for c in checks if c.get("record_type") == "AAAA"), checks[-1] if checks else {})
+    classification = _classify_nat64(
+        resolver_a if isinstance(resolver_a, dict) else {},
+        resolver_aaaa if isinstance(resolver_aaaa, dict) else {},
+    )
     synthesized_like = [c for c in checks if c.get("status") == "pass" and int(c.get("answers", 0)) > 0 and c.get("record_type") == "AAAA"]
+    system_has_v4 = checks[1].get("status") == "pass" if len(checks) > 1 else False
     return {
         "scenario": "nat64-dns64",
         "checks": checks,
@@ -263,6 +297,7 @@ def scenario_nat64_dns64(domain: str, resolvers: List[str], timeout: float) -> D
             "aaaa_answers_seen": len(synthesized_like),
             "dns64_possible": len(synthesized_like) > 0,
             "network_classification": classification,
+            "system_ipv4_reachable": system_has_v4,
             "note": "Use an IPv4-only lab domain (default ipv4only.arpa) for stronger DNS64 signal.",
         },
         "overall": _overall_from_checks(checks),

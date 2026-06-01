@@ -59,6 +59,16 @@ body:
         - unknown
     validations:
       required: true
+  - type: dropdown
+    id: captive_portal
+    attributes:
+      label: Captive portal relevance
+      options:
+        - not applicable
+        - likely relevant
+        - unknown
+    validations:
+      required: true
   - type: textarea
     id: observed
     attributes:

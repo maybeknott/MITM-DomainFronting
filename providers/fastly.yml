@@ -19,6 +19,7 @@ tested_with:
   client: v2rayN
   xray_min: 26.2.6
   xray: 26.2.6
+  environment: lab-windows-v2rayN-desktop
 supported_profiles:
   - strict
   - balanced

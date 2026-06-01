@@ -38,3 +38,7 @@ venv/
 # Local packaging outputs
 build/
 dist/
+build/config/
+
+# Lab evidence bundles (review before sharing)
+lab-evidence.bundle.json

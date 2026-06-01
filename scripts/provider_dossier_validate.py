@@ -99,7 +99,7 @@ def validate_provider(path: Path, known_route_tags: Set[str]) -> List[str]:
             errors.append(f"{path}: failure_policy.strict missing")
         if not _has_nested_key(text, "failure_policy", "balanced"):
             errors.append(f"{path}: failure_policy.balanced missing")
-    for key in ("os", "client", "xray_min", "xray"):
+    for key in ("os", "client", "xray_min", "xray", "environment"):
         if not _has_nested_key(text, "tested_with", key):
             errors.append(f"{path}: tested_with.{key} missing")
     return errors

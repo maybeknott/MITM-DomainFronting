@@ -79,6 +79,12 @@ python scripts/dns_lab_harness.py --scenario nat64-dns64 --nat64-domain ipv4only
 python scripts/dns_lab_harness.py --scenario captive-portal
 ```
 
+See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) and:
+
+```bash
+python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
+```
+
 ### Harness output schema (redacted)
 
 ```json

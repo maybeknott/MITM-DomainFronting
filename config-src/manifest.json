@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "description": "Phase-1 config-src manifest. Runtime import path remains Xray-config/MITM-DomainFronting.json until fragment compilation is enabled.",
+  "runtime_import_target": "Xray-config/MITM-DomainFronting.json",
+  "compiled_output": "build/config/MITM-DomainFronting.json",
+  "primary_source": "Xray-config/MITM-DomainFronting.json",
+  "fragments": [],
+  "validation_steps": [
+    "validate_config",
+    "route_intent_sync",
+    "route_policy_tests",
+    "transport_experiment_validate"
+  ],
+  "non_goals": [
+    "no automatic profile switching at build time",
+    "no upstream Xray-core source edits",
+    "no payload logging during build"
+  ]
+}

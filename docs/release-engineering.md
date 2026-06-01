@@ -39,6 +39,7 @@ python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
 python scripts/geodata_pin.py --verify
 python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/config_src_validate.py --run-steps
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
 
