@@ -40,6 +40,7 @@ venv/
 build/
 dist/
 build/config/
+target/
 
 # Lab evidence bundles (review before sharing)
 lab-evidence.bundle.json

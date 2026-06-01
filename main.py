@@ -54,6 +54,7 @@ def main() -> int:
             (SCRIPTS / "provider_policy_validator_tests.py", []),
             (SCRIPTS / "failure_classifier_tests.py", []),
             (SCRIPTS / "path_scorer_tests.py", []),
+            (SCRIPTS / "rust_core_tests.py", []),
             (SCRIPTS / "transport_experiment_validate.py", []),
             (SCRIPTS / "transport_profile_validate.py", []),
             (SCRIPTS / "repository_structure_tests.py", []),
