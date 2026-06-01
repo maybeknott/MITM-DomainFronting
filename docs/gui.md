@@ -32,7 +32,7 @@ py -3 scripts\gui.py --self-test
 
 ۲. **Generate Local CA**: ساخت گواهی و کلید شخصی در مسیر `Xray-config/`. نصب Trust Store دستی می‌ماند و برنامه آن را بی‌اجازه انجام نمی‌دهد.
 
-۳. **Start Proxy**: اجرای Xray محلی با کانفیگ انتخاب‌شده، اگر runtime محلی موجود باشد.
+۳. **Start Core**: اجرای Xray Core داخلی برنامه با کانفیگ انتخاب‌شده، اگر runtime محلی در `xray/` موجود باشد. اگر v2rayN یا Xray دیگری از قبل روی `127.0.0.1:10808` فعال باشد، برنامه آن را به عنوان external core نشان می‌دهد، از آن برای تست استفاده می‌کند و آن فرایند را متوقف نمی‌کند.
 
 ۴. **Run Page Check**: تست یک صفحه از مسیر پروکسی محلی `127.0.0.1:10808`.
 
@@ -42,6 +42,8 @@ py -3 scripts\gui.py --self-test
 - فضای وسط برای کار اصلی هر صفحه است.
 - نوار راست Telemetry همیشه وضعیت زنده، شبکه و فعالیت محلی را نشان می‌دهد.
 - Log Drawer پایین برنامه به صورت پیش‌فرض مخفی است و فقط وقتی لازم باشد باز می‌شود.
+
+صفحه روزمره **Run & Test** با مدل dashboard طراحی شده است: ردیف اول وضعیت System، Xray Core، Local Proxy، DNS و Network Mode را نشان می‌دهد؛ پایین‌تر workflow، وضعیت آماده‌بودن، کنترل core، Network Mode، Browser Proxy Check و Quick Actions قرار دارند. هدف این است که کاربر اول بفهمد «چه چیزی آماده است؟ چه چیزی listener را در اختیار دارد؟ قدم بعدی چیست؟»
 
 با **Focus Mode** می‌توانید نوار چپ را مخفی کنید. با **Telemetry Rail** می‌توانید نوار راست را هم مخفی یا دوباره نمایش دهید.
 
@@ -85,11 +87,20 @@ py -3 scripts\gui.py --self-test
 
 ### Start Here
 
-مسیر مناسب برای کاربر جدید است. ابزارهای اضافی مثل نصب Playwright، نصب ابزار fingerprint، دانلود Xray و PyInstaller در بخش اختیاری مخفی شده‌اند تا صفحه اول شلوغ نشود.
+مسیر مناسب برای کاربر جدید است. وضعیت **Bundled Xray Core** نشان می‌دهد `xray.exe`، `geoip.dat` و `geosite.dat` در برنامه موجود هستند یا نه. ابزارهای اضافی مثل نصب Playwright، نصب ابزار fingerprint، دانلود Xray Core و PyInstaller در بخش اختیاری مخفی شده‌اند تا صفحه اول شلوغ نشود.
 
 ### Run & Test
 
-صفحه استفاده روزمره است. از اینجا می‌توانید پروکسی را start/stop کنید، یک Page Check بگیرید، repair سریع انجام دهید، issue summary بسازید و وضعیت کلی پروژه را ببینید.
+صفحه استفاده روزمره است. از اینجا می‌توانید Xray Core داخلی برنامه را start/stop کنید، یک Page Check بگیرید، repair سریع انجام دهید، issue summary بسازید و وضعیت کلی پروژه را ببینید. اگر v2rayN یا یک core خارجی روی پورت پروفایل انتخاب‌شده باز باشد، برنامه آن را usable نشان می‌دهد و دکمه stop فقط روی core اجراشده توسط خود برنامه اثر دارد.
+
+### Network Mode
+
+این کارت مشخص می‌کند ترافیک از چه مسیری وارد Xray می‌شود:
+
+- **Local proxy endpoint**: آدرس و پورت inbound محلی پروفایل انتخاب‌شده. اگر alternate-port profile انتخاب شود، GUI همان پورت را برای وضعیت و browser proxy استفاده می‌کند.
+- **External core ownership**: اگر v2rayN یا Xray دیگری پورت را در اختیار داشته باشد، GUI آن را external نشان می‌دهد و نمی‌بندد.
+- **System proxy**: فقط بررسی و هشدار است. برنامه system proxy را خودکار روشن، خاموش یا تغییر نمی‌دهد.
+- **TUN mode**: پروفایل استاندارد TUN ندارد. اگر کانفیگ انتخاب‌شده inbound نوع TUN داشته باشد، GUI آن را advisory نشان می‌دهد؛ استفاده از TUN یعنی routing سطح سیستم و معمولاً نیازمند administrator و بررسی routeها است.
 
 ### Checks
 
@@ -101,7 +112,7 @@ py -3 scripts\gui.py --self-test
 
 ### Repair
 
-ابزارهای تعمیر local را نگه می‌دارد. Repair Setup فایل‌های تولیدی و metadata را بررسی و بازسازی می‌کند. ابزارهای نصب dependency و دانلود Xray در advanced قرار دارند.
+ابزارهای تعمیر local را نگه می‌دارد. Repair Setup فایل‌های تولیدی و metadata را بررسی و بازسازی می‌کند. ابزارهای نصب dependency و دانلود Xray Core در advanced قرار دارند.
 
 ### Certificates
 
@@ -124,7 +135,7 @@ py -3 scripts\gui.py --self-test
 Log Drawer خروجی را به سه بخش تقسیم می‌کند:
 
 - **System**: پیام‌های عمومی برنامه.
-- **Proxy**: پیام‌های مربوط به Xray و اتصال.
+- **Core**: پیام‌های مربوط به Xray Core و اتصال.
 - **Checks**: خروجی validate، health، audit و ابزارهای بررسی.
 
 اگر Log Drawer بسته باشد و خروجی جدید برسد، دکمه آن به شکل `Show Logs *` تغییر می‌کند.
@@ -157,6 +168,8 @@ py -3 scripts\build_gui_exe.py
 ```text
 dist\MITM-DomainFronting-Control-Center\
 ```
+
+اگر runtime محلی در `xray/` موجود باشد، build فایل‌های `xray.exe`، `geoip.dat` و `geosite.dat` را در خروجی کپی می‌کند تا نسخه ساخته‌شده self-contained باشد. فایل‌های `mycert.crt` و `mycert.key` عمداً کپی نمی‌شوند.
 
 اجرای self-test روی نسخه ساخته‌شده:
 

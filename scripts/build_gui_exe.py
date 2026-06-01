@@ -15,15 +15,19 @@ APP_NAME = "MITM-DomainFronting-Control-Center"
 DIST_ROOT = ROOT / "dist"
 APP_DIR = DIST_ROOT / APP_NAME
 BUILD_RUN_ROOT = ROOT / "build" / "pyinstaller-runs"
+APP_ICON = ROOT / "assets" / "app-icon.ico"
 
 EXCLUDED_TRACKED_PREFIXES = (
     ".github/",
     "patches/",
+    "xray/",
+    "Xray-config/xray/",
 )
 EXCLUDED_TRACKED_FILES = {
     ".gitignore",
 }
-FALLBACK_DIRS = ("scripts", "configs", "docs", "providers", "Xray-config", "config-src")
+FALLBACK_DIRS = ("scripts", "configs", "docs", "providers", "Xray-config", "config-src", "assets")
+RUNTIME_DIRS = ("xray",)
 FALLBACK_TOP_FILES = (
     "README.md",
     "SECURITY.md",
@@ -36,6 +40,7 @@ FALLBACK_TOP_FILES = (
 )
 EXCLUDED_OUTPUT_PARTS = {"build", "dist", ".git", "__pycache__"}
 EXCLUDED_RUNTIME_NAMES = {"mycert.crt", "mycert.key", "validation-report.json", "checksums.txt"}
+INCLUDED_XRAY_RUNTIME_NAMES = {"xray.exe", "xray", "geoip.dat", "geosite.dat"}
 BACKEND_HIDDEN_IMPORTS = (
     "copy",
     "datetime",
@@ -96,6 +101,8 @@ def tracked_files() -> list[Path]:
             continue
         if rel in EXCLUDED_TRACKED_FILES:
             continue
+        if Path(rel).name in EXCLUDED_RUNTIME_NAMES:
+            continue
         if any(rel.startswith(prefix) for prefix in EXCLUDED_TRACKED_PREFIXES):
             continue
         path = ROOT / rel
@@ -137,6 +144,29 @@ def copy_runtime_files() -> None:
         dst = APP_DIR / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
+    copy_bundled_xray_runtime()
+
+
+def copy_bundled_xray_runtime() -> None:
+    copied: list[Path] = []
+    for dirname in RUNTIME_DIRS:
+        base = ROOT / dirname
+        if not base.exists():
+            continue
+        for src in base.rglob("*"):
+            if not src.is_file() or src.name not in INCLUDED_XRAY_RUNTIME_NAMES:
+                continue
+            rel = src.relative_to(ROOT)
+            dst = APP_DIR / rel
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            copied.append(rel)
+    if copied:
+        print("Bundled Xray Core runtime files:")
+        for rel in copied:
+            print(f"  {rel}")
+    else:
+        print("Bundled Xray Core runtime files not found; use scripts/install_xray.py before building for a self-contained release.")
 
 
 def build_run_dirs() -> tuple[Path, Path]:
@@ -152,6 +182,9 @@ def build_exe(skip_install: bool) -> Path:
     ensure_pyinstaller(skip_install)
     shutil.rmtree(APP_DIR, ignore_errors=True)
     work_dir, spec_dir = build_run_dirs()
+    icon_args = ["--icon", str(APP_ICON)] if APP_ICON.exists() else []
+    if not APP_ICON.exists():
+        print(f"App icon not found; build will use the default executable icon: {APP_ICON}")
     run([
         sys.executable,
         "-m",
@@ -167,6 +200,7 @@ def build_exe(skip_install: bool) -> Path:
         str(work_dir),
         "--specpath",
         str(spec_dir),
+        *icon_args,
         *[item for module in BACKEND_HIDDEN_IMPORTS for item in ("--hidden-import", module)],
         str(ROOT / "scripts" / "gui.py"),
     ], timeout=900)

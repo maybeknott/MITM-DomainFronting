@@ -37,7 +37,7 @@ def _extract_phase_payload(data: Dict[str, Any]) -> Dict[str, Any]:
             "target": str(phase.get("target", "unknown")),
         }
 
-    # Backward-compatible direct shape.
+    # Direct report shape used by compact phase summaries.
     return {
         "phase": str(data.get("phase_classification", "unknown")),
         "confidence": float(data.get("confidence_score", 0.0) or 0.0),

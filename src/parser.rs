@@ -180,7 +180,7 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
     let body = &handshake[4..(4 + declared_len)];
 
     let mut reader = Reader::new(body);
-    let _legacy_version = reader.read_u16()?;
+    let _client_version = reader.read_u16()?;
     reader.skip(32)?; // random
 
     let session_id_len = reader.read_u8()? as usize;
@@ -314,7 +314,7 @@ mod tests {
 
     fn build_sample_client_hello(host: &str) -> Vec<u8> {
         let mut body = Vec::new();
-        body.extend_from_slice(&[0x03, 0x03]); // legacy_version
+        body.extend_from_slice(&[0x03, 0x03]); // ClientHello version field
         body.extend_from_slice(&[0_u8; 32]); // random
         body.push(0x00); // session_id_len
         body.extend_from_slice(&[0x00, 0x02, 0x13, 0x01]); // one cipher suite
