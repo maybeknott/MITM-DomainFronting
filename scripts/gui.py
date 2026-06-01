@@ -226,6 +226,14 @@ class CommandSpec:
     args: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PaletteItem:
+    label: str
+    group: str
+    detail: str
+    action: Callable[[], None]
+
+
 def find_host_python(*, force: bool = False) -> list[str] | None:
     global _HOST_PYTHON_CACHE
     cached_at, cached_value = _HOST_PYTHON_CACHE
@@ -446,6 +454,9 @@ class App(tk.Tk):
         self.xray_process: subprocess.Popen[str] | None = None
         self.active_config = tk.StringVar(value=str(CONFIG))
         self.profile_selection = tk.StringVar(value="")
+        self.command_search = tk.StringVar(value="")
+        self.palette_query = tk.StringVar(value="")
+        self.focus_mode_text = tk.StringVar(value="Focus")
         self.show_start_advanced = tk.BooleanVar(value=False)
         self.show_dashboard_profile = tk.BooleanVar(value=False)
         self.show_dashboard_browser_advanced = tk.BooleanVar(value=False)
@@ -487,6 +498,8 @@ class App(tk.Tk):
         self._network_last_rates: tuple[float, float] = (0.0, 0.0)
         self._network_poll_running = False
         self.output_visible = tk.BooleanVar(value=False)
+        self.logs_have_unread = False
+        self.sidebar_visible = True
         self.status_chip_labels: dict[str, tk.Label] = {}
         self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.nav_button_widgets: dict[str, tk.Button] = {}
@@ -501,6 +514,7 @@ class App(tk.Tk):
         self.help_topics = self._build_help_topics()
         self._configure_style()
         self._build_layout()
+        self._build_menu()
         self.record_telemetry("app_started", "info", "GUI started")
         self.refresh_status()
         self._start_status_loop()
@@ -707,6 +721,26 @@ class App(tk.Tk):
                 "A compact overview of the normal app flow: check, create CA, connect, verify.\n\n"
                 "Use this as orientation. The Best Next Action bar and Can I Use It Now panel update live as the machine state changes."
             ),
+            "command_search": (
+                "Command Search\n\n"
+                "Filters checks by label, description, or command arguments. Use Ctrl+F from anywhere in the app to jump here.\n\n"
+                "This is useful when you remember a word like DNS, browser, provider, route, or certificate but do not remember which tab or advanced section contains the check."
+            ),
+            "command_palette": (
+                "Command Palette\n\n"
+                "Use Ctrl+K or Find Action to search screens, common actions, repair tools, docs, and view controls from one place.\n\n"
+                "Type a word like health, proxy, cert, logs, browser, docs, repair, or focus. Press Enter to run the selected action."
+            ),
+            "keyboard_shortcuts": (
+                "Keyboard Shortcuts\n\n"
+                "F5 refreshes live status.\n"
+                "Ctrl+R runs the Best Next Action.\n"
+                "Ctrl+K opens Find Action.\n"
+                "Ctrl+F jumps to Command Search.\n"
+                "Ctrl+L shows or hides the Log Drawer.\n"
+                "Ctrl+B toggles Focus mode.\n"
+                "Escape hides the Log Drawer."
+            ),
             "1_check_setup": (
                 "Check Setup\n\n"
                 "Runs the smallest useful local check set for first-time setup. It validates the main config, static preflight shape, transport profile policy, UDP/443 profile policy, and tracked-file secret hygiene.\n\n"
@@ -868,12 +902,14 @@ class App(tk.Tk):
 
     def _build_layout(self) -> None:
         root = tk.Frame(self, bg=COLORS["bg"])
+        self.root_container = root
         root.pack(fill="both", expand=True)
         root.columnconfigure(0, minsize=self._scaled(205), weight=0)
         root.columnconfigure(1, weight=1)
         root.rowconfigure(0, weight=1)
 
         sidebar = tk.Frame(root, bg=COLORS["sidebar"])
+        self.sidebar = sidebar
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
 
@@ -900,7 +936,17 @@ class App(tk.Tk):
             font=self.fonts["caption"],
             wraplength=self._scaled(170),
             justify="left",
-        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=self._scaled(14))
+        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(6), self._scaled(14)))
+        tk.Label(
+            sidebar,
+            text="F5 refresh | Ctrl+K find | Ctrl+F checks | Ctrl+L logs | Ctrl+B focus",
+            bg=COLORS["sidebar"],
+            fg="#94a3b8",
+            font=self.fonts["caption"],
+            wraplength=self._scaled(170),
+            justify="left",
+            anchor="w",
+        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(8), 0))
 
         content = tk.Frame(root, bg=COLORS["bg"])
         content.grid(row=0, column=1, sticky="nsew")
@@ -918,7 +964,10 @@ class App(tk.Tk):
         self.header_status_label.pack(side="left", padx=(0, self._scaled(8)))
         self.task_progress = ttk.Progressbar(status_block, mode="indeterminate", length=self._scaled(118))
         self.task_progress.pack(side="left", padx=(0, self._scaled(8)))
+        ttk.Button(status_block, text="Find Action", style="Accent.TButton", command=self.show_command_palette).pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Help", style="Soft.TButton", command=self.show_current_help).pack(side="left", padx=(0, self._scaled(8)))
+        ttk.Button(status_block, text="Shortcuts", style="Soft.TButton", command=lambda: self.show_help_topic("keyboard_shortcuts")).pack(side="left", padx=(0, self._scaled(8)))
+        ttk.Button(status_block, textvariable=self.focus_mode_text, style="Soft.TButton", command=self.toggle_focus_mode).pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
         self._build_metrics_bar(content)
@@ -951,6 +1000,13 @@ class App(tk.Tk):
         self.bind_all("<MouseWheel>", self._route_mousewheel, add="+")
         self.bind_all("<Button-4>", self._route_mousewheel, add="+")
         self.bind_all("<Button-5>", self._route_mousewheel, add="+")
+        self.bind_all("<F5>", lambda _event: self.refresh_status(), add="+")
+        self.bind_all("<Control-r>", lambda _event: self.run_primary_action(), add="+")
+        self.bind_all("<Control-l>", lambda _event: self.toggle_output_drawer(), add="+")
+        self.bind_all("<Control-k>", lambda _event: self.show_command_palette(), add="+")
+        self.bind_all("<Control-f>", lambda _event: self.focus_command_search(), add="+")
+        self.bind_all("<Control-b>", lambda _event: self.toggle_focus_mode(), add="+")
+        self.bind_all("<Escape>", lambda _event: self.hide_output_drawer(), add="+")
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
             ("Start", [("Start Here", self.start_tab), ("Run & Test", self.dashboard_tab)]),
@@ -984,6 +1040,55 @@ class App(tk.Tk):
         self.tabs.select(self._tab_page(self.start_tab))
         self._highlight_active_nav()
 
+    def _build_menu(self) -> None:
+        menu = tk.Menu(self)
+        navigate = tk.Menu(menu, tearoff=False)
+        screens = [
+            ("Start Here", self.start_tab),
+            ("Run & Test", self.dashboard_tab),
+            ("Checks", self.validation_tab),
+            ("Health Report", self.health_tab),
+            ("Repair", self.fixes_tab),
+            ("Certificates", self.certs_tab),
+            ("Browser Check", self.browser_tab),
+            ("Profiles & DNS", self.profiles_tab),
+            ("Docs", self.docs_tab),
+        ]
+        for label, frame in screens:
+            navigate.add_command(label=label, command=lambda target=frame: self._select_workspace(target))
+        menu.add_cascade(label="Navigate", menu=navigate)
+
+        actions = tk.Menu(menu, tearoff=False)
+        for label, command in (
+            ("Best Next Action", self.run_primary_action),
+            ("Check Setup", self.run_beginner_setup_check),
+            ("Start Proxy", self.connect_xray),
+            ("Run Page Check", self.run_browser_diagnostics),
+            ("Run Health Probe", self.run_health_probe),
+            ("Repair Setup", self.safe_auto_fix),
+            ("Generate Local CA", self.generate_ca),
+            ("Copy Issue Summary", self.copy_issue_summary),
+        ):
+            actions.add_command(label=label, command=command)
+        menu.add_cascade(label="Actions", menu=actions)
+
+        view = tk.Menu(menu, tearoff=False)
+        view.add_command(label="Find Action", command=self.show_command_palette, accelerator="Ctrl+K")
+        view.add_command(label="Checks Search", command=self.focus_command_search, accelerator="Ctrl+F")
+        view.add_command(label="Toggle Focus Mode", command=self.toggle_focus_mode, accelerator="Ctrl+B")
+        view.add_command(label="Toggle Log Drawer", command=self.toggle_output_drawer, accelerator="Ctrl+L")
+        view.add_command(label="Refresh Status", command=self.refresh_status, accelerator="F5")
+        menu.add_cascade(label="View", menu=view)
+
+        help_menu = tk.Menu(menu, tearoff=False)
+        help_menu.add_command(label="Current Screen Help", command=self.show_current_help)
+        help_menu.add_command(label="Command Palette Help", command=lambda: self.show_help_topic("command_palette"))
+        help_menu.add_command(label="Keyboard Shortcuts", command=lambda: self.show_help_topic("keyboard_shortcuts"))
+        help_menu.add_separator()
+        help_menu.add_command(label="Open GUI Guide", command=lambda: self.open_path(ROOT / "docs" / "gui.md"))
+        menu.add_cascade(label="Help", menu=help_menu)
+        self.configure(menu=menu)
+
     def _walk_widgets(self, parent: tk.Widget) -> Iterable[tk.Widget]:
         for child in parent.winfo_children():
             yield child
@@ -992,13 +1097,15 @@ class App(tk.Tk):
     def _is_busy_managed_control(self, widget: tk.Widget) -> bool:
         if not isinstance(widget, (tk.Button, ttk.Button)):
             return False
+        if hasattr(self, "output_toggle_button") and widget is self.output_toggle_button:
+            return False
         try:
             text = str(widget.cget("text"))
         except tk.TclError:
             return True
         always_available = {
             "Help", "Refresh Status", "Clear", "Copy All", "Copy Output", "Close", "Copy",
-            "Hide Logs", "Show Logs",
+            "Find Action", "Shortcuts", "Focus", "Nav", "Hide Logs", "Show Logs", "Show Logs *",
             "Start Here", "Run & Test", "Checks", "Health Report", "Repair", "Profiles & DNS",
             "Certificates", "Browser Check", "Docs",
         }
@@ -1025,6 +1132,185 @@ class App(tk.Tk):
     def _select_workspace(self, frame: tk.Frame) -> None:
         self.tabs.select(self._tab_page(frame))
         self._highlight_active_nav()
+
+    def toggle_focus_mode(self) -> None:
+        if not hasattr(self, "sidebar"):
+            return
+        self.sidebar_visible = not self.sidebar_visible
+        if self.sidebar_visible:
+            self.sidebar.grid()
+            self.root_container.columnconfigure(0, minsize=self._scaled(205), weight=0)
+            self.focus_mode_text.set("Focus")
+        else:
+            self.sidebar.grid_remove()
+            self.root_container.columnconfigure(0, minsize=0, weight=0)
+            self.focus_mode_text.set("Nav")
+
+    def focus_command_search(self) -> None:
+        if hasattr(self, "validation_tab"):
+            self._select_workspace(self.validation_tab)
+        if hasattr(self, "command_search_entry"):
+            self.command_search_entry.focus_set()
+            self.command_search_entry.selection_range(0, "end")
+
+    def _command_palette_items(self) -> list[PaletteItem]:
+        return [
+            PaletteItem("Start Here", "Navigate", "Guided first-run checklist", lambda: self._select_workspace(self.start_tab)),
+            PaletteItem("Run & Test", "Navigate", "Daily proxy and browser workflow", lambda: self._select_workspace(self.dashboard_tab)),
+            PaletteItem("Checks", "Navigate", "Local validation workbench", lambda: self._select_workspace(self.validation_tab)),
+            PaletteItem("Health Report", "Navigate", "Redacted support and environment reports", lambda: self._select_workspace(self.health_tab)),
+            PaletteItem("Repair", "Navigate", "Local repair and optional installers", lambda: self._select_workspace(self.fixes_tab)),
+            PaletteItem("Certificates", "Navigate", "Local CA status, generation, and trust docs", lambda: self._select_workspace(self.certs_tab)),
+            PaletteItem("Browser Check", "Navigate", "Page and fingerprint browser verification", lambda: self._select_workspace(self.browser_tab)),
+            PaletteItem("Profiles & DNS", "Navigate", "Profile generation and DNS diagnostics", lambda: self._select_workspace(self.profiles_tab)),
+            PaletteItem("Docs", "Navigate", "Open local repository guides", lambda: self._select_workspace(self.docs_tab)),
+            PaletteItem("Best Next Action", "Action", "Run the app-selected safest next command", self.run_primary_action),
+            PaletteItem("Check Setup", "Action", "Run the beginner-safe validation sequence", self.run_beginner_setup_check),
+            PaletteItem("Start Proxy", "Action", "Launch GUI-managed Xray when available", self.connect_xray),
+            PaletteItem("Stop Proxy", "Action", "Stop only the GUI-managed Xray process", self.disconnect_xray),
+            PaletteItem("Run Page Check", "Action", "Verify browser loading through the local proxy", self.run_browser_diagnostics),
+            PaletteItem("Run Health Probe", "Action", "Create redacted local health output", self.run_health_probe),
+            PaletteItem("Repair Setup", "Repair", "Regenerate and validate derived local files", self.safe_auto_fix),
+            PaletteItem("Download Xray", "Repair", "Download local Xray runtime", self.download_xray),
+            PaletteItem("Install Page Check Tools", "Repair", "Install browser diagnostics dependencies", self.install_diagnostics_dependencies),
+            PaletteItem("Generate Local CA", "Certificates", "Create local certificate and key files", self.generate_ca),
+            PaletteItem("Certificate Status", "Certificates", "Inspect local CA files", self.cert_status),
+            PaletteItem("Run Full Status", "Telemetry", "Record and print a local status snapshot", self.run_status_snapshot),
+            PaletteItem("Show Activity", "Telemetry", "Print recent local GUI activity", self.show_telemetry_summary),
+            PaletteItem("Copy Issue Summary", "Support", "Copy a redacted local issue summary", self.copy_issue_summary),
+            PaletteItem("Show Logs", "View", "Open or close the log drawer", self.toggle_output_drawer),
+            PaletteItem("Focus Mode", "View", "Hide or show the left navigation rail", self.toggle_focus_mode),
+            PaletteItem("Checks Search", "View", "Jump to validation command filtering", self.focus_command_search),
+            PaletteItem("Keyboard Shortcuts", "Help", "Open shortcut reference", lambda: self.show_help_topic("keyboard_shortcuts")),
+            PaletteItem("Open GUI Guide", "Docs", "Open docs/gui.md", lambda: self.open_path(ROOT / "docs" / "gui.md")),
+            PaletteItem("Open Troubleshooting Docs", "Docs", "Open preflight and diagnostics guide", lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")),
+            PaletteItem("Open Browser Guide", "Docs", "Open Chromium integration guide", lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")),
+        ]
+
+    def show_command_palette(self) -> None:
+        existing = getattr(self, "palette_window", None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
+            existing.focus_force()
+            if hasattr(self, "palette_entry"):
+                self.palette_entry.focus_set()
+                self.palette_entry.selection_range(0, "end")
+            return
+
+        window = tk.Toplevel(self)
+        self.palette_window = window
+        window.title("Find Action")
+        window.configure(bg=COLORS["bg"])
+        window.geometry(f"{self._scaled(620)}x{self._scaled(520)}")
+        window.minsize(self._scaled(500), self._scaled(380))
+        window.transient(self)
+        window.grab_set()
+
+        trace_id: str | None = None
+
+        def close_palette() -> None:
+            nonlocal trace_id
+            if trace_id is not None:
+                try:
+                    self.palette_query.trace_remove("write", trace_id)
+                except tk.TclError:
+                    pass
+                trace_id = None
+            if window.winfo_exists():
+                window.destroy()
+
+        header = tk.Frame(window, bg=COLORS["bg"])
+        header.pack(fill="x", padx=self._scaled(18), pady=(self._scaled(16), self._scaled(8)))
+        tk.Label(header, text="Find Action", bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(side="left", fill="x", expand=True)
+        ttk.Button(header, text="Help", style="Soft.TButton", command=lambda: self.show_help_topic("command_palette")).pack(side="right", padx=(self._scaled(8), 0))
+        ttk.Button(header, text="Close", style="Soft.TButton", command=close_palette).pack(side="right")
+
+        body = tk.Frame(window, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        body.pack(fill="both", expand=True, padx=self._scaled(18), pady=(0, self._scaled(18)))
+        tk.Label(body, text="Search screens, checks, repairs, docs, and view controls", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+        self.palette_query.set("")
+        entry = ttk.Entry(body, textvariable=self.palette_query)
+        self.palette_entry = entry
+        entry.pack(fill="x", padx=14, pady=(0, 10))
+
+        list_frame = tk.Frame(body, bg=COLORS["panel"])
+        list_frame.pack(fill="both", expand=True, padx=14, pady=(0, 8))
+        results = tk.Listbox(
+            list_frame,
+            activestyle="dotbox",
+            bg="#ffffff",
+            fg=COLORS["ink"],
+            selectbackground=COLORS["blue"],
+            selectforeground="#ffffff",
+            highlightthickness=1,
+            highlightbackground=COLORS["line"],
+            relief="flat",
+            font=self.fonts["body"],
+            height=12,
+        )
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=results.yview)
+        results.configure(yscrollcommand=scrollbar.set)
+        results.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        tk.Label(body, text="Enter runs the selected action. Esc closes this window.", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w").pack(fill="x", padx=14, pady=(0, 12))
+
+        filtered: list[PaletteItem] = []
+
+        def render(*_args: object) -> None:
+            nonlocal filtered
+            if not results.winfo_exists():
+                return
+            query = self.palette_query.get().strip().lower()
+            items = self._command_palette_items()
+            if query:
+                items = [
+                    item
+                    for item in items
+                    if query in item.label.lower() or query in item.group.lower() or query in item.detail.lower()
+                ]
+            filtered = items[:80]
+            results.delete(0, "end")
+            if not filtered:
+                results.insert("end", "No matching actions")
+                results.configure(state="disabled")
+                return
+            results.configure(state="normal")
+            for item in filtered:
+                results.insert("end", f"{item.label}    [{item.group}]  {item.detail}")
+            results.selection_set(0)
+            results.activate(0)
+
+        def run_selected(_event: tk.Event | None = None) -> str:
+            if not filtered:
+                return "break"
+            selection = results.curselection()
+            index = selection[0] if selection else 0
+            item = filtered[index]
+            close_palette()
+            item.action()
+            return "break"
+
+        def move(delta: int) -> str:
+            if not filtered:
+                return "break"
+            current = results.curselection()
+            index = current[0] if current else 0
+            index = max(0, min(len(filtered) - 1, index + delta))
+            results.selection_clear(0, "end")
+            results.selection_set(index)
+            results.activate(index)
+            results.see(index)
+            return "break"
+
+        trace_id = self.palette_query.trace_add("write", render)
+        results.bind("<Double-Button-1>", run_selected)
+        window.bind("<Return>", run_selected)
+        window.bind("<Escape>", lambda _event: (close_palette(), "break")[-1])
+        window.bind("<Down>", lambda _event: move(1))
+        window.bind("<Up>", lambda _event: move(-1))
+        window.protocol("WM_DELETE_WINDOW", close_palette)
+        render()
+        entry.focus_set()
 
     def _current_help_key(self) -> str:
         selected = self.tabs.select() if hasattr(self, "tabs") else ""
@@ -1217,6 +1503,17 @@ class App(tk.Tk):
     def _route_mousewheel(self, event: tk.Event) -> None:
         if not hasattr(self, "tabs"):
             return
+        if isinstance(getattr(event, "widget", None), tk.Text):
+            widget = event.widget
+            if event.num == 4:
+                widget.yview_scroll(-3, "units")
+            elif event.num == 5:
+                widget.yview_scroll(3, "units")
+            else:
+                delta = int(-1 * (event.delta / 120)) if event.delta else 0
+                if delta:
+                    widget.yview_scroll(delta, "units")
+            return "break"
         selected = self.tabs.select()
         canvas = self.tab_canvases.get(selected)
         if canvas is None:
@@ -1229,6 +1526,49 @@ class App(tk.Tk):
             delta = int(-1 * (event.delta / 120)) if event.delta else 0
             if delta:
                 canvas.yview_scroll(delta, "units")
+        return "break"
+
+    def _responsive_grid(self, parent: tk.Widget, widgets: Iterable[tk.Widget], preferred_columns: int, min_cell_width: int = 280, gap: int = 8) -> None:
+        items = list(widgets)
+        scaled_gap = self._scaled(gap)
+        scaled_min = self._scaled(min_cell_width)
+
+        def layout(event: tk.Event | None = None) -> None:
+            width = getattr(event, "width", 0) or parent.winfo_width() or (scaled_min * preferred_columns)
+            columns = max(1, min(preferred_columns, width // max(1, scaled_min)))
+            if getattr(parent, "_responsive_columns", None) == columns:
+                return
+            setattr(parent, "_responsive_columns", columns)
+            for child in items:
+                child.grid_forget()
+            for column in range(preferred_columns):
+                parent.columnconfigure(column, weight=1 if column < columns else 0)
+            for index, child in enumerate(items):
+                column = index % columns
+                child.grid(
+                    row=index // columns,
+                    column=column,
+                    sticky="nsew",
+                    padx=(0 if column == 0 else scaled_gap, 0),
+                    pady=(0, scaled_gap),
+                )
+
+        parent.bind("<Configure>", layout, add="+")
+        self.after_idle(layout)
+
+    def _button_grid(
+        self,
+        parent: tk.Widget,
+        specs: Iterable[tuple[str, str, Callable[[], None]]],
+        preferred_columns: int = 4,
+        min_cell_width: int = 150,
+    ) -> list[ttk.Button]:
+        buttons: list[ttk.Button] = []
+        for text, style, command in specs:
+            button = ttk.Button(parent, text=text, style=style, command=command)
+            buttons.append(button)
+        self._responsive_grid(parent, buttons, preferred_columns=preferred_columns, min_cell_width=min_cell_width)
+        return buttons
 
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -1409,15 +1749,16 @@ class App(tk.Tk):
 
     def _workflow_rail(self, parent: tk.Widget, steps: list[tuple[str, str, str]]) -> tk.Frame:
         rail = tk.Frame(parent, bg=COLORS["panel"])
+        items: list[tk.Frame] = []
         for index, (number, title, detail) in enumerate(steps):
             item = tk.Frame(rail, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
-            item.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 8, 0))
-            rail.columnconfigure(index, weight=1)
+            items.append(item)
             top = tk.Frame(item, bg=COLORS["panel_alt"])
             top.pack(fill="x", padx=12, pady=(10, 3))
             tk.Label(top, text=number, bg=COLORS["blue"], fg="#ffffff", font=self.fonts["caption_bold"], padx=7, pady=3).pack(side="left")
             tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", padx=(8, 0), fill="x", expand=True)
             tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(210), justify="left", anchor="nw").pack(fill="x", padx=12, pady=(0, 10))
+        self._responsive_grid(rail, items, preferred_columns=len(items), min_cell_width=210)
         return rail
 
     def _build_start_here(self) -> None:
@@ -1447,10 +1788,11 @@ class App(tk.Tk):
             ("Proxy already running", "Skip launch and test the browser path.", "Run Page Check", self.run_browser_diagnostics, "green"),
             ("Something failed", "Collect a redacted health snapshot next.", "Run Health", self.run_health_probe, "amber"),
         ]
+        path_tiles: list[tk.Frame] = []
         for index, (title, detail, button, command, tone) in enumerate(quick_paths):
             tile = self._action_tile(chooser_grid, title, detail, button, command, tone)
-            tile.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 8, 0))
-            chooser_grid.columnconfigure(index, weight=1)
+            path_tiles.append(tile)
+        self._responsive_grid(chooser_grid, path_tiles, preferred_columns=3, min_cell_width=230)
 
         map_card = self._card(self.start_tab, "Setup Map")
         map_card.pack(fill="x", pady=(0, 14))
@@ -1472,10 +1814,11 @@ class App(tk.Tk):
             ("3. Start proxy", "Starts the local Xray process with the standard profile.", self.connect_xray, "Start Proxy", "Accent.TButton", COLORS["green"]),
             ("4. Test a page", "Loads one page through 127.0.0.1:10808 after the proxy is running.", self.run_browser_diagnostics, "Run Page Check", "Accent.TButton", COLORS["blue_dark"]),
         ]
+        step_cards: list[tk.Frame] = []
         for index, (title, detail, command, button, style, accent) in enumerate(steps):
             card = self._step_card(flow, title, detail, command, button, style, accent)
-            card.grid(row=index // 2, column=index % 2, sticky="nsew", padx=(0 if index % 2 == 0 else 10, 0), pady=(0, 10))
-            flow.columnconfigure(index % 2, weight=1)
+            step_cards.append(card)
+        self._responsive_grid(flow, step_cards, preferred_columns=2, min_cell_width=360, gap=10)
 
         optional, optional_body = self._collapsible_panel(
             self.start_tab,
@@ -1484,10 +1827,17 @@ class App(tk.Tk):
             self.show_start_advanced,
         )
         optional.pack(fill="x", pady=(0, 14))
-        ttk.Button(optional_body, text="Install Page Check Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(optional_body, text="Install Fingerprint Tools", style="Soft.TButton", command=self.install_stealth_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(optional_body, text="Download Xray", style="Soft.TButton", command=self.download_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(optional_body, text="Install PyInstaller", style="Soft.TButton", command=self.install_pyinstaller).pack(side="left")
+        self._button_grid(
+            optional_body,
+            [
+                ("Install Page Check Tools", "Soft.TButton", self.install_diagnostics_dependencies),
+                ("Install Fingerprint Tools", "Soft.TButton", self.install_stealth_dependencies),
+                ("Download Xray", "Soft.TButton", self.download_xray),
+                ("Install PyInstaller", "Soft.TButton", self.install_pyinstaller),
+            ],
+            preferred_columns=4,
+            min_cell_width=180,
+        )
 
         help_card = self._card(self.start_tab, "When Something Fails")
         help_card.pack(fill="x", pady=(0, 14))
@@ -1498,9 +1848,16 @@ class App(tk.Tk):
         tk.Label(help_card, text=help_text, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=900, justify="left", anchor="w").pack(fill="x", padx=16, pady=(4, 10))
         row = tk.Frame(help_card, bg=COLORS["panel"])
         row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(row, text="Explain Output", style="Soft.TButton", command=self.explain_output).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Open Troubleshooting Docs", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
+        self._button_grid(
+            row,
+            [
+                ("Explain Output", "Soft.TButton", self.explain_output),
+                ("Copy Issue Summary", "Soft.TButton", self.copy_issue_summary),
+                ("Open Troubleshooting Docs", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")),
+            ],
+            preferred_columns=3,
+            min_cell_width=190,
+        )
 
     def _build_dashboard(self) -> None:
         hero = tk.Frame(self.dashboard_tab, bg=COLORS["blue_soft"], highlightbackground="#bfdbfe", highlightthickness=1)
@@ -1519,9 +1876,16 @@ class App(tk.Tk):
         ).pack(fill="x", pady=(4, 0))
         hero_actions = tk.Frame(left, bg=COLORS["blue_soft"])
         hero_actions.pack(fill="x", pady=(12, 0))
-        ttk.Button(hero_actions, text="Start Proxy", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 8))
-        ttk.Button(hero_actions, text="Run Page Check", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 8))
-        ttk.Button(hero_actions, text="Health Probe", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
+        self._button_grid(
+            hero_actions,
+            [
+                ("Start Proxy", "Accent.TButton", self.connect_xray),
+                ("Run Page Check", "Soft.TButton", self.run_browser_diagnostics),
+                ("Health Probe", "Soft.TButton", self.run_health_probe),
+            ],
+            preferred_columns=3,
+            min_cell_width=140,
+        )
         right = tk.Frame(hero, bg=COLORS["blue_soft"])
         right.pack(side="right", fill="y", padx=(18, 16), pady=14)
         tk.Label(right, text="CONNECTION", bg=COLORS["blue_soft"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="e").pack(fill="x")
@@ -1543,11 +1907,8 @@ class App(tk.Tk):
 
         overview = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         overview.pack(fill="x", pady=(0, 12))
-        overview.columnconfigure(0, weight=1)
-        overview.columnconfigure(1, weight=1)
 
         readiness = self._card(overview, "Can I Use It Now?")
-        readiness.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         readiness_grid = tk.Frame(readiness, bg=COLORS["panel"])
         readiness_grid.pack(fill="x", padx=12, pady=(4, 12))
         readiness_items = [
@@ -1556,13 +1917,13 @@ class App(tk.Tk):
             ("cert", "Certificate", "Local CA files exist; trust remains manual."),
             ("listener", "Proxy", "Listener on 127.0.0.1:10808 is checked live."),
         ]
+        readiness_widgets: list[tk.Frame] = []
         for index, (key, title, item_detail) in enumerate(readiness_items):
             item = self._readiness_item(readiness_grid, key, title, item_detail)
-            item.grid(row=index // 2, column=index % 2, sticky="nsew", padx=(0 if index % 2 == 0 else 8, 0), pady=(0, 8))
-            readiness_grid.columnconfigure(index % 2, weight=1)
+            readiness_widgets.append(item)
+        self._responsive_grid(readiness_grid, readiness_widgets, preferred_columns=2, min_cell_width=230)
 
         network = self._card(overview, "Live Network")
-        network.grid(row=0, column=1, sticky="nsew")
         network_body = tk.Frame(network, bg=COLORS["panel"])
         network_body.pack(fill="both", expand=True, padx=12, pady=(4, 12))
         for variable, color in (
@@ -1582,6 +1943,7 @@ class App(tk.Tk):
             justify="left",
             anchor="w",
         ).pack(fill="x", pady=(4, 0))
+        self._responsive_grid(overview, [readiness, network], preferred_columns=2, min_cell_width=380, gap=10)
 
         diagnostic = self._card(self.dashboard_tab, "Live diagnostic guidance")
         diagnostic.pack(fill="x", pady=(0, 12))
@@ -1596,11 +1958,8 @@ class App(tk.Tk):
 
         main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         main.pack(fill="x", pady=(0, 12))
-        main.columnconfigure(0, weight=1)
-        main.columnconfigure(1, weight=1)
 
         connection = self._card(main, "1. Proxy Control")
-        connection.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 12))
         tk.Label(
             connection,
             text="Start or stop the local Xray process launched by this app. It uses the standard profile unless you open advanced profile options.",
@@ -1612,9 +1971,16 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(2, 10))
         conn_row = tk.Frame(connection, bg=COLORS["panel"])
         conn_row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(conn_row, text="Start Proxy", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(conn_row, text="Stop Proxy", style="Danger.TButton", command=self.disconnect_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(conn_row, text="Check Health", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
+        self._button_grid(
+            conn_row,
+            [
+                ("Start Proxy", "Accent.TButton", self.connect_xray),
+                ("Stop Proxy", "Danger.TButton", self.disconnect_xray),
+                ("Check Health", "Soft.TButton", self.run_health_probe),
+            ],
+            preferred_columns=3,
+            min_cell_width=135,
+        )
         profile_panel, profile_body = self._collapsible_section(
             connection,
             "Advanced profile",
@@ -1632,12 +1998,18 @@ class App(tk.Tk):
         self.profile_box.bind("<<ComboboxSelected>>", self._select_profile)
 
         browser = self._card(main, "2. Browser Check")
-        browser.grid(row=0, column=1, sticky="nsew", padx=(0, 0), pady=(0, 12))
         self._form_row(browser, "Target URL", self.browser_url)
         brow_row = tk.Frame(browser, bg=COLORS["panel"])
         brow_row.pack(fill="x", padx=16, pady=(0, 10))
-        ttk.Button(brow_row, text="Run Page Check", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
-        ttk.Button(brow_row, text="Open Browser Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")).pack(side="left")
+        self._button_grid(
+            brow_row,
+            [
+                ("Run Page Check", "Accent.TButton", self.run_browser_diagnostics),
+                ("Open Browser Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")),
+            ],
+            preferred_columns=2,
+            min_cell_width=180,
+        )
         browser_settings, browser_settings_body = self._collapsible_section(
             browser,
             "Advanced browser settings",
@@ -1654,15 +2026,23 @@ class App(tk.Tk):
         ttk.Entry(path_row, textvariable=self.browser_executable).pack(side="left", fill="x", expand=True)
         ttk.Button(path_row, text="Browse", style="Soft.TButton", command=self.choose_browser_path).pack(side="left", padx=(8, 0))
         ttk.Button(browser_settings_body, text="Reset Browser Fields", style="Soft.TButton", command=self.reset_gui_defaults).pack(anchor="w")
+        self._responsive_grid(main, [connection, browser], preferred_columns=2, min_cell_width=380, gap=10)
 
         fixes = self._card(self.dashboard_tab, "3. Quick Actions")
         fixes.pack(fill="x", pady=(0, 12))
         fix_row = tk.Frame(fixes, bg=COLORS["panel"])
         fix_row.pack(fill="x", padx=16, pady=(8, 16))
-        ttk.Button(fix_row, text="Check Setup", style="Accent.TButton", command=self.run_beginner_setup_check).pack(side="left", padx=(0, 10))
-        ttk.Button(fix_row, text="Repair Setup", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
-        ttk.Button(fix_row, text="Generate Local CA", style="Warning.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
-        ttk.Button(fix_row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left")
+        self._button_grid(
+            fix_row,
+            [
+                ("Check Setup", "Accent.TButton", self.run_beginner_setup_check),
+                ("Repair Setup", "Accent.TButton", self.safe_auto_fix),
+                ("Generate Local CA", "Warning.TButton", self.generate_ca),
+                ("Copy Issue Summary", "Soft.TButton", self.copy_issue_summary),
+            ],
+            preferred_columns=4,
+            min_cell_width=170,
+        )
 
         telemetry, telemetry_body = self._collapsible_panel(
             self.dashboard_tab,
@@ -1677,24 +2057,32 @@ class App(tk.Tk):
         tk.Label(telemetry_body, textvariable=self.telemetry_last, bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 8))
         telemetry_row = tk.Frame(telemetry_body, bg=COLORS["panel"])
         telemetry_row.pack(fill="x")
-        ttk.Button(telemetry_row, text="Run Full Status", style="Accent.TButton", command=self.run_status_snapshot).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Show Activity", style="Soft.TButton", command=self.show_telemetry_summary).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Export Activity", style="Soft.TButton", command=self.export_telemetry).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Clear Activity", style="Danger.TButton", command=self.clear_telemetry).pack(side="left")
+        self._button_grid(
+            telemetry_row,
+            [
+                ("Run Full Status", "Accent.TButton", self.run_status_snapshot),
+                ("Show Activity", "Soft.TButton", self.show_telemetry_summary),
+                ("Export Activity", "Soft.TButton", self.export_telemetry),
+                ("Clear Activity", "Danger.TButton", self.clear_telemetry),
+            ],
+            preferred_columns=4,
+            min_cell_width=150,
+        )
 
         summary = self._card(self.dashboard_tab, "Status summary")
         summary.pack(fill="x")
         grid = tk.Frame(summary, bg=COLORS["panel"])
         grid.pack(fill="x", padx=16, pady=(8, 16))
         self.status_labels: dict[str, tk.Label] = {}
+        status_boxes: list[tk.Frame] = []
         for index, title in enumerate(("Config", "Certificate", "Profiles", "Health", "Dependencies", "Browser", "Privacy")):
             box = tk.Frame(grid, bg="#f8fafc", highlightbackground=COLORS["line"], highlightthickness=1)
-            box.grid(row=index // 4, column=index % 4, sticky="nsew", padx=(0 if index % 4 == 0 else 8, 0), pady=(0, 8))
-            grid.columnconfigure(index % 4, weight=1)
+            status_boxes.append(box)
             tk.Label(box, text=title, bg="#f8fafc", fg=COLORS["ink"], font=("Segoe UI", 10, "bold"), anchor="w").pack(fill="x", padx=10, pady=(8, 2))
             label = tk.Label(box, text="Checking...", bg="#f8fafc", fg=COLORS["muted"], font=("Segoe UI", 9), justify="left", anchor="nw", wraplength=210)
             label.pack(fill="both", expand=True, padx=10, pady=(0, 8))
             self.status_labels[title] = label
+        self._responsive_grid(grid, status_boxes, preferred_columns=4, min_cell_width=210)
 
     @property
     def validation_commands(self) -> list[CommandSpec]:
@@ -1749,30 +2137,20 @@ class App(tk.Tk):
         intro = tk.Label(self.validation_tab, text="Run the recommended local checks first. Deeper checks stay hidden until you open advanced options.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w")
         intro.pack(fill="x", pady=(0, 12))
 
-        def add_command_cards(parent: tk.Widget, specs: list[CommandSpec], columns: int = 3) -> None:
-            button_grid = tk.Frame(parent, bg=COLORS["panel"])
-            button_grid.pack(fill="x", pady=(0, 12))
-            for index, spec in enumerate(specs):
-                card = self._card(button_grid, spec.label)
-                card.grid(row=index // columns, column=index % columns, sticky="nsew", padx=(0 if index % columns == 0 else 10, 0), pady=(0, 10))
-                button_grid.columnconfigure(index % columns, weight=1)
-                tk.Label(card, text=spec.description, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=230, justify="left").pack(fill="x", padx=16, pady=(2, 12))
-                ttk.Button(card, text="Run", style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(anchor="w", padx=16, pady=(0, 16))
-
-        def add_compact_commands(parent: tk.Widget, specs: list[CommandSpec]) -> None:
-            for spec in specs:
-                row = tk.Frame(parent, bg=COLORS["panel"])
-                row.pack(fill="x", pady=(0, 8))
-                text = tk.Frame(row, bg=COLORS["panel"])
-                text.pack(side="left", fill="x", expand=True)
-                tk.Label(text, text=spec.label, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
-                tk.Label(text, text=spec.description, bg=COLORS["panel"], fg=COLORS["muted"], anchor="w", wraplength=self._scaled(680), justify="left").pack(fill="x")
-                ttk.Button(row, text="Run", style="Soft.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="right", padx=(10, 0))
+        search = self._card(self.validation_tab, "Command Search")
+        search.pack(fill="x", pady=(0, 10))
+        search_body = tk.Frame(search, bg=COLORS["panel"])
+        search_body.pack(fill="x", padx=12, pady=(4, 10))
+        tk.Label(search_body, text="Filter checks", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", padx=(0, 8))
+        self.command_search_entry = ttk.Entry(search_body, textvariable=self.command_search)
+        self.command_search_entry.pack(side="left", fill="x", expand=True)
+        ttk.Button(search_body, text="Clear", style="Soft.TButton", command=lambda: self.command_search.set("")).pack(side="left", padx=(8, 0))
+        self.command_search.trace_add("write", lambda *_args: self._render_validation_commands())
 
         starter_labels = {"Validate Config", "Static Preflight", "Health Probe", "Secret Scan"}
-        starter_specs = [spec for spec in self.validation_commands if spec.label in starter_labels]
-        advanced_specs = [spec for spec in self.validation_commands if spec.label not in starter_labels]
-        add_command_cards(self.validation_tab, starter_specs, columns=2)
+        self.validation_starter_labels = starter_labels
+        self.validation_starter_container = tk.Frame(self.validation_tab, bg=COLORS["panel"])
+        self.validation_starter_container.pack(fill="x")
 
         advanced_panel, advanced_body = self._collapsible_panel(
             self.validation_tab,
@@ -1783,13 +2161,59 @@ class App(tk.Tk):
             shown_text="Hide extra checks",
         )
         advanced_panel.pack(fill="x", pady=(0, 12))
-        add_compact_commands(advanced_body, advanced_specs)
+        self.validation_advanced_container = advanced_body
+        self._render_validation_commands()
 
         controls = tk.Frame(self.validation_tab, bg=COLORS["panel"])
         controls.pack(fill="x", pady=(0, 8))
         ttk.Button(controls, text="Clear Output", style="Soft.TButton", command=self.clear_output).pack(side="left")
         ttk.Button(controls, text="Copy Output", style="Soft.TButton", command=self.copy_output).pack(side="left", padx=8)
         tk.Label(controls, text="Output is always visible in the bottom log streams.", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left", padx=8)
+
+    def _render_validation_commands(self) -> None:
+        if not hasattr(self, "validation_starter_container"):
+            return
+        for container in (self.validation_starter_container, self.validation_advanced_container):
+            for child in container.winfo_children():
+                child.destroy()
+        query = self.command_search.get().strip().lower()
+        specs = self.validation_commands
+        if query:
+            specs = [spec for spec in specs if query in spec.label.lower() or query in spec.description.lower() or query in " ".join(spec.args).lower()]
+        starter_specs = [spec for spec in specs if spec.label in self.validation_starter_labels]
+        advanced_specs = [spec for spec in specs if spec.label not in self.validation_starter_labels]
+        if starter_specs:
+            self._add_command_cards(self.validation_starter_container, starter_specs, columns=2)
+        elif query:
+            self._empty_state(self.validation_starter_container, "No recommended checks match this search.")
+        if advanced_specs:
+            self._add_compact_commands(self.validation_advanced_container, advanced_specs)
+        elif query:
+            self._empty_state(self.validation_advanced_container, "No extra checks match this search.")
+
+    def _add_command_cards(self, parent: tk.Widget, specs: list[CommandSpec], columns: int = 3) -> None:
+        button_grid = tk.Frame(parent, bg=COLORS["panel"])
+        button_grid.pack(fill="x", pady=(0, 12))
+        cards: list[tk.Frame] = []
+        for index, spec in enumerate(specs):
+            card = self._card(button_grid, spec.label)
+            cards.append(card)
+            tk.Label(card, text=spec.description, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=self._scaled(260), justify="left").pack(fill="x", padx=12, pady=(2, 10))
+            ttk.Button(card, text="Run", style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(anchor="w", padx=12, pady=(0, 12))
+        self._responsive_grid(button_grid, cards, preferred_columns=columns, min_cell_width=260)
+
+    def _add_compact_commands(self, parent: tk.Widget, specs: list[CommandSpec]) -> None:
+        for spec in specs:
+            row = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
+            row.pack(fill="x", pady=(0, 6))
+            text = tk.Frame(row, bg=COLORS["panel_alt"])
+            text.pack(side="left", fill="x", expand=True, padx=10, pady=7)
+            tk.Label(text, text=spec.label, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
+            tk.Label(text, text=spec.description, bg=COLORS["panel_alt"], fg=COLORS["muted"], anchor="w", wraplength=self._scaled(680), justify="left").pack(fill="x")
+            ttk.Button(row, text="Run", style="Soft.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="right", padx=(8, 10))
+
+    def _empty_state(self, parent: tk.Widget, text: str) -> None:
+        tk.Label(parent, text=text, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w", padx=12, pady=10).pack(fill="x", pady=(0, 8))
 
     def _build_health(self) -> None:
         intro = tk.Label(
@@ -1818,10 +2242,17 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(4, 10))
         row = tk.Frame(health, bg=COLORS["panel"])
         row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(row, text="Run Health Probe", style="Accent.TButton", command=self.run_health_probe).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Platform Capability", style="Soft.TButton", command=self.run_platform_capability_check).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Trust Store Check", style="Soft.TButton", command=self.run_trust_store_check).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Open Health Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
+        self._button_grid(
+            row,
+            [
+                ("Run Health Probe", "Accent.TButton", self.run_health_probe),
+                ("Platform Capability", "Soft.TButton", self.run_platform_capability_check),
+                ("Trust Store Check", "Soft.TButton", self.run_trust_store_check),
+                ("Open Health Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")),
+            ],
+            preferred_columns=4,
+            min_cell_width=170,
+        )
 
         advanced, advanced_body = self._collapsible_panel(
             self.health_tab,
@@ -1832,12 +2263,19 @@ class App(tk.Tk):
             shown_text="Hide support reports",
         )
         advanced.pack(fill="x", pady=(0, 12))
-        ttk.Button(advanced_body, text="Run Lab Evidence", style="Soft.TButton", command=self.run_lab_evidence).pack(side="left", padx=(0, 10))
-        ttk.Button(advanced_body, text="Run Decision Report", style="Soft.TButton", command=self.run_decision_report).pack(side="left", padx=(0, 10))
-        ttk.Button(advanced_body, text="Score Decision Report", style="Soft.TButton", command=self.run_path_scorer).pack(side="left", padx=(0, 10))
-        ttk.Button(advanced_body, text="Copy Phase Summary", style="Soft.TButton", command=self.copy_phase_summary).pack(side="left", padx=(0, 10))
-        ttk.Button(advanced_body, text="Open Health Policy", style="Soft.TButton", command=lambda: self.open_path(ROOT / "configs" / "health-checks.yml")).pack(side="left", padx=(0, 10))
-        ttk.Button(advanced_body, text="Open Decision Engine Doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "decision-engine.md")).pack(side="left")
+        self._button_grid(
+            advanced_body,
+            [
+                ("Run Lab Evidence", "Soft.TButton", self.run_lab_evidence),
+                ("Run Decision Report", "Soft.TButton", self.run_decision_report),
+                ("Score Decision Report", "Soft.TButton", self.run_path_scorer),
+                ("Copy Phase Summary", "Soft.TButton", self.copy_phase_summary),
+                ("Open Health Policy", "Soft.TButton", lambda: self.open_path(ROOT / "configs" / "health-checks.yml")),
+                ("Open Decision Engine Doc", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "decision-engine.md")),
+            ],
+            preferred_columns=3,
+            min_cell_width=210,
+        )
 
         smoke = self._card(self.health_tab, "Browser smoke summary")
         smoke.pack(fill="x", pady=(0, 12))
@@ -1852,8 +2290,15 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(4, 10))
         row2 = tk.Frame(smoke, bg=COLORS["panel"])
         row2.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(row2, text="Run Browser Smoke", style="Accent.TButton", command=self.run_browser_smoke).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Open Browser Integration Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")).pack(side="left")
+        self._button_grid(
+            row2,
+            [
+                ("Run Browser Smoke", "Accent.TButton", self.run_browser_smoke),
+                ("Open Browser Integration Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")),
+            ],
+            preferred_columns=2,
+            min_cell_width=230,
+        )
 
     def _build_fixes_help(self) -> None:
         intro = tk.Label(
@@ -1884,9 +2329,16 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(4, 10))
         qrow = tk.Frame(quick, bg=COLORS["panel"])
         qrow.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(qrow, text="Repair Setup", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
-        ttk.Button(qrow, text="Reset GUI Defaults", style="Soft.TButton", command=self.reset_gui_defaults).pack(side="left", padx=(0, 10))
-        ttk.Button(qrow, text="Open Preflight Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
+        self._button_grid(
+            qrow,
+            [
+                ("Repair Setup", "Accent.TButton", self.safe_auto_fix),
+                ("Reset GUI Defaults", "Soft.TButton", self.reset_gui_defaults),
+                ("Open Preflight Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")),
+            ],
+            preferred_columns=3,
+            min_cell_width=190,
+        )
 
         common, common_body = self._collapsible_panel(
             self.fixes_tab,
@@ -1899,26 +2351,47 @@ class App(tk.Tk):
         common.pack(fill="x", pady=(0, 14))
         row = tk.Frame(common_body, bg=COLORS["panel"])
         row.pack(fill="x", pady=(0, 8))
-        ttk.Button(row, text="Regenerate Profiles", style="Accent.TButton", command=self.generate_standard_profiles).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Create Alternate Ports", style="Soft.TButton", command=self.generate_alt_profiles).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Certificate Status", style="Soft.TButton", command=self.cert_status).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Run FakeDNS Check", style="Soft.TButton", command=self.run_fakedns_recovery_check).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="FakeDNS Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "fakedns-recovery.md")).pack(side="left")
+        self._button_grid(
+            row,
+            [
+                ("Regenerate Profiles", "Accent.TButton", self.generate_standard_profiles),
+                ("Create Alternate Ports", "Soft.TButton", self.generate_alt_profiles),
+                ("Certificate Status", "Soft.TButton", self.cert_status),
+                ("Run FakeDNS Check", "Soft.TButton", self.run_fakedns_recovery_check),
+                ("FakeDNS Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "fakedns-recovery.md")),
+            ],
+            preferred_columns=3,
+            min_cell_width=180,
+        )
 
         row2 = tk.Frame(common_body, bg=COLORS["panel"])
         row2.pack(fill="x", pady=(0, 8))
-        ttk.Button(row2, text="Install Optional Dependencies", style="Accent.TButton", command=self.install_optional_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Install Page Check Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Install Fingerprint Tools", style="Soft.TButton", command=self.install_stealth_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Browser Install Hints", style="Soft.TButton", command=self.browser_install_hints).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Open Xray Releases", style="Soft.TButton", command=lambda: webbrowser.open(XRAY_RELEASES_URL)).pack(side="left")
+        self._button_grid(
+            row2,
+            [
+                ("Install Optional Dependencies", "Accent.TButton", self.install_optional_dependencies),
+                ("Install Page Check Tools", "Soft.TButton", self.install_diagnostics_dependencies),
+                ("Install Fingerprint Tools", "Soft.TButton", self.install_stealth_dependencies),
+                ("Browser Install Hints", "Soft.TButton", self.browser_install_hints),
+                ("Open Xray Releases", "Soft.TButton", lambda: webbrowser.open(XRAY_RELEASES_URL)),
+            ],
+            preferred_columns=3,
+            min_cell_width=210,
+        )
 
         row3 = tk.Frame(common_body, bg=COLORS["panel"])
         row3.pack(fill="x")
-        ttk.Button(row3, text="Install PyInstaller", style="Soft.TButton", command=self.install_pyinstaller).pack(side="left", padx=(0, 10))
-        ttk.Button(row3, text="Download Xray", style="Soft.TButton", command=self.download_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(row3, text="Open GUI Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "gui.md")).pack(side="left", padx=(0, 10))
-        ttk.Button(row3, text="Open Xray-config Folder", style="Soft.TButton", command=lambda: self.open_path(ROOT / "Xray-config")).pack(side="left")
+        self._button_grid(
+            row3,
+            [
+                ("Install PyInstaller", "Soft.TButton", self.install_pyinstaller),
+                ("Download Xray", "Soft.TButton", self.download_xray),
+                ("Open GUI Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "gui.md")),
+                ("Open Xray-config Folder", "Soft.TButton", lambda: self.open_path(ROOT / "Xray-config")),
+            ],
+            preferred_columns=4,
+            min_cell_width=180,
+        )
 
     def _build_output_pane(self, parent: tk.Widget) -> None:
         outer = tk.Frame(parent, bg=COLORS["bg"])
@@ -1930,7 +2403,8 @@ class App(tk.Tk):
         header.pack(fill="x", padx=self._scaled(14), pady=(self._scaled(10), self._scaled(6)))
         tk.Label(header, text="Log Drawer", bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"]).pack(side="left")
         tk.Label(header, text="System, proxy, and check output are separated. Hide this drawer when you only need status.", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"]).pack(side="left", padx=self._scaled(10))
-        ttk.Button(header, textvariable=self.output_toggle_text, style="Soft.TButton", command=self.toggle_output_drawer).pack(side="right")
+        self.output_toggle_button = ttk.Button(header, textvariable=self.output_toggle_text, style="Soft.TButton", command=self.toggle_output_drawer)
+        self.output_toggle_button.pack(side="right")
         ttk.Button(header, text="Clear", style="Soft.TButton", command=self.clear_output).pack(side="right", padx=self._scaled(8))
         ttk.Button(header, text="Copy All", style="Soft.TButton", command=self.copy_output).pack(side="right")
         self.output_body = tk.Frame(frame, bg=COLORS["panel"])
@@ -1954,7 +2428,14 @@ class App(tk.Tk):
         if self.output_visible.get():
             self.output_body.pack(fill="x")
             self.output_toggle_text.set("Hide Logs")
+            self.logs_have_unread = False
         else:
+            self.output_body.pack_forget()
+            self.output_toggle_text.set("Show Logs")
+
+    def hide_output_drawer(self) -> None:
+        if hasattr(self, "output_body") and self.output_visible.get():
+            self.output_visible.set(False)
             self.output_body.pack_forget()
             self.output_toggle_text.set("Show Logs")
 
@@ -2051,12 +2532,19 @@ class App(tk.Tk):
         tk.Label(certs, text=text, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=740, justify="left", anchor="w").pack(fill="x", padx=16, pady=(4, 12))
         row = tk.Frame(certs, bg=COLORS["panel"])
         row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(row, text="Certificate Status", style="Accent.TButton", command=self.cert_status).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Check Cert/Key Pair", style="Soft.TButton", command=self.cert_pair).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Generate Local CA", style="Warning.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Trust Store Check", style="Soft.TButton", command=self.run_trust_store_check).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Trust Instructions", style="Soft.TButton", command=self.trust_instructions).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Open Xray-config Folder", style="Soft.TButton", command=lambda: self.open_path(ROOT / "Xray-config")).pack(side="left")
+        self._button_grid(
+            row,
+            [
+                ("Certificate Status", "Accent.TButton", self.cert_status),
+                ("Check Cert/Key Pair", "Soft.TButton", self.cert_pair),
+                ("Generate Local CA", "Warning.TButton", self.generate_ca),
+                ("Trust Store Check", "Soft.TButton", self.run_trust_store_check),
+                ("Trust Instructions", "Soft.TButton", self.trust_instructions),
+                ("Open Xray-config Folder", "Soft.TButton", lambda: self.open_path(ROOT / "Xray-config")),
+            ],
+            preferred_columns=3,
+            min_cell_width=190,
+        )
 
     def _build_browser(self) -> None:
         intro = (
@@ -2095,19 +2583,21 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(2, 8))
         drow2 = tk.Frame(diag, bg=COLORS["panel"])
         drow2.pack(fill="x", padx=16, pady=(0, 10))
-        ttk.Button(drow2, text="Run page check", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
-        ttk.Button(
-            drow2,
-            text="Install hint (Playwright)",
-            style="Soft.TButton",
-            command=lambda: self._append_output(
-                "\nPage check tools install:\n  pip install -r requirements-browser-diagnostics.txt\n"
-                "  playwright install chromium\n"
-                "  # Linux only, if dependencies are missing: playwright install-deps chromium\n"
+        page_actions: list[tuple[str, str, Callable[[], None]]] = [
+            ("Run page check", "Accent.TButton", self.run_browser_diagnostics),
+            (
+                "Install hint (Playwright)",
+                "Soft.TButton",
+                lambda: self._append_output(
+                    "\nPage check tools install:\n  pip install -r requirements-browser-diagnostics.txt\n"
+                    "  playwright install chromium\n"
+                    "  # Linux only, if dependencies are missing: playwright install-deps chromium\n"
+                ),
             ),
-        ).pack(side="left", padx=(0, 10))
+        ]
         if os.name == "nt":
-            ttk.Button(drow2, text="Launch stock Chrome (PS)", style="Soft.TButton", command=self.launch_diagnostics_chrome_ps).pack(side="left")
+            page_actions.append(("Launch stock Chrome (PS)", "Soft.TButton", self.launch_diagnostics_chrome_ps))
+        self._button_grid(drow2, page_actions, preferred_columns=3, min_cell_width=200)
 
         page_advanced, page_advanced_body = self._collapsible_section(
             diag,
@@ -2162,18 +2652,24 @@ class App(tk.Tk):
         ttk.Checkbutton(srow, text="humanize", variable=self.browser_humanize).pack(side="left", padx=12)
         srow2 = tk.Frame(stealth_body, bg=COLORS["panel"])
         srow2.pack(fill="x")
-        ttk.Button(srow2, text="Run fingerprint check", style="Accent.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
-        ttk.Button(
+        self._button_grid(
             srow2,
-            text="Install hint (CloakBrowser)",
-            style="Soft.TButton",
-            command=lambda: self._append_output(
-                f"\nFingerprint tools install:\n  pip install -r requirements-browser-stealth.txt\n"
-                f"  python -m cloakbrowser install\n  Project: {stealth_url}\n"
-            ),
-        ).pack(side="left", padx=(0, 10))
-        ttk.Button(srow2, text="Open CloakBrowser on GitHub", style="Soft.TButton", command=lambda: webbrowser.open(stealth_url)).pack(side="left", padx=(0, 10))
-        ttk.Button(srow2, text="Check CloakBrowser import", style="Soft.TButton", command=self.check_cloakbrowser_installed).pack(side="left")
+            [
+                ("Run fingerprint check", "Accent.TButton", self.run_browser_stealth),
+                (
+                    "Install hint (CloakBrowser)",
+                    "Soft.TButton",
+                    lambda: self._append_output(
+                        f"\nFingerprint tools install:\n  pip install -r requirements-browser-stealth.txt\n"
+                        f"  python -m cloakbrowser install\n  Project: {stealth_url}\n"
+                    ),
+                ),
+                ("Open CloakBrowser on GitHub", "Soft.TButton", lambda: webbrowser.open(stealth_url)),
+                ("Check CloakBrowser import", "Soft.TButton", self.check_cloakbrowser_installed),
+            ],
+            preferred_columns=2,
+            min_cell_width=230,
+        )
 
     def _build_docs(self) -> None:
         docs = [
@@ -2191,12 +2687,13 @@ class App(tk.Tk):
         tk.Label(self.docs_tab, text="Open the focused guide you need. These files are local repository docs.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(0, 12))
         grid = tk.Frame(self.docs_tab, bg=COLORS["panel"])
         grid.pack(fill="x")
+        doc_cards: list[tk.Frame] = []
         for index, (label, path) in enumerate(docs):
             card = self._card(grid, label)
-            card.grid(row=index // 2, column=index % 2, sticky="ew", padx=(0 if index % 2 == 0 else 10, 0), pady=(0, 10))
-            grid.columnconfigure(index % 2, weight=1)
+            doc_cards.append(card)
             tk.Label(card, text=short_path(path), bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", padx=16, pady=(2, 12))
             ttk.Button(card, text="Open", style="Soft.TButton", command=lambda p=path: self.open_path(p)).pack(anchor="w", padx=16, pady=(0, 16))
+        self._responsive_grid(grid, doc_cards, preferred_columns=2, min_cell_width=300, gap=10)
 
     def record_telemetry(self, event: str, status: str, detail: str = "", fields: dict[str, object] | None = None) -> None:
         LOCAL_STATE.mkdir(exist_ok=True)
@@ -2950,6 +3447,9 @@ class App(tk.Tk):
     def _append_output(self, text: str, stream: str | None = None) -> None:
         if self.log_multiplexer:
             self.log_multiplexer.enqueue(text, stream)
+            if hasattr(self, "output_body") and not self.output_visible.get():
+                self.logs_have_unread = True
+                self.output_toggle_text.set("Show Logs *")
             return
         if hasattr(self, "output"):
             self.output.configure(state="normal")
