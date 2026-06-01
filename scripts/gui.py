@@ -426,8 +426,8 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.scaling_factor = self._query_hardware_dpi_scale()
         self.fonts = self._build_fonts()
-        self.geometry(f"{self._scaled(1220)}x{self._scaled(820)}")
-        self.minsize(self._scaled(1040), self._scaled(700))
+        self.geometry(f"{self._scaled(1180)}x{self._scaled(780)}")
+        self.minsize(self._scaled(920), self._scaled(620))
         self.configure(bg=COLORS["bg"])
         self.current_process_label = tk.StringVar(value="Ready")
         self.profile_offset = tk.StringVar(value="100")
@@ -486,11 +486,12 @@ class App(tk.Tk):
         self._network_next_poll = 0.0
         self._network_last_rates: tuple[float, float] = (0.0, 0.0)
         self._network_poll_running = False
-        self.output_visible = tk.BooleanVar(value=True)
+        self.output_visible = tk.BooleanVar(value=False)
         self.status_chip_labels: dict[str, tk.Label] = {}
         self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.nav_button_widgets: dict[str, tk.Button] = {}
         self.tab_pages: dict[str, tk.Frame] = {}
+        self.tab_canvases: dict[str, tk.Canvas] = {}
         self.output_buffers: dict[str, tk.Text] = {}
         self.log_multiplexer: LogMultiplexer | None = None
         self.busy_controls: list[tk.Widget] = []
@@ -528,13 +529,13 @@ class App(tk.Tk):
         family = "Segoe UI" if os.name == "nt" else "Helvetica"
         code_family = "Consolas" if os.name == "nt" else "Courier"
         return {
-            "h1": (family, self._scaled(20), "bold"),
-            "h2": (family, self._scaled(13), "bold"),
-            "body": (family, self._scaled(10), "normal"),
-            "body_bold": (family, self._scaled(10), "bold"),
-            "caption": (family, self._scaled(9), "normal"),
-            "caption_bold": (family, self._scaled(9), "bold"),
-            "code": (code_family, self._scaled(10), "normal"),
+            "h1": (family, self._scaled(18), "bold"),
+            "h2": (family, self._scaled(12), "bold"),
+            "body": (family, self._scaled(9), "normal"),
+            "body_bold": (family, self._scaled(9), "bold"),
+            "caption": (family, self._scaled(8), "normal"),
+            "caption_bold": (family, self._scaled(8), "bold"),
+            "code": (code_family, self._scaled(9), "normal"),
         }
 
     def _build_help_topics(self) -> dict[str, str]:
@@ -847,19 +848,19 @@ class App(tk.Tk):
             pass
         style.configure(".", font=self.fonts["body"], background=COLORS["bg"], foreground=COLORS["ink"])
         style.configure("TNotebook", background=COLORS["bg"], borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(self._scaled(18), self._scaled(9)), background="#e8edf5", foreground=COLORS["ink"])
+        style.configure("TNotebook.Tab", padding=(self._scaled(12), self._scaled(6)), background="#e8edf5", foreground=COLORS["ink"])
         style.map("TNotebook.Tab", background=[("selected", COLORS["panel"])], foreground=[("selected", COLORS["blue_dark"])])
         try:
             style.layout("Sidebar.TNotebook.Tab", [])
         except tk.TclError:
             pass
-        style.configure("Accent.TButton", background=COLORS["blue"], foreground="#ffffff", padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
+        style.configure("Accent.TButton", background=COLORS["blue"], foreground="#ffffff", padding=(self._scaled(10), self._scaled(6)), borderwidth=0)
         style.map("Accent.TButton", background=[("active", COLORS["blue_dark"])])
-        style.configure("Soft.TButton", background="#eef2ff", foreground=COLORS["blue_dark"], padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
+        style.configure("Soft.TButton", background="#eef2ff", foreground=COLORS["blue_dark"], padding=(self._scaled(10), self._scaled(6)), borderwidth=0)
         style.map("Soft.TButton", background=[("active", "#dbeafe")])
-        style.configure("Danger.TButton", background="#fee2e2", foreground=COLORS["red"], padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
+        style.configure("Danger.TButton", background="#fee2e2", foreground=COLORS["red"], padding=(self._scaled(10), self._scaled(6)), borderwidth=0)
         style.map("Danger.TButton", background=[("active", "#fecaca")])
-        style.configure("Warning.TButton", background="#fef3c7", foreground=COLORS["amber"], padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
+        style.configure("Warning.TButton", background="#fef3c7", foreground=COLORS["amber"], padding=(self._scaled(10), self._scaled(6)), borderwidth=0)
         style.map("Warning.TButton", background=[("active", "#fde68a")])
         style.configure("TEntry", fieldbackground="#ffffff", bordercolor=COLORS["line"], padding=6)
         style.configure("TLabelframe", background=COLORS["panel"], bordercolor=COLORS["line"], relief="solid")
@@ -868,7 +869,7 @@ class App(tk.Tk):
     def _build_layout(self) -> None:
         root = tk.Frame(self, bg=COLORS["bg"])
         root.pack(fill="both", expand=True)
-        root.columnconfigure(0, minsize=self._scaled(270), weight=0)
+        root.columnconfigure(0, minsize=self._scaled(205), weight=0)
         root.columnconfigure(1, weight=1)
         root.rowconfigure(0, weight=1)
 
@@ -876,37 +877,37 @@ class App(tk.Tk):
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
 
-        tk.Label(sidebar, text="MITM Control", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(22), pady=(self._scaled(24), self._scaled(4)))
-        tk.Label(sidebar, text="Run, test, repair", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
+        tk.Label(sidebar, text="MITM", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(16), pady=(self._scaled(18), self._scaled(2)))
+        tk.Label(sidebar, text="Control Center", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(16))
         tk.Label(
             sidebar,
-            text=str(ROOT),
+            text=short_path(ROOT),
             bg=COLORS["sidebar"],
             fg="#94a3b8",
             font=self.fonts["caption"],
-            wraplength=self._scaled(225),
+            wraplength=self._scaled(168),
             justify="left",
             anchor="w",
-        ).pack(fill="x", padx=self._scaled(22), pady=(self._scaled(10), self._scaled(18)))
-        tk.Frame(sidebar, bg=COLORS["sidebar_line"], height=1).pack(fill="x", padx=self._scaled(18), pady=(0, self._scaled(8)))
+        ).pack(fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(12)))
+        tk.Frame(sidebar, bg=COLORS["sidebar_line"], height=1).pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(6)))
         nav_holder = tk.Frame(sidebar, bg=COLORS["sidebar"])
-        nav_holder.pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(12)))
+        nav_holder.pack(fill="x", padx=self._scaled(10), pady=(0, self._scaled(10)))
         tk.Label(
             sidebar,
             textvariable=self.current_process_label,
             bg=COLORS["sidebar"],
             fg="#a7f3d0",
             font=self.fonts["caption"],
-            wraplength=self._scaled(230),
+            wraplength=self._scaled(170),
             justify="left",
-        ).pack(side="bottom", fill="x", padx=self._scaled(22), pady=self._scaled(22))
+        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=self._scaled(14))
 
         content = tk.Frame(root, bg=COLORS["bg"])
         content.grid(row=0, column=1, sticky="nsew")
         content.columnconfigure(0, weight=1)
 
         header = tk.Frame(content, bg=COLORS["bg"])
-        header.pack(fill="x", padx=self._scaled(24), pady=(self._scaled(20), self._scaled(10)))
+        header.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(12), self._scaled(8)))
         title_block = tk.Frame(header, bg=COLORS["bg"])
         title_block.pack(side="left", fill="x", expand=True)
         tk.Label(title_block, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
@@ -920,13 +921,13 @@ class App(tk.Tk):
         ttk.Button(status_block, text="Help", style="Soft.TButton", command=self.show_current_help).pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
-        self._build_primary_action_bar(content)
         self._build_metrics_bar(content)
+        self._build_primary_action_bar(content)
         self.banner_slot = tk.Frame(content, bg=COLORS["bg"])
-        self.banner_slot.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
+        self.banner_slot.pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
 
         self.tabs = ttk.Notebook(content, style="Sidebar.TNotebook")
-        self.tabs.pack(fill="both", expand=True, padx=self._scaled(24), pady=(0, self._scaled(10)))
+        self.tabs.pack(fill="both", expand=True, padx=self._scaled(16), pady=(0, self._scaled(8)))
 
         self.start_tab = self._tab()
         self.dashboard_tab = self._tab()
@@ -947,6 +948,9 @@ class App(tk.Tk):
         self.tabs.add(self._tab_page(self.browser_tab), text="Browser Check")
         self.tabs.add(self._tab_page(self.docs_tab), text="Docs")
         self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._highlight_active_nav())
+        self.bind_all("<MouseWheel>", self._route_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._route_mousewheel, add="+")
+        self.bind_all("<Button-5>", self._route_mousewheel, add="+")
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
             ("Start", [("Start Here", self.start_tab), ("Run & Test", self.dashboard_tab)]),
@@ -1010,12 +1014,12 @@ class App(tk.Tk):
             activebackground="#334155",
             activeforeground="#ffffff",
             relief="flat",
-            padx=self._scaled(14),
-            pady=self._scaled(9),
+            padx=self._scaled(10),
+            pady=self._scaled(7),
             anchor="w",
             font=self.fonts["body_bold"],
         )
-        button.pack(fill="x", padx=self._scaled(4), pady=self._scaled(3))
+        button.pack(fill="x", padx=self._scaled(3), pady=self._scaled(2))
         self.nav_button_widgets[text] = button
 
     def _select_workspace(self, frame: tk.Frame) -> None:
@@ -1071,12 +1075,10 @@ class App(tk.Tk):
         body.tag_configure("section", font=self.fonts["body_bold"], foreground=COLORS["blue_dark"], spacing1=self._scaled(8), spacing3=self._scaled(2))
         body.tag_configure("normal", font=self.fonts["body"], foreground=COLORS["ink"], lmargin1=self._scaled(4), lmargin2=self._scaled(4))
         body.tag_configure("list", font=self.fonts["body"], foreground=COLORS["ink"], lmargin1=self._scaled(18), lmargin2=self._scaled(24))
-        for index, line in enumerate(text.splitlines()):
+        for index, line in enumerate(text.splitlines()[1:]):
             tag = "normal"
             stripped = line.strip()
-            if index == 0:
-                tag = "title"
-            elif stripped.endswith(":"):
+            if stripped.endswith(":"):
                 tag = "section"
             elif re.match(r"^\d+\.\s+", stripped):
                 tag = "list"
@@ -1128,11 +1130,11 @@ class App(tk.Tk):
 
     def _build_primary_action_bar(self, parent: tk.Widget) -> None:
         bar = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
-        bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
+        bar.pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
         accent = tk.Frame(bar, bg=COLORS["blue"], width=self._scaled(4))
         accent.pack(side="left", fill="y")
         text = tk.Frame(bar, bg=COLORS["panel"])
-        text.pack(side="left", fill="x", expand=True, padx=self._scaled(14), pady=self._scaled(10))
+        text.pack(side="left", fill="x", expand=True, padx=self._scaled(12), pady=self._scaled(8))
         tk.Label(text, text="BEST NEXT ACTION", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x")
         tk.Label(text, textvariable=self.primary_action_detail, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(760), justify="left").pack(fill="x", pady=(2, 0))
         self.primary_action_button = tk.Button(
@@ -1144,11 +1146,11 @@ class App(tk.Tk):
             activebackground=COLORS["blue_dark"],
             activeforeground="#ffffff",
             relief="flat",
-            padx=self._scaled(16),
-            pady=self._scaled(8),
+            padx=self._scaled(12),
+            pady=self._scaled(6),
             font=self.fonts["body_bold"],
         )
-        self.primary_action_button.pack(side="right", padx=self._scaled(14), pady=self._scaled(10))
+        self.primary_action_button.pack(side="right", padx=self._scaled(12), pady=self._scaled(8))
 
     def run_primary_action(self) -> None:
         self._primary_action()
@@ -1169,29 +1171,29 @@ class App(tk.Tk):
 
     def _build_metrics_bar(self, parent: tk.Widget) -> None:
         bar = tk.Frame(parent, bg=COLORS["bg"])
-        bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
-        self.metric_tunnel_label = self._metric_card(bar, "Working", "Checking", COLORS["amber"])
-        self.metric_stream_label = self._metric_card(bar, "Connections", "0 Seen", COLORS["ink"])
-        self.metric_down_label = self._metric_card(bar, "Download", "Measuring", COLORS["blue"])
-        self.metric_up_label = self._metric_card(bar, "Upload", "Measuring", COLORS["green"])
-        self.metric_refresh_label = self._metric_card(bar, "Auto Update", "Starting", COLORS["blue"])
-        self.metric_next_label = self._metric_card(bar, "Next Step", "Check setup", COLORS["blue"])
+        bar.pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
+        self.metric_tunnel_label = self._metric_card(bar, "Working", "Checking", COLORS["amber"], compact=True)
+        self.metric_down_label = self._metric_card(bar, "Down", "Measuring", COLORS["blue"], compact=True)
+        self.metric_up_label = self._metric_card(bar, "Up", "Measuring", COLORS["green"], compact=True)
+        self.metric_stream_label = self._metric_card(bar, "Conn", "0 Seen", COLORS["ink"], compact=True)
+        self.metric_refresh_label = self._metric_card(bar, "Refresh", "Starting", COLORS["blue"], compact=True)
+        self.metric_next_label = self._metric_card(bar, "Next", "Check setup", COLORS["blue"], compact=True)
 
-    def _metric_card(self, parent: tk.Widget, title: str, value: str, color: str) -> tk.Label:
+    def _metric_card(self, parent: tk.Widget, title: str, value: str, color: str, compact: bool = False) -> tk.Label:
         card = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
-        card.pack(side="left", fill="x", expand=True, padx=(0, self._scaled(8)))
+        card.pack(side="left", fill="x", expand=True, padx=(0, self._scaled(6)))
         accent = tk.Frame(card, bg=color, height=self._scaled(3))
         accent.pack(fill="x")
-        tk.Label(card, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(12), pady=(self._scaled(8), 0))
+        tk.Label(card, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(9), pady=(self._scaled(5), 0))
         label = tk.Label(card, text=value, bg=COLORS["panel"], fg=color, font=self.fonts["h2"], anchor="w")
-        label.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(2), self._scaled(9)))
+        label.pack(fill="x", padx=self._scaled(9), pady=(self._scaled(1), self._scaled(6 if compact else 9)))
         return label
 
     def _tab(self) -> tk.Frame:
         page = tk.Frame(self.tabs, bg=COLORS["panel"])
         canvas = tk.Canvas(page, bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
         scrollbar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
-        inner = tk.Frame(canvas, bg=COLORS["panel"], padx=self._scaled(20), pady=self._scaled(18))
+        inner = tk.Frame(canvas, bg=COLORS["panel"], padx=self._scaled(14), pady=self._scaled(12))
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
@@ -1203,30 +1205,35 @@ class App(tk.Tk):
         def sync_width(event: tk.Event) -> None:
             canvas.itemconfigure(window_id, width=event.width)
 
-        def on_mousewheel(event: tk.Event) -> None:
-            if event.num == 4:
-                canvas.yview_scroll(-3, "units")
-            elif event.num == 5:
-                canvas.yview_scroll(3, "units")
-            else:
-                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
         inner.bind("<Configure>", sync_scroll_region)
         canvas.bind("<Configure>", sync_width)
-        for widget in (page, canvas, inner):
-            widget.bind("<MouseWheel>", on_mousewheel)
-            widget.bind("<Button-4>", on_mousewheel)
-            widget.bind("<Button-5>", on_mousewheel)
         self.tab_pages[str(inner)] = page
+        self.tab_canvases[str(page)] = canvas
         return inner
 
     def _tab_page(self, frame: tk.Frame) -> tk.Frame:
         return self.tab_pages.get(str(frame), frame)
 
+    def _route_mousewheel(self, event: tk.Event) -> None:
+        if not hasattr(self, "tabs"):
+            return
+        selected = self.tabs.select()
+        canvas = self.tab_canvases.get(selected)
+        if canvas is None:
+            return
+        if event.num == 4:
+            canvas.yview_scroll(-3, "units")
+        elif event.num == 5:
+            canvas.yview_scroll(3, "units")
+        else:
+            delta = int(-1 * (event.delta / 120)) if event.delta else 0
+            if delta:
+                canvas.yview_scroll(delta, "units")
+
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         header = tk.Frame(frame, bg=COLORS["panel"])
-        header.pack(fill="x", padx=16, pady=(14, 4))
+        header.pack(fill="x", padx=12, pady=(10, 3))
         tk.Label(header, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"], anchor="w").pack(side="left", fill="x", expand=True)
         if self._help_key(title) in self.help_topics:
             ttk.Button(header, text="Help", style="Soft.TButton", command=lambda key=self._help_key(title): self.show_help_topic(key)).pack(side="right")
@@ -1351,12 +1358,12 @@ class App(tk.Tk):
     def _readiness_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
         item = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
         top = tk.Frame(item, bg=COLORS["panel_alt"])
-        top.pack(fill="x", padx=12, pady=(9, 2))
+        top.pack(fill="x", padx=10, pady=(7, 2))
         tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
         status = tk.Label(top, text="Checking", bg=COLORS["amber_soft"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=8, pady=3)
         status.pack(side="right")
         detail_label = tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(290), justify="left", anchor="nw")
-        detail_label.pack(fill="x", padx=12, pady=(0, 10))
+        detail_label.pack(fill="x", padx=10, pady=(0, 7))
         self.readiness_labels[key] = (status, detail_label)
         return item
 
@@ -1536,13 +1543,13 @@ class App(tk.Tk):
 
         overview = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         overview.pack(fill="x", pady=(0, 12))
-        overview.columnconfigure(0, weight=3)
-        overview.columnconfigure(1, weight=2)
+        overview.columnconfigure(0, weight=1)
+        overview.columnconfigure(1, weight=1)
 
         readiness = self._card(overview, "Can I Use It Now?")
         readiness.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         readiness_grid = tk.Frame(readiness, bg=COLORS["panel"])
-        readiness_grid.pack(fill="x", padx=16, pady=(6, 16))
+        readiness_grid.pack(fill="x", padx=12, pady=(4, 12))
         readiness_items = [
             ("config", "Config", "Primary runtime config is present."),
             ("runtime", "Runtime", "Local Xray runtime can be found."),
@@ -1557,7 +1564,7 @@ class App(tk.Tk):
         network = self._card(overview, "Live Network")
         network.grid(row=0, column=1, sticky="nsew")
         network_body = tk.Frame(network, bg=COLORS["panel"])
-        network_body.pack(fill="both", expand=True, padx=16, pady=(6, 16))
+        network_body.pack(fill="both", expand=True, padx=12, pady=(4, 12))
         for variable, color in (
             (self.network_down_rate, COLORS["blue"]),
             (self.network_up_rate, COLORS["green"]),
@@ -1938,6 +1945,9 @@ class App(tk.Tk):
         self.output = self.output_buffers["sys"]
         self.log_multiplexer = LogMultiplexer(self.output_buffers)
         self.after(100, self._drain_log_buffers)
+        if not self.output_visible.get():
+            self.output_body.pack_forget()
+            self.output_toggle_text.set("Show Logs")
 
     def toggle_output_drawer(self) -> None:
         self.output_visible.set(not self.output_visible.get())
