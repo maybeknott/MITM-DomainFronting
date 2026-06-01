@@ -233,6 +233,7 @@ class App(tk.Tk):
             ("Start Here", lambda: self.tabs.select(self.start_tab)),
             ("Dashboard", lambda: self.tabs.select(self.dashboard_tab)),
             ("Validation", lambda: self.tabs.select(self.validation_tab)),
+            ("Health", lambda: self.tabs.select(self.health_tab)),
             ("Fixes and Help", lambda: self.tabs.select(self.fixes_tab)),
             ("Profiles and DNS", lambda: self.tabs.select(self.profiles_tab)),
             ("Certificates", lambda: self.tabs.select(self.certs_tab)),
@@ -271,6 +272,7 @@ class App(tk.Tk):
         self.start_tab = self._tab()
         self.dashboard_tab = self._tab()
         self.validation_tab = self._tab()
+        self.health_tab = self._tab()
         self.fixes_tab = self._tab()
         self.profiles_tab = self._tab()
         self.certs_tab = self._tab()
@@ -279,6 +281,7 @@ class App(tk.Tk):
         self.tabs.add(self.start_tab, text="Start Here")
         self.tabs.add(self.dashboard_tab, text="Dashboard")
         self.tabs.add(self.validation_tab, text="Validation")
+        self.tabs.add(self.health_tab, text="Health")
         self.tabs.add(self.fixes_tab, text="Fixes and Help")
         self.tabs.add(self.profiles_tab, text="Profiles and DNS")
         self.tabs.add(self.certs_tab, text="Certificates")
@@ -288,6 +291,7 @@ class App(tk.Tk):
         self._build_start_here()
         self._build_dashboard()
         self._build_validation()
+        self._build_health()
         self._build_fixes_help()
         self._build_profiles_dns()
         self._build_certs()
@@ -373,6 +377,10 @@ class App(tk.Tk):
             CommandSpec("Metadata", "Provider/profile/health metadata checks.", tuple(py_script("validate_metadata.py"))),
             CommandSpec("Route Tests", "Route order, references, and policy tests.", tuple(py_script("route_policy_tests.py"))),
             CommandSpec("Protocol Tests", "Protocol metadata and docs coverage tests.", tuple(py_script("protocol_policy_tests.py"))),
+            CommandSpec("Repository Structure", "Required files and gitignore hygiene checks.", tuple(py_script("repository_structure_tests.py"))),
+            CommandSpec("Provider Dossiers", "Provider metadata, route-tag linkage, and rollback/evidence checks.", tuple(py_script("provider_dossier_validate.py"))),
+            CommandSpec("Geodata Pin Verify", "Verifies geodata lock file when present; info-only if absent.", tuple(py_script("geodata_pin.py", "--verify"))),
+            CommandSpec("Health Probe", "Redacted health report for ports/cert/trust/dns/providers.", tuple(py_script("health_probe.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--providers-dir", str(ROOT / "providers")))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
             CommandSpec("Decision Report", "Redacted local decision summary.", tuple(py_script("decision_report.py", "--config", str(CONFIG), "--profile", "balanced"))),
         ]
@@ -394,6 +402,54 @@ class App(tk.Tk):
         ttk.Button(controls, text="Clear Output", style="Soft.TButton", command=lambda: self.output.delete("1.0", "end")).pack(side="left")
         ttk.Button(controls, text="Copy Output", style="Soft.TButton", command=self.copy_output).pack(side="left", padx=8)
         tk.Label(controls, text="Output is always visible in the bottom panel.", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left", padx=8)
+
+    def _build_health(self) -> None:
+        intro = tk.Label(
+            self.health_tab,
+            text=(
+                "Health checks are local-only and redacted. They evaluate listener state, cert/key presence, trust-store match, "
+                "DNS reachability, provider freshness, geodata hashes, and optional runtime checks."
+            ),
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=900,
+            justify="left",
+            anchor="w",
+        )
+        intro.pack(fill="x", pady=(0, 12))
+
+        health = self._card(self.health_tab, "Local health probe")
+        health.pack(fill="x", pady=(0, 12))
+        tk.Label(
+            health,
+            text="Runs scripts/health_probe.py and prints redacted JSON. No payload logs, URLs with tokens, or private key material.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=860,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(4, 10))
+        row = tk.Frame(health, bg=COLORS["panel"])
+        row.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(row, text="Run Health Probe", style="Accent.TButton", command=self.run_health_probe).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Open Health Policy", style="Soft.TButton", command=lambda: self.open_path(ROOT / "configs" / "health-checks.yml")).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Open Decision Engine Doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "decision-engine.md")).pack(side="left")
+
+        smoke = self._card(self.health_tab, "Browser smoke summary")
+        smoke.pack(fill="x", pady=(0, 12))
+        tk.Label(
+            smoke,
+            text="Optional wrapper that runs diagnostics and stealth probes against the same URL/proxy and summarizes pass/warn state.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=860,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(4, 10))
+        row2 = tk.Frame(smoke, bg=COLORS["panel"])
+        row2.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(row2, text="Run Browser Smoke", style="Accent.TButton", command=self.run_browser_smoke).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Open Browser Integration Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")).pack(side="left")
 
     def _build_fixes_help(self) -> None:
         intro = tk.Label(
@@ -752,6 +808,38 @@ class App(tk.Tk):
             args.extend(["--resolver", resolver])
         self.run_async("DNS query type sweep", args, timeout=45)
 
+    def run_health_probe(self) -> None:
+        args = py_script(
+            "health_probe.py",
+            "--config",
+            str(CONFIG),
+            "--cert",
+            str(CERT),
+            "--key",
+            str(KEY),
+            "--providers-dir",
+            str(ROOT / "providers"),
+            "--dns-domain",
+            self.dns_domain.get().strip() or "example.com",
+        )
+        for resolver in [item.strip() for item in self.dns_resolvers.get().split(",") if item.strip()]:
+            args.extend(["--resolver", resolver])
+        xray = find_local_xray()
+        if xray is not None:
+            args.extend(["--xray-bin", str(xray)])
+        self.run_async("Health probe", args, timeout=180)
+
+    def run_browser_smoke(self) -> None:
+        try:
+            url, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("Browser smoke", str(exc))
+            return
+        args = list(py_script("browser_smoke.py", "--url", url, "--proxy", proxy, "--cert", str(CERT), prefer_host=True))
+        if self.browser_headless.get():
+            args.append("--headless")
+        self.run_async("Browser smoke summary", args, timeout=220)
+
     def host_python_or_warn(self) -> list[str] | None:
         host_python = find_host_python()
         if host_python is None:
@@ -1006,6 +1094,15 @@ def self_test() -> int:
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
         SCRIPTS / "browser_stealth.py",
+        SCRIPTS / "browser_smoke.py",
+        SCRIPTS / "health_probe.py",
+        SCRIPTS / "trust_store_check.py",
+        SCRIPTS / "platform_capability_check.py",
+        SCRIPTS / "provider_dossier_validate.py",
+        SCRIPTS / "repository_structure_tests.py",
+        SCRIPTS / "geodata_pin.py",
+        SCRIPTS / "dns_lab_harness.py",
+        SCRIPTS / "fakedns_recovery_check.py",
         SCRIPTS / "install_xray.py",
         BROWSER_CONFIG,
         ROOT / "docs" / "chromium-integration.md",

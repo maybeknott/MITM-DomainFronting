@@ -34,7 +34,9 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
     "crt_exists": true,
     "key_exists": true,
     "key_permissions_ok": true,
-    "trusted_store_fingerprint_match": "not_checked_by_static_report"
+    "trusted_store_fingerprint_match": {
+      "status": "pass|missing|mismatch|unknown|not_supported"
+    }
   },
   "ports": {
     "10808": "listening-loopback",
@@ -45,6 +47,11 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
     "primary": "configured",
     "fallback": "configured",
     "local_private": "configured"
+  },
+  "platform_capabilities": {
+    "ech": {
+      "status": "info|warn"
+    }
   }
 }
 ```

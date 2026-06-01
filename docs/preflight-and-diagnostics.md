@@ -25,11 +25,33 @@ Static-only CI check without user-local CA files:
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
 ```
 
+When DNS checks are enabled, preflight also runs a best-effort captive portal warning probe. Skip it with `--skip-captive-portal` or together with `--no-dns`.
+
 Optional DNS check:
 
 ```bash
 python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8
 ```
+
+Platform/browser capability and ECH warning probe:
+
+```bash
+python scripts/platform_capability_check.py
+```
+
+Best-effort trust-store matching:
+
+```bash
+python scripts/trust_store_check.py --cert Xray-config/mycert.crt
+```
+
+Local health summary:
+
+```bash
+python scripts/health_probe.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --providers-dir providers
+```
+
+The health probe includes a read-only `policy_recommendation` object (`auto_switch` is always false). It suggests a profile and local actions but never changes runtime config.
 
 Query-type-aware DNS check:
 
@@ -70,6 +92,9 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
 | Documentation coverage | Support reports can be routed | Required operational docs are present |
 | Xray config test | Runtime parser accepts config | `xray run -test` passes when `--xray-bin` is provided |
 | Decision report | Support-safe summary | Redacted JSON contains route/profile/DNS/cert/port states only |
+| Platform capability report | ECH and browser behavior can change route assumptions | Browser/platform details and ECH warning are explicit |
+| Trust-store check | Cert may exist locally but not be trusted where needed | `pass/missing/mismatch/unknown/not_supported` status is explicit |
+| Health probe | Unified local health view before escalation | Port/cert/trust/dns/provider/geodata status is emitted in redacted JSON |
 
 ## Diagnostic output
 

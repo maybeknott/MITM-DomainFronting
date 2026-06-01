@@ -65,6 +65,15 @@ After flushing, run:
 
 ```bash
 python scripts/check_dns.py --domain example.com
+python scripts/fakedns_recovery_check.py --domain example.com
 ```
 
 Then open a normal non-target site without the method enabled.
+
+To execute safe local flush commands automatically where supported:
+
+```bash
+python scripts/fakedns_recovery_check.py --domain example.com --yes
+```
+
+The script prints redacted JSON evidence and does not expose browsing payloads or credentials.

@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""Repository layout and hygiene checks aligned with docs/repository-structure.md."""
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+
+REQUIRED_FILES = [
+    "README.md",
+    "SECURITY.md",
+    "PRIVACY.md",
+    "CHANGELOG.md",
+    "SUPPORT_MATRIX.md",
+    "KNOWN_ISSUES.md",
+    "build_gui_exe.bat",
+    ".gitignore",
+    "Xray-config/MITM-DomainFronting.json",
+    "Xray-config/certificate_generator.bat",
+    "Xray-config/certificate_generator.sh",
+    "docs/repository-structure.md",
+    "docs/routing-correctness.md",
+    "docs/dns-resilience.md",
+    "docs/protocol-coverage.md",
+    "docs/platform-compatibility.md",
+    "docs/preflight-and-diagnostics.md",
+    "docs/release-engineering.md",
+    "docs/chromium-integration.md",
+    "configs/profiles.yml",
+    "configs/dns-profiles.yml",
+    "configs/compatibility.yml",
+    "configs/protocols.yml",
+    "configs/browser-integration.json",
+    "configs/transport-experiments.json",
+    "docs/transport-extension-governance.md",
+    "providers/fastly.yml",
+    "providers/google.yml",
+    "providers/meta.yml",
+    "providers/dns-resolvers.yml",
+    "scripts/preflight.py",
+    "scripts/validate_config.py",
+    "scripts/decision_report.py",
+    "scripts/generate_profiles.py",
+    "scripts/browser_diagnostics.py",
+    "scripts/browser_stealth.py",
+    "scripts/browser_smoke.py",
+    "scripts/browser_probe_semantics_test.py",
+    "scripts/repository_structure_tests.py",
+    "scripts/trust_store_check.py",
+    "scripts/platform_capability_check.py",
+    "scripts/dns_lab_harness.py",
+    "scripts/fakedns_recovery_check.py",
+    "scripts/geodata_pin.py",
+    "scripts/provider_dossier_validate.py",
+    "scripts/health_probe.py",
+    "scripts/transport_experiment_validate.py",
+    "scripts/gui.py",
+    "scripts/build_gui_exe.py",
+    ".github/workflows/validate.yml",
+    ".github/workflows/pipeline-audit.yml",
+    ".github/ISSUE_TEMPLATE/bug.yml",
+    ".github/ISSUE_TEMPLATE/platform-setup.yml",
+    ".github/ISSUE_TEMPLATE/service-request.yml",
+]
+
+SHOULD_BE_IGNORED = [
+    "Xray-config/mycert.crt",
+    "Xray-config/mycert.key",
+    "validation-report.json",
+    "checksums.txt",
+    "browser-profiles/diagnostics-playwright",
+    "browser-profiles/stealth-cloakbrowser",
+    "build/_tmp",
+    "dist/_tmp",
+]
+
+
+def check_exists(paths: List[str]) -> List[str]:
+    errors: List[str] = []
+    for rel in paths:
+        if not (ROOT / rel).exists():
+            errors.append(f"missing required path: {rel}")
+    return errors
+
+
+def git_check_ignore(path: str) -> Tuple[bool, str]:
+    proc = subprocess.run(
+        ["git", "check-ignore", path],
+        cwd=str(ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    return proc.returncode == 0, (proc.stdout.strip() or proc.stderr.strip())
+
+
+def check_ignored(paths: List[str]) -> List[str]:
+    errors: List[str] = []
+    for rel in paths:
+        ignored, detail = git_check_ignore(rel)
+        if not ignored:
+            errors.append(f"expected ignored but tracked-visible: {rel} ({detail or 'not ignored'})")
+    return errors
+
+
+def check_primary_config_contract() -> List[str]:
+    errors: List[str] = []
+    primary = ROOT / "Xray-config/MITM-DomainFronting.json"
+    if not primary.exists():
+        errors.append("primary config missing: Xray-config/MITM-DomainFronting.json")
+    script = ROOT / "scripts/generate_profiles.py"
+    expected = 'default=Path("Xray-config/MITM-DomainFronting.json")'
+    text = script.read_text(encoding="utf-8")
+    if expected not in text:
+        errors.append("generate_profiles.py default --base is not Xray-config/MITM-DomainFronting.json")
+    return errors
+
+
+def main() -> int:
+    errors: List[str] = []
+    errors.extend(check_exists(REQUIRED_FILES))
+    errors.extend(check_ignored(SHOULD_BE_IGNORED))
+    errors.extend(check_primary_config_contract())
+    if errors:
+        for error in errors:
+            print(error)
+        return 2
+    print("repository structure checks passed")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

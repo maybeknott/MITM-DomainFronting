@@ -1,0 +1,26 @@
+name: Core Pipeline Structural Audit
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-governance-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Codebase Ingestion Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize Isolated Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Execute Governance Preflight Audit Engine
+        run: |
+          python3 scripts/transport_experiment_validate.py

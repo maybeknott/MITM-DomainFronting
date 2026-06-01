@@ -50,6 +50,7 @@ MITM-DomainFronting/
     ca-wrong-certificate-recovery.md
     listener-binding.md
     chromium-integration.md
+    transport-extension-governance.md
     firewall-and-network-testing.md
     fakedns-recovery.md
     assumptions-and-unknowns.md
@@ -69,6 +70,7 @@ MITM-DomainFronting/
     tun-profiles.yml
     health-checks.yml
     browser-integration.json
+    transport-experiments.json
     provider-status.example.yml
     release-checklist.yml
 
@@ -96,6 +98,18 @@ MITM-DomainFronting/
     browser_common.py
     browser_diagnostics.py
     browser_stealth.py
+    browser_smoke.py
+    browser_probe_semantics_test.py
+    repository_structure_tests.py
+    trust_store_check.py
+    platform_capability_check.py
+    dns_lab_harness.py
+    fakedns_recovery_check.py
+    geodata_pin.py
+    provider_dossier_validate.py
+    health_probe.py
+    health_probe.py
+    transport_experiment_validate.py
     launch_browser_mitm.ps1
 
   .github/

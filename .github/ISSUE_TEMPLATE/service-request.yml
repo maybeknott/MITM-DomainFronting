@@ -38,6 +38,16 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: ech_state
+    attributes:
+      label: ECH relevance
+      options:
+        - likely-relevant
+        - likely-not-relevant
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
     id: support_expectation
     attributes:
       label: Requested support state

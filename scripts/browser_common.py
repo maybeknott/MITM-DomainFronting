@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "browser-integration.json"
@@ -112,6 +113,22 @@ def base_telemetry(
 
 def emit_json(payload: Dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def navigation_succeeded(target_url: str, resolved_url: str, response: Any) -> bool:
+    """
+    Decide whether page navigation succeeded.
+
+    HTTP(S) targets require a successful HTTP response object.
+    Non-HTTP targets (about:, file:, data:, etc.) are considered successful
+    when navigation completes and resolves to a URL without exceptions.
+    """
+    target_scheme = urlparse(target_url).scheme.lower()
+    if target_scheme in {"http", "https"}:
+        return bool(response is not None and bool(getattr(response, "ok", False)))
+    if resolved_url:
+        return True
+    return response is not None
 
 
 def import_mitm_trust():

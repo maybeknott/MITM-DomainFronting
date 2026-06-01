@@ -47,20 +47,20 @@ def parse_response(data: bytes, expected_tid: int) -> Dict[str, int | str]:
     return {"rcode": rcode, "answers": an, "authority": ns, "additional": ar}
 
 
-def query_udp(resolver: str, domain: str, qtype: str, timeout: float) -> Dict[str, object]:
+def query_udp(resolver: str, domain: str, qtype: str, timeout: float, port: int = 53) -> Dict[str, object]:
     tid, packet = build_query(domain, qtype)
     start = time.time()
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.settimeout(timeout)
-            s.sendto(packet, (resolver, 53))
+            s.sendto(packet, (resolver, port))
             data, _ = s.recvfrom(4096)
         elapsed = int((time.time() - start) * 1000)
         parsed = parse_response(data, tid)
-        return {"resolver": resolver, "domain": domain, "qtype": qtype, "status": "pass", "elapsed_ms": elapsed, **parsed}
+        return {"resolver": resolver, "domain": domain, "qtype": qtype, "port": port, "status": "pass", "elapsed_ms": elapsed, **parsed}
     except Exception as exc:  # noqa: BLE001
         elapsed = int((time.time() - start) * 1000)
-        return {"resolver": resolver, "domain": domain, "qtype": qtype, "status": "warn", "elapsed_ms": elapsed, "error": str(exc)}
+        return {"resolver": resolver, "domain": domain, "qtype": qtype, "port": port, "status": "warn", "elapsed_ms": elapsed, "error": str(exc)}
 
 
 def system_resolve(domain: str, timeout: float) -> Dict[str, object]:

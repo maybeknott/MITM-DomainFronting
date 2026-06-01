@@ -6,8 +6,24 @@ routes:
   - r150_repack_fastly_ip_h2
   - r210_redirect_group_tcp443_h2
   - r320_redirect_fastly_ip_tcp443_h2
+geosite_refs:
+  - geosite:fastly
+  - geosite:reddit
+  - geosite:cnn
+geoip_refs:
+  - geoip:fastly
+domain_refs:
+  - domain:buzzfeed.com
 tested_with:
+  os: windows
+  client: v2rayN
   xray_min: 26.2.6
+  xray: 26.2.6
+supported_profiles:
+  - strict
+  - balanced
+  - compatibility
+  - debug
 failure_policy:
   strict: block
   balanced: user_selected_direct_or_report
@@ -16,3 +32,10 @@ known_risks:
   - geosite_drift
   - geoip_drift
   - dns_drift
+rollback:
+  - disable fastly-specific redirect routes and keep global catch-all policy
+  - record failure in provider status and route-policy evidence
+evidence_required:
+  - route_tag_hit
+  - dns_qtype_check
+  - browser_diagnostics_probe

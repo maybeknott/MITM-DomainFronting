@@ -14,6 +14,14 @@ from typing import Any, Dict, List
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 from validate_config import load_json, summarize, validate_config  # noqa: E402
+try:
+    from trust_store_check import build_report as build_trust_store_report  # noqa: E402
+except Exception:  # noqa: BLE001
+    build_trust_store_report = None
+try:
+    from platform_capability_check import build_report as build_platform_capability_report  # noqa: E402
+except Exception:  # noqa: BLE001
+    build_platform_capability_report = None
 
 PROFILE_RULES = {
     "strict": "block_unknown_non_private_and_udp443",
@@ -65,6 +73,38 @@ def route_summary(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def trust_store_status(cert_path: Path) -> Dict[str, Any]:
+    if build_trust_store_report is None:
+        return {"status": "unknown", "reason": "trust_store_check import failed"}
+    try:
+        report = build_trust_store_report(cert_path)
+        return {
+            "status": report.get("status", "unknown"),
+            "platform": report.get("platform"),
+            "firefox": report.get("firefox"),
+            "stores": report.get("store_checks", []),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "unknown", "reason": str(exc)}
+
+
+def platform_capabilities() -> Dict[str, Any]:
+    if build_platform_capability_report is None:
+        return {"status": "unknown", "reason": "platform_capability_check import failed"}
+    try:
+        report = build_platform_capability_report()
+        ech = report.get("ech", {}) if isinstance(report, dict) else {}
+        return {
+            "status": "pass",
+            "platform": report.get("platform"),
+            "browsers": report.get("browsers"),
+            "ech": ech,
+            "network_interfaces": report.get("network_interfaces"),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "unknown", "reason": str(exc)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build a redacted MITM-DomainFronting decision report")
     parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
@@ -87,7 +127,7 @@ def main() -> int:
             "crt_exists": exists(args.cert),
             "key_exists": exists(args.key),
             "key_permissions_ok": key_permissions_ok(args.key),
-            "trusted_store_fingerprint_match": "not_checked_by_static_report",
+            "trusted_store_fingerprint_match": trust_store_status(args.cert),
         },
         "ports": {
             "10808": port_state(10808),
@@ -96,6 +136,7 @@ def main() -> int:
         },
         "dns": dns_tags(config or {}),
         "routing": route_summary(config or {}),
+        "platform_capabilities": platform_capabilities(),
         "validation": {
             "overall": validation,
             "failures": [c for c in checks if c.get("status") == "fail"],

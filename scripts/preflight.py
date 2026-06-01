@@ -30,6 +30,10 @@ except Exception:  # noqa: BLE001
     load_json = None
     validate_config = None
     summarize = None
+try:
+    from platform_capability_check import build_report as build_platform_report  # type: ignore
+except Exception:  # noqa: BLE001
+    build_platform_report = None
 
 EXPECTED_PORTS = [10808, 11666, 11777]
 BAD_LISTEN_ADDRS = {"0.0.0.0", "::", "[::]", "*"}
@@ -244,6 +248,39 @@ def basic_dns_check(domain: str = "example.com", timeout: float = 3.0) -> Dict[s
         return {"id": "system_dns", "status": "warn", "detail": f"{domain} failed after {elapsed_ms}ms: {exc}"}
 
 
+def captive_portal_warning_check(timeout: float = 3.0) -> Dict[str, str]:
+    """Best-effort captive portal warning using the same probe as dns_lab_harness."""
+    start = time.time()
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(
+            "http://connectivitycheck.gstatic.com/generate_204",
+            headers={"User-Agent": "mitm-domainfronting-preflight"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            code = int(response.getcode())
+            elapsed_ms = int((time.time() - start) * 1000)
+            if code == 204:
+                return {
+                    "id": "captive_portal",
+                    "status": "pass",
+                    "detail": f"connectivity check returned HTTP 204 in {elapsed_ms}ms",
+                }
+            return {
+                "id": "captive_portal",
+                "status": "warn",
+                "detail": f"captive portal likely: HTTP {code} in {elapsed_ms}ms; complete network login before strict checks",
+            }
+    except Exception as exc:  # noqa: BLE001
+        elapsed_ms = int((time.time() - start) * 1000)
+        return {
+            "id": "captive_portal",
+            "status": "warn",
+            "detail": f"captive portal possible or probe blocked after {elapsed_ms}ms: {exc}",
+        }
+
+
 def config_required_ports(config: Dict[str, Any]) -> List[int]:
     ports = []
     for inbound in config.get("inbounds", []) if isinstance(config.get("inbounds"), list) else []:
@@ -277,6 +314,36 @@ def geodata_checks(root: Path) -> List[Dict[str, str]]:
     return checks
 
 
+def platform_capability_checks() -> List[Dict[str, str]]:
+    if build_platform_report is None:
+        return [{"id": "platform_capabilities", "status": "info", "detail": "platform_capability_check import unavailable"}]
+    try:
+        report = build_platform_report()
+    except Exception as exc:  # noqa: BLE001
+        return [{"id": "platform_capabilities", "status": "warn", "detail": f"capability check failed: {exc}"}]
+    checks: List[Dict[str, str]] = []
+    browsers = report.get("browsers", [])
+    browser_summary = ", ".join(
+        f"{item.get('family')}:{item.get('version', 'unknown')}" for item in browsers if isinstance(item, dict)
+    ) or "none detected"
+    checks.append({"id": "browser_versions", "status": "info", "detail": browser_summary})
+    ech = report.get("ech", {})
+    if isinstance(ech, dict):
+        checks.append({
+            "id": "ech_capability",
+            "status": str(ech.get("status", "info")),
+            "detail": str(ech.get("detail", "ECH capability not evaluated")),
+        })
+    interfaces = report.get("network_interfaces", {})
+    if isinstance(interfaces, dict):
+        checks.append({
+            "id": "capability_network_interfaces",
+            "status": str(interfaces.get("status", "info")),
+            "detail": str(interfaces.get("detail", "interface probe not available")),
+        })
+    return checks
+
+
 def xray_config_test(config: Path, xray_bin: str) -> Dict[str, str]:
     try:
         proc = subprocess.run(
@@ -302,6 +369,7 @@ def main() -> int:
     parser.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--no-dns", action="store_true", help="skip system DNS resolution check")
+    parser.add_argument("--skip-captive-portal", action="store_true", help="skip captive portal warning probe")
     parser.add_argument("--skip-cert", action="store_true", help="skip local certificate/key checks for CI or static-only validation")
     parser.add_argument("--skip-runtime", action="store_true", help="skip live local port/listener checks")
     parser.add_argument("--xray-bin", default=None, help="optional Xray binary for xray run -test")
@@ -324,6 +392,7 @@ def main() -> int:
     checks.extend(proxy_environment_checks())
     checks.extend(windows_proxy_check())
     checks.extend(interface_conflict_checks())
+    checks.extend(platform_capability_checks())
 
     if args.skip_cert:
         checks.append({"id": "cert_checks", "status": "info", "detail": "skipped by --skip-cert"})
@@ -351,6 +420,10 @@ def main() -> int:
 
     if not args.no_dns:
         checks.append(basic_dns_check())
+    if not args.skip_captive_portal and not args.no_dns:
+        checks.append(captive_portal_warning_check())
+    elif args.skip_captive_portal:
+        checks.append({"id": "captive_portal", "status": "info", "detail": "skipped by --skip-captive-portal"})
     checks.extend(documentation_checks(Path.cwd()))
     checks.extend(geodata_checks(Path.cwd()))
     if args.xray_bin:

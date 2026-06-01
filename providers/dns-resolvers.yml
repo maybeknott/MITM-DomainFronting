@@ -5,8 +5,21 @@ routes:
   - r020_repack_dns_cloudflare
   - r025_repack_dns_google
   - r030_dns_port53
+geosite_refs: []
+geoip_refs: []
+domain_refs:
+  - dns.cloudflare.redirect
+  - dns.google.redirect
 tested_with:
+  os: windows
+  client: v2rayN
   xray_min: 26.2.6
+  xray: 26.2.6
+supported_profiles:
+  - strict
+  - balanced
+  - compatibility
+  - debug
 failure_policy:
   strict: secondary_resolver_then_fail
   balanced: secondary_resolver_then_documented_local
@@ -15,3 +28,10 @@ known_risks:
   - local_dns_hijack
   - dns64_nat64
   - https_svcb_changes
+rollback:
+  - prefer local-private policy only for private suffixes during resolver outage
+  - document resolver outage in release evidence
+evidence_required:
+  - resolver_timeout_scenario
+  - fallback_order_scenario
+  - dns_qtype_check

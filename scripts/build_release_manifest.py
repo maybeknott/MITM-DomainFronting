@@ -112,6 +112,26 @@ def geodata_metadata(root: Path) -> List[Dict[str, object]]:
     return entries
 
 
+def geodata_summary(entries: List[Dict[str, object]]) -> Dict[str, object]:
+    summary: Dict[str, object] = {
+        "geosite_path": None,
+        "geosite_sha256": None,
+        "geoip_path": None,
+        "geoip_sha256": None,
+    }
+    for entry in entries:
+        if entry.get("status") != "found":
+            continue
+        name = entry.get("name")
+        if name == "geosite.dat" and summary["geosite_path"] is None:
+            summary["geosite_path"] = entry.get("path")
+            summary["geosite_sha256"] = entry.get("sha256")
+        if name == "geoip.dat" and summary["geoip_path"] is None:
+            summary["geoip_path"] = entry.get("path")
+            summary["geoip_sha256"] = entry.get("sha256")
+    return summary
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build release validation manifest")
     parser.add_argument("--root", type=Path, default=Path("."))
@@ -159,6 +179,7 @@ def main() -> int:
         else command_result([args.xray_bin, "run", "-test", "-config", str(config)], root)
     )
 
+    geodata = geodata_metadata(root)
     report = {
         "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "generated_by": "scripts/build_release_manifest.py",
@@ -171,6 +192,7 @@ def main() -> int:
         },
         "validation": run_validate(config) if config.exists() else {"status": "fail", "reason": "config missing"},
         "metadata_validation": tracked_command(root, "validate_metadata.py"),
+        "provider_dossier_validation": tracked_command(root, "provider_dossier_validate.py"),
         "route_policy_tests": tracked_command(root, "route_policy_tests.py"),
         "secret_scan": tracked_command(root, "secret_scan.py"),
         "xray": {
@@ -178,7 +200,8 @@ def main() -> int:
             "version": xray_version,
             "config_test": xray_config_test,
         },
-        "geodata": geodata_metadata(root),
+        "geodata": geodata,
+        "geodata_summary": geodata_summary(geodata),
         "files": file_entries,
         "notes": [
             "Review warnings before publishing.",

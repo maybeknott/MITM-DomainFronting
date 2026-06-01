@@ -67,6 +67,29 @@ Run a query-type-aware diagnostic when checking HTTPS/SVCB drift:
 python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8 --all-types
 ```
 
+For scenario-driven manual lab evidence, use the DNS harness:
+
+```bash
+python scripts/dns_lab_harness.py --scenario resolver-timeout --domain example.com --primary-resolver 203.0.113.1 --fallback-resolver 1.1.1.1
+python scripts/dns_lab_harness.py --scenario fallback-order --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8
+python scripts/dns_lab_harness.py --scenario dns-hijack --domain example.com --trusted-resolver 1.1.1.1 --suspect-resolver 8.8.8.8
+python scripts/dns_lab_harness.py --scenario fake-dns-lab --domain example.com --trusted-resolver 1.1.1.1 --fake-dns-bind-port 5533 --fake-ipv4 203.0.113.99
+python scripts/dns_lab_harness.py --scenario split-dns --private-domain router.local --resolver 1.1.1.1 --resolver 8.8.8.8
+python scripts/dns_lab_harness.py --scenario nat64-dns64 --nat64-domain ipv4only.arpa --resolver 1.1.1.1 --resolver 8.8.8.8
+python scripts/dns_lab_harness.py --scenario captive-portal
+```
+
+### Harness output schema (redacted)
+
+```json
+{
+  "scenario": "resolver-timeout",
+  "checks": [],
+  "observations": {},
+  "overall": "pass|warn|fail"
+}
+```
+
 ### Test 1: Resolver timeout
 
 - Disable or blackhole the primary resolver in a lab.

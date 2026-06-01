@@ -18,7 +18,9 @@ py scripts\gui.py
 
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, and decision report.
+- Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.
 - Provides a **Fixes and Help** tab with safe local repair actions.
+- Provides a **Health** tab for redacted local health probes and browser smoke summaries.
 - Regenerates standard operating profiles.
 - Generates optional alternate-port profile files for local port conflicts.
 - Runs a safe auto-fix sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.
@@ -28,6 +30,7 @@ py scripts\gui.py
 - Runs the **two-part browser model** from the **Browser** tab:
   - **Diagnostics** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).
   - **Stealth** — [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) via `browser_stealth.py` (fingerprint and anti-bot path; default stealth engine).
+- Runs optional combined browser smoke summary via `browser_smoke.py`.
 - Shared fields: target URL and proxy (`socks5://127.0.0.1:10808` by default, from `configs/browser-integration.json`).
 - Optional: launch stock Chrome on Windows through `launch_browser_mitm.ps1`, check whether `cloakbrowser` imports, open `docs/chromium-integration.md`.
 - Opens local documentation.

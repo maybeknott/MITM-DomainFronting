@@ -47,6 +47,14 @@ jobs:
         run: |
           python scripts/validate_metadata.py
 
+      - name: Validate repository structure
+        run: |
+          python scripts/repository_structure_tests.py
+
+      - name: Verify geodata lock when present
+        run: |
+          python scripts/geodata_pin.py --verify
+
       - name: Run route policy tests
         run: |
           python scripts/route_policy_tests.py
@@ -54,6 +62,18 @@ jobs:
       - name: Run protocol policy tests
         run: |
           python scripts/protocol_policy_tests.py
+
+      - name: Validate provider dossiers
+        run: |
+          python scripts/provider_dossier_validate.py
+
+      - name: Validate transport experiment manifest
+        run: |
+          python scripts/transport_experiment_validate.py
+
+      - name: Run browser probe semantics regression checks
+        run: |
+          python scripts/browser_probe_semantics_test.py
 
       - name: Check that private keys are not committed
         run: |

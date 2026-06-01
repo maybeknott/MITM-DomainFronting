@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "experiments": [
+    {
+      "id": "vless-http2-profile-review",
+      "category": "config-profile",
+      "status": "experimental",
+      "owner": "maintainers",
+      "config_target": "Xray-config/MITM-DomainFronting.json",
+      "platforms": ["windows", "macos", "linux", "android"],
+      "elevated_privileges": false,
+      "raw_sockets": false,
+      "kernel_hooks": false,
+      "payload_logging": false,
+      "default_enabled": false,
+      "failure_policy": "profile-defined",
+      "rollback": "remove custom routing/transport block or revert to upstream template baseline",
+      "evidence_required": [
+        "validate_config",
+        "route_policy_tests",
+        "protocol_policy_tests"
+      ],
+      "non_goals": [
+        "no upstream proxy-engine source development within this tracking context",
+        "no asynchronous user-space raw socket packet injection loops",
+        "no automated local network interface credential or driver manipulation",
+        "no persistent cleartext collection of user data streams"
+      ]
+    }
+  ]
+}

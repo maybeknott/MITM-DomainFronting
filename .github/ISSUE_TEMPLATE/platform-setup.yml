@@ -30,6 +30,16 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: ech_state
+    attributes:
+      label: ECH state (if known)
+      options:
+        - enabled
+        - disabled
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
     id: capture_mode
     attributes:
       label: Capture mode
@@ -52,8 +62,20 @@ body:
         - label: Imported Xray config
         - label: Confirmed ports 10808, 11666, 11777 are not occupied by another program
         - label: Ran preflight script
+        - label: Checked captive portal warning from preflight (if on public Wi-Fi)
         - label: Checked proxy/VPN/TUN conflict warnings
         - label: Confirmed whether this is browser-only or independent-app behavior
+  - type: dropdown
+    id: captive_portal
+    attributes:
+      label: Captive portal state
+      options:
+        - not applicable
+        - completed login / no portal
+        - portal likely / not yet logged in
+        - unknown
+    validations:
+      required: true
   - type: textarea
     id: issue
     attributes:

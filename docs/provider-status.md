@@ -39,6 +39,12 @@ When a provider stops working, do not start by adding domains blindly. First col
 - Every route listed in `providers/*.yml` must match a real `ruleTag` in the primary config.
 - If domains or IP ranges are added, record the reason and rollback path.
 - If behavior depends on geosite/geoip data, record the data source and hash in release evidence.
+- Provider dossiers must include `supported_profiles`, `tested_with` (`os`, `client`, `xray_min`), `failure_policy`, `rollback`, and `evidence_required`.
+- Validate dossier files before release:
+
+```bash
+python scripts/provider_dossier_validate.py
+```
 
 ## New Provider Entry
 

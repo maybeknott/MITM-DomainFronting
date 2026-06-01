@@ -25,6 +25,7 @@ from browser_common import (
     env_executable_override,
     find_windows_chrome,
     load_integration_config,
+    navigation_succeeded,
     resolve_profile_dir,
     transport_hardening_args,
     DEFAULT_CERT,
@@ -97,9 +98,12 @@ def run_diagnostics_probe(
             telemetry["network_telemetry"]["handshake_latency_ms"] = int(
                 (time.perf_counter() - started) * 1000
             )
-            telemetry["execution_state"]["page_load_success"] = bool(response and response.ok)
+            resolved_url = str(page.url)
+            telemetry["execution_state"]["page_load_success"] = navigation_succeeded(
+                url, resolved_url, response
+            )
             telemetry["execution_state"]["dom_title"] = page.title()
-            telemetry["execution_state"]["resolved_url"] = page.url
+            telemetry["execution_state"]["resolved_url"] = resolved_url
             telemetry["network_telemetry"]["local_mitm_decryption_verified"] = (
                 response is not None and not str(page.url).startswith("chrome-error://")
             )

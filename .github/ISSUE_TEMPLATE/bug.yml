@@ -41,6 +41,16 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: ech_state
+    attributes:
+      label: ECH state (if known)
+      options:
+        - enabled
+        - disabled
+        - unknown
+    validations:
+      required: true
+  - type: dropdown
     id: profile
     attributes:
       label: Operating profile
@@ -67,6 +77,17 @@ body:
         - FakeDNS/network broken after stopping
         - Port/listener problem
         - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: captive_portal
+    attributes:
+      label: Captive portal state (if known)
+      options:
+        - not applicable
+        - completed login / no portal
+        - portal likely / not yet logged in
+        - unknown
     validations:
       required: true
   - type: textarea
