@@ -34,6 +34,16 @@ CHANGELOG.md
 
 ## Validation command sequence
 
+For the standard local audit, run:
+
+```bash
+python main.py audit
+```
+
+On Windows, use `py -3 main.py audit` if `python` is not on `PATH`.
+
+Use the expanded sequence below when preparing release evidence or when a specific check needs its own output:
+
 ```bash
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime

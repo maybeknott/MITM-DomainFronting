@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compatibility wrapper for the full config-src build pipeline."""
+"""Stable entry point for the full config-src build pipeline."""
 from __future__ import annotations
 
 import subprocess

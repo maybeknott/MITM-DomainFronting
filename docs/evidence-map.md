@@ -1,17 +1,17 @@
 # Evidence Map
 
-This document maps repository evidence to engineering conclusions.
+This document maps repository evidence to the safeguards that are now implemented around it.
 
-| Evidence | Conclusion | Required action |
+| Evidence | Conclusion | Implemented safeguard |
 |---|---|---|
-| Config defines `mixed-in` plus isolated Google/Fastly/Meta decrypt inbounds | Local ingress/decrypt graph exists | Validate local ports and listener binding |
-| Config uses certificate `usage: issue` with `mycert.crt` and `mycert.key` | Local certificate lifecycle is central | Add lifecycle docs and status script |
-| Config uses DNS, FakeDNS, resolver aliases, localhost fallback, `serveStale`, and explicit Xray query strategy | DNS is a major runtime dependency | Add DNS resilience docs and tests |
-| Config uses service/provider routing groups | Route drift and provider drift are core risks | Add route tags, provider status, release validation |
-| `.gitignore` only ignoring IDE files is insufficient | Generated keys can be accidentally committed | Add cert/key/log/geodata ignore rules |
-| PR proposing DNS fallback and cert-generation improvements exists | Some hardening needs are already recognized | Preserve easy cert generation while improving reliability |
-| Xray routing is ordered | Route order matters | Add route validation and shadowing review |
-| Xray supports multiple transports | Protocol taxonomy is feasible | Document protocol support, but keep one config |
-| FakeDNS can create stale mappings | Recovery docs are required | Add FakeDNS recovery guide |
-| Android trust behavior varies by app | Browser success does not imply app success | Add platform compatibility matrix |
-| Provider policies can change | External drift can break routes | Add provider status and known issues |
+| Config defines `mixed-in` plus isolated Google/Fastly/Meta decrypt inbounds | Local ingress/decrypt graph exists | `validate_config.py`, `preflight.py`, and listener-binding docs validate local ports and loopback binding |
+| Config uses certificate `usage: issue` with `mycert.crt` and `mycert.key` | Local certificate lifecycle is central | Certificate lifecycle docs, CA recovery guides, `mitm_trust.py`, and GUI certificate actions |
+| Config uses DNS, FakeDNS, resolver aliases, localhost fallback, `serveStale`, and explicit Xray query strategy | DNS is a major runtime dependency | DNS resilience docs, DNS sweep, lab evidence harness, and FakeDNS recovery guide |
+| Config uses service/provider routing groups | Route drift and provider drift are core risks | Route tags, route intent sync, provider status docs, provider dossier validation, and release evidence checks |
+| Generated keys, logs, profiles, and geodata are local artifacts | They must not be committed accidentally | `.gitignore`, secret scan, repository structure tests, and release evidence rules |
+| Certificate generation needs to stay easy | Usability and safety both matter | Batch/shell generation remains, while GUI and `mitm_trust.py` add status, pair checks, rotation, and trust instructions |
+| Xray routing is ordered | First-match order can shadow later rules | Route graph verification and route rule linting |
+| Xray supports multiple transports | Protocol expectations need clear boundaries | Protocol coverage docs, transport profiles, and protocol smoke tests |
+| FakeDNS can create stale mappings | Normal internet access may look broken after exit | FakeDNS recovery guide and lab evidence checks |
+| Android trust behavior varies by app | Browser success does not imply app success | Platform compatibility matrix and Android trust model docs |
+| Provider policies can change | External drift can break routes | Provider status docs, known issues, and provider policy validation |

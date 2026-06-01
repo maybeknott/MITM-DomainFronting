@@ -4,7 +4,7 @@ cd /d "%~dp0"
 
 where py >nul 2>nul
 if %ERRORLEVEL%==0 (
-  py scripts\build_gui_exe.py
+  py -3 scripts\build_gui_exe.py
 ) else (
   python scripts\build_gui_exe.py
 )

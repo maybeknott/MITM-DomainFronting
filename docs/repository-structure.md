@@ -192,12 +192,10 @@ This structure intentionally does not require:
 
 Generated operating profiles and the local GUI are optional repository tools. They must preserve the single primary config workflow and must not introduce remote telemetry, remote services, or automatic trust-store changes. Local GUI telemetry is permitted only as ignored, redacted troubleshooting state under `.local-state/`.
 
-## Minimum adoption checklist
+## Current safeguards
 
-- [ ] Keep `Xray-config/MITM-DomainFronting.json` as the primary import file.
-- [ ] Add `.gitignore` protection for local certs, keys, logs, and geodata.
-- [ ] Add docs for routing, DNS, protocol support, platform compatibility, and certificate lifecycle.
-- [ ] Add preflight script.
-- [ ] Add config validation script.
-- [ ] Add release checklist.
-- [ ] Add issue templates that ask for version, platform, client, DNS, and redacted diagnostics.
+- `Xray-config/MITM-DomainFronting.json` remains the primary import file.
+- `.gitignore` protects local certs, keys, logs, generated profiles, runtime geodata, browser profiles, packaging output, and lab evidence bundles.
+- Routing, DNS, protocol support, platform compatibility, certificate lifecycle, browser checks, release evidence, and recovery workflows are documented under `docs/`.
+- `preflight.py`, `validate_config.py`, route checks, provider checks, transport checks, secret scan, and repository-structure tests cover the release-critical paths.
+- Issue templates ask for platform, client, DNS, and redacted diagnostics without requesting private key material.

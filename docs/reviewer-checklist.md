@@ -67,5 +67,5 @@ Use this checklist before merging config, DNS, certificate, documentation, or re
 - [ ] Known issues updated.
 - [ ] Final verdict written.
 - [ ] Any new dependency is reflected in requirements/CI and validated on clean checkout.
-- [ ] Existing script CLI contracts remain backward-compatible or are versioned/documented.
+- [ ] Existing script CLI contracts remain stable, or breaking changes are versioned and documented.
 - [ ] `auto_switch_safe` remains false unless explicit governance approval exists.

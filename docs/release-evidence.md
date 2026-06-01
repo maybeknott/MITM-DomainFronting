@@ -4,6 +4,16 @@ Every release should include evidence that the single shipped config was checked
 
 ## Required Commands
 
+For a quick local audit before collecting artifacts:
+
+```sh
+python main.py audit
+```
+
+On Windows, use `py -3 main.py audit` if `python` is not on `PATH`.
+
+For release evidence, collect the individual command output:
+
 ```sh
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime

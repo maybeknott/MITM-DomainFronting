@@ -1,10 +1,10 @@
-# Local Status and Telemetry
+# Local Activity History
 
-The Control Center records local operational telemetry to help users explain what happened during setup and troubleshooting.
+The Control Center records local activity history to help users explain what happened during setup and troubleshooting.
 
 ## Scope
 
-Telemetry is local-only and written under `.local-state/`, which is ignored by git.
+Activity history is local-only and written under `.local-state/`, which is ignored by git.
 
 It may include:
 
@@ -29,15 +29,15 @@ It must not include:
 .local-state/gui-telemetry-export.diagnostic.json
 ```
 
-The JSONL file is append-only during normal GUI use. The export file is created only when the user clicks **Export Telemetry**.
+The JSONL file is append-only during normal GUI use. The export file is created only when the user clicks **Export Activity**.
 
 ## GUI Controls
 
-The Dashboard includes:
+The **Run & Test** screen includes a collapsed **Activity History** section:
 
 - **Run Full Status**: records a redacted status snapshot and prints it in the local output pane;
-- **Show Telemetry**: prints the most recent local GUI events;
-- **Export Telemetry**: writes a local diagnostic JSON file for review before sharing;
-- **Clear Telemetry**: removes the local GUI telemetry file.
+- **Show Activity**: prints the most recent local GUI events;
+- **Export Activity**: writes a local diagnostic JSON file for review before sharing;
+- **Clear Activity**: removes the local GUI activity file.
 
-Clearing telemetry does not change configs, certificates, trust stores, or running Xray processes.
+Clearing activity history does not change configs, certificates, trust stores, or running Xray processes.

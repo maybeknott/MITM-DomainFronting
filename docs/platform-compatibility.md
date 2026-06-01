@@ -43,24 +43,24 @@ android_app_udp_heavy
 android_app_unsupported_without_app_cooperation
 ```
 
-## Platform checklist
+## Platform checklist template
 
-For each release, maintain this table:
+Record the filled version of this checklist in release evidence. The project docs should not carry stale one-off platform results.
 
 | Item | Windows | Android | macOS | Linux |
 |---|---|---|---|---|
-| Xray version tested |  |  |  |  |
-| Client version tested |  |  |  |  |
-| Browser version tested |  |  |  |  |
-| CA generation tested |  |  |  |  |
-| CA install tested |  |  |  |  |
-| CA verify tested |  |  |  |  |
-| Local ports checked |  |  |  |  |
-| DNS check passed |  |  |  |  |
-| FakeDNS recovery tested |  |  |  |  |
-| IPv6 tested |  |  |  |  |
-| QUIC behavior documented |  |  |  |  |
-| Known unsupported app classes documented |  |  |  |  |
+| Xray version tested | record per release | record per release | record per release | record per release |
+| Client version tested | record v2rayN | record v2rayNG | record client | record client |
+| Browser version tested | record browser | record browser | record browser | record browser |
+| CA generation tested | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| CA install tested | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| CA verify tested | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| Local ports checked | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| DNS check passed | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| FakeDNS recovery tested | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| IPv6 tested | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| QUIC behavior documented | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
+| Known unsupported app classes documented | pass/fail/not run | pass/fail/not run | pass/fail/not run | pass/fail/not run |
 
 ## Rust backend fallback contract
 
