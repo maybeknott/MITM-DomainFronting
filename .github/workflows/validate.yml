@@ -82,6 +82,10 @@ jobs:
         run: |
           python scripts/provider_dossier_validate.py
 
+      - name: Validate health policy recommendations
+        run: |
+          python scripts/health_policy_tests.py
+
       - name: Validate transport experiment manifest
         run: |
           python scripts/transport_experiment_validate.py
@@ -89,11 +93,13 @@ jobs:
       - name: Validate config-src manifest
         run: |
           python scripts/config_src_validate.py --run-steps
+          python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
           python scripts/config_src_merge_test.py
 
       - name: Lab evidence bundle
         run: |
-          python scripts/lab_evidence_run.py --allow-warn
+          python scripts/lab_evidence_run.py --allow-warn --json-out lab-evidence.bundle.json
+          python scripts/lab_evidence_validate.py --allow-warn lab-evidence.bundle.json
 
       - name: Run browser probe semantics regression checks
         run: |
@@ -121,3 +127,4 @@ jobs:
           path: |
             validation-report.json
             checksums.txt
+            lab-evidence.bundle.json

@@ -50,7 +50,7 @@ Local validation sits beside the runtime graph. Nothing in this layer uploads te
 ```text
 Xray-config/MITM-DomainFronting.json
   -> validate_config / preflight / route_intent_sync
-  -> config-src manifest (validated copy; optional fragment merge)
+  -> config-src source build (base.json + metadata + optional fragment merge)
   -> health_probe / decision_report (read-only policy_recommendation)
   -> dns_lab_harness / lab_evidence_run (redacted lab scenarios)
   -> transport_experiment_validate (extension governance guardrails)
@@ -60,7 +60,7 @@ Xray-config/MITM-DomainFronting.json
 |---|---|---|
 | Preflight | `preflight.py`, `validate_config.py` | `preflight-and-diagnostics.md` |
 | Route intent | `route_intent_sync.py` | `routing-correctness.md`, `configs/route-intent.json` |
-| Config build boundary | `config_src_validate.py`, `config_src_build.py` | `config-src/README.md` |
+| Config build boundary | `config_src_validate.py`, `build_config.py`, `config_src_build.py` | `config-src/README.md` |
 | Health / decisions | `health_probe.py`, `decision_report.py` | `decision-engine.md`, `configs/health-checks.yml` |
 | DNS lab evidence | `dns_lab_harness.py`, `lab_evidence_run.py` | `dns-resilience.md`, `lab-evidence-checklist.md` |
 | Transport governance | `transport_experiment_validate.py` | `transport-extension-governance.md` |

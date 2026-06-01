@@ -1,0 +1,28 @@
+version: 1
+source_config: config-src/base.json
+runtime_target: Xray-config/MITM-DomainFronting.json
+policy:
+  serve_stale_required: true
+  fakedns_required: true
+  targeted_domains_no_silent_local_fallback: true
+resolver_tags:
+  primary: no-filter-dns-cloudflare
+  secondary: no-filter-dns-google
+fallback_order:
+  - no-filter-dns-cloudflare
+  - no-filter-dns-google
+  - local_private_policy_only
+edge_cases:
+  - resolver_timeout
+  - local_dns_hijack
+  - dns64_nat64
+  - https_svcb_record_changes
+  - fakedns_stale_cache
+  - captive_portal_dns
+  - enterprise_split_dns
+  - resolver_route_loop
+validation:
+  - scripts/check_dns.py
+  - scripts/dns_lab_harness.py
+  - scripts/lab_evidence_run.py
+  - scripts/fakedns_recovery_check.py

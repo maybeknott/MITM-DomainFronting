@@ -1,0 +1,36 @@
+version: 1
+source: configs/route-intent.json
+runtime_target: Xray-config/MITM-DomainFronting.json
+taxonomy:
+  rule_tag_format: rNNN_slug
+  order_policy: first_match
+  final_policy: explicit_final_block
+route_groups:
+  dns:
+    - r020_repack_dns_cloudflare
+    - r025_repack_dns_google
+    - r030_dns_port53
+  decrypt_repack_h11:
+    - r100_repack_googlevideo_h11
+    - r110_block_unmatched_h11
+  decrypt_repack_h2:
+    - r120_repack_google_h2
+    - r130_repack_fastly_h2
+    - r140_repack_meta_h2
+    - r150_repack_fastly_ip_h2
+    - r160_block_unmatched_h2
+  redirect_tcp443:
+    - r200_redirect_googlevideo_tcp443_h11
+    - r210_redirect_group_tcp443_h2
+    - r320_redirect_fastly_ip_tcp443_h2
+  direct_or_block:
+    - r010_block_ads
+    - r040_direct_private_regional
+    - r300_block_static_bad_ranges
+    - r310_direct_private_regional_ip
+    - r900_direct_global_catchall
+    - r999_block_final
+validation:
+  - scripts/route_intent_sync.py
+  - scripts/route_policy_tests.py
+  - scripts/validate_config.py

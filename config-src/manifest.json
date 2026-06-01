@@ -1,19 +1,35 @@
 {
-  "schema_version": 1,
-  "description": "Phase-1/2 config-src manifest. Runtime import path remains Xray-config/MITM-DomainFronting.json until maintainers promote compiled output.",
+  "schema_version": 2,
+  "description": "Full config-src manifest. Runtime import path remains Xray-config/MITM-DomainFronting.json; source files must rebuild an identical compiled artifact before release.",
   "runtime_import_target": "Xray-config/MITM-DomainFronting.json",
   "compiled_output": "build/config/MITM-DomainFronting.json",
-  "primary_source": "Xray-config/MITM-DomainFronting.json",
+  "primary_source": "config-src/base.json",
   "fragments": [],
+  "source_components": [
+    "config-src/base.json",
+    "config-src/routes.yml",
+    "config-src/dns.yml",
+    "config-src/profiles.yml",
+    "config-src/providers.yml",
+    "config-src/static-cidrs.yml"
+  ],
   "validation_steps": [
     "validate_config",
     "route_intent_sync",
     "route_policy_tests",
-    "transport_experiment_validate"
+    "transport_experiment_validate",
+    "config_src_runtime_sync"
+  ],
+  "generated_profiles": [
+    "Xray-config/MITM-DomainFronting.strict.json",
+    "Xray-config/MITM-DomainFronting.balanced.json",
+    "Xray-config/MITM-DomainFronting.compatibility.json",
+    "Xray-config/MITM-DomainFronting.debug.json"
   ],
   "non_goals": [
-    "no automatic profile switching at build time",
+    "no automatic runtime profile switching",
     "no upstream Xray-core source edits",
-    "no payload logging during build"
+    "no payload logging during build",
+    "no replacement of Xray-config/MITM-DomainFronting.json as the user import target"
   ]
 }

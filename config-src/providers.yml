@@ -1,0 +1,22 @@
+version: 1
+source_directory: providers
+runtime_target: Xray-config/MITM-DomainFronting.json
+required_fields:
+  - id
+  - status
+  - routes
+  - geosite_refs
+  - geoip_refs
+  - domain_refs
+  - tested_with
+  - supported_profiles
+  - failure_policy
+  - rollback
+  - evidence_required
+providers:
+  - dns-resolvers
+  - google
+  - fastly
+  - meta
+validation:
+  - scripts/provider_dossier_validate.py

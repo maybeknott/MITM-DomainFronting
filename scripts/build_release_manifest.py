@@ -197,7 +197,10 @@ def main() -> int:
         "route_intent_sync": tracked_command(root, "route_intent_sync.py", str(config)),
         "transport_experiment_validate": tracked_command(root, "transport_experiment_validate.py"),
         "config_src_validate": tracked_command(root, "config_src_validate.py", "--run-steps"),
-        "lab_evidence_bundle": tracked_command(root, "lab_evidence_run.py", "--allow-warn"),
+        "config_src_build": tracked_command(root, "build_config.py", "--check-runtime-sync", "--generate-profiles", "--check-profile-sync"),
+        "lab_evidence_bundle": tracked_command(root, "lab_evidence_run.py", "--allow-warn", "--json-out", "lab-evidence.bundle.json"),
+        "lab_evidence_validate": tracked_command(root, "lab_evidence_validate.py", "--allow-warn", "lab-evidence.bundle.json"),
+        "health_policy_tests": tracked_command(root, "health_policy_tests.py"),
         "route_policy_tests": tracked_command(root, "route_policy_tests.py"),
         "secret_scan": tracked_command(root, "secret_scan.py"),
         "xray": {

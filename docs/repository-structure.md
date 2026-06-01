@@ -77,8 +77,14 @@ MITM-DomainFronting/
     release-checklist.yml
 
   config-src/
+    base.json
+    dns.yml
     manifest.json
+    profiles.yml
+    providers.yml
     README.md
+    routes.yml
+    static-cidrs.yml
     fragments/
       README.md
 

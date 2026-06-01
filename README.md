@@ -155,7 +155,10 @@ python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
 python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 python scripts/config_src_validate.py --run-steps
+python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
+python scripts/health_policy_tests.py
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
+python scripts/lab_evidence_validate.py lab-evidence.bundle.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
 

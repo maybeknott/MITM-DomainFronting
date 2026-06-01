@@ -1,0 +1,35 @@
+version: 1
+source_config: config-src/base.json
+runtime_target: Xray-config/MITM-DomainFronting.json
+cidrs:
+  - cidr: 10.10.34.0/24
+    route: r300_block_static_bad_ranges
+    action: block
+    rationale: documented static bad-range behavior preserved from current config
+  - cidr: 2001:4188:2:600::/64
+    route: r300_block_static_bad_ranges
+    action: block
+    rationale: documented static IPv6 bad-range behavior preserved from current config
+  - cidr: 0.0.0.0/0
+    route: r900_direct_global_catchall
+    action: direct
+    rationale: explicit IPv4 catch-all for base/balanced/compat/debug behavior
+  - cidr: ::/0
+    route: r900_direct_global_catchall
+    action: direct
+    rationale: explicit IPv6 catch-all for base/balanced/compat/debug behavior
+geoip_refs:
+  - ref: geoip:private
+    route: r310_direct_private_regional_ip
+    rationale: preserve private LAN behavior
+  - ref: geoip:ir
+    route: r310_direct_private_regional_ip
+    rationale: preserve current regional direct behavior
+  - ref: geoip:fastly
+    routes:
+      - r150_repack_fastly_ip_h2
+      - r320_redirect_fastly_ip_tcp443_h2
+    rationale: provider route coverage
+validation:
+  - scripts/validate_config.py
+  - scripts/route_policy_tests.py

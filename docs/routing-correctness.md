@@ -118,13 +118,13 @@ This document does not replace the primary single-config workflow. Generated str
 4. Document direct catch-all behavior clearly.
 5. Run validation before every release.
 
-## Config-src boundary (phase 1)
+## Config-src boundary
 
-The user import path remains `Xray-config/MITM-DomainFronting.json`. `config-src/manifest.json` declares the primary source and validation steps (`validate_config`, `route_intent_sync`, `route_policy_tests`, `transport_experiment_validate`). Run:
+The user import path remains `Xray-config/MITM-DomainFronting.json`. `config-src/base.json` is the source JSON, while `config-src/manifest.json` declares the runtime target, source metadata files, generated profiles, and validation steps (`validate_config`, `route_intent_sync`, `route_policy_tests`, `transport_experiment_validate`, `config_src_runtime_sync`). Run:
 
 ```bash
 python scripts/config_src_validate.py --run-steps
-python scripts/config_src_build.py
+python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 ```
 
-Phase 2 merges fragments under `config-src/fragments/` into `build/config/MITM-DomainFronting.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy.
+Fragments under `config-src/fragments/` merge into `build/config/MITM-DomainFronting.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy of `config-src/base.json`, and CI requires that copy to remain identical to the runtime import target.

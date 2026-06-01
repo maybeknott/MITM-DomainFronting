@@ -25,4 +25,5 @@ jobs:
         run: |
           python3 scripts/transport_experiment_validate.py
           python3 scripts/config_src_validate.py --run-steps
+          python3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
           python3 scripts/repository_structure_tests.py

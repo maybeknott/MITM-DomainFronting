@@ -1,5 +1,7 @@
 id: dns-resolvers
 status: supported_test_required
+owner: maintainers
+summary: DNS resolver routing, fallback, and local-private split policy.
 last_tested: 2026-05-31
 routes:
   - r020_repack_dns_cloudflare
@@ -29,6 +31,22 @@ known_risks:
   - local_dns_hijack
   - dns64_nat64
   - https_svcb_changes
+route_coverage:
+  - r020_repack_dns_cloudflare keeps primary resolver path reachable
+  - r025_repack_dns_google keeps secondary resolver path reachable
+  - r030_dns_port53 routes plaintext DNS to dns-out
+test_matrix:
+  - resolver-timeout via scripts/dns_lab_harness.py
+  - fallback-order via scripts/dns_lab_harness.py
+  - https-svcb query type via scripts/check_dns.py
+maintenance:
+  - refresh when resolver tags, DNS servers, FakeDNS, or fallback order changes
+  - attach lab-evidence.bundle.json for resolver behavior claims
+failure_modes:
+  - primary resolver timeout
+  - local DNS hijack
+  - split DNS leakage
+  - DNS64 classification unknown
 rollback:
   - prefer local-private policy only for private suffixes during resolver outage
   - document resolver outage in release evidence

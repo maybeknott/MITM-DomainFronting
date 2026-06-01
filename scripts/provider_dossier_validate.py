@@ -78,7 +78,17 @@ def validate_provider(path: Path, known_route_tags: Set[str]) -> List[str]:
         errors.append(f"{path}: unsupported status {status_match.group(1)}")
     if not DATE_RE.search(text):
         errors.append(f"{path}: missing ISO last_tested")
-    for key in ("routes", "known_risks", "supported_profiles", "rollback", "evidence_required"):
+    for key in (
+        "routes",
+        "known_risks",
+        "supported_profiles",
+        "rollback",
+        "evidence_required",
+        "route_coverage",
+        "test_matrix",
+        "maintenance",
+        "failure_modes",
+    ):
         values = list_values_under(text, key)
         if not values:
             errors.append(f"{path}: missing or empty {key}")

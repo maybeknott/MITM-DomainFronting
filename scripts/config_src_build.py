@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import List
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "config-src" / "manifest.json"
@@ -19,6 +20,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Build validated config artifact from config-src manifest")
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument(
+        "--check-runtime-sync",
+        action="store_true",
+        help="fail if the compiled config differs from runtime_import_target",
+    )
+    parser.add_argument(
+        "--generate-profiles",
+        action="store_true",
+        help="generate profile configs from the compiled config into the compiled output directory",
+    )
+    parser.add_argument(
+        "--check-profile-sync",
+        action="store_true",
+        help="fail if generated profile configs differ from manifest generated_profiles",
+    )
     args = parser.parse_args()
 
     validate = subprocess.run(
@@ -46,8 +62,48 @@ def main() -> int:
         output.write_text(json.dumps(compiled, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         print(json.dumps({"compiled_output": str(output), "source": str(primary), "fragments": len(fragment_paths)}, indent=2))
     else:
+        compiled = json.loads(primary.read_text(encoding="utf-8"))
         shutil.copy2(primary, output)
         print(json.dumps({"compiled_output": str(output), "source": str(primary), "fragments": 0}, indent=2))
+    if args.check_runtime_sync:
+        runtime = args.root / manifest["runtime_import_target"]
+        runtime_config = json.loads(runtime.read_text(encoding="utf-8"))
+        if compiled != runtime_config:
+            print(f"compiled config differs from runtime target: {runtime}")
+            return 2
+    generated_profile_paths: List[Path] = []
+    if args.generate_profiles or args.check_profile_sync:
+        profile_proc = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "generate_profiles.py"),
+                "--base",
+                str(output),
+                "--out-dir",
+                str(output.parent),
+            ],
+            cwd=str(args.root),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if profile_proc.returncode != 0:
+            print(profile_proc.stdout)
+            return profile_proc.returncode
+        generated_profile_paths = [Path(line.strip()) for line in profile_proc.stdout.splitlines() if line.strip()]
+        print(json.dumps({"generated_profiles": [str(path) for path in generated_profile_paths]}, indent=2))
+    if args.check_profile_sync:
+        expected_profiles = [args.root / rel for rel in manifest.get("generated_profiles", [])]
+        if len(generated_profile_paths) != len(expected_profiles):
+            print("generated profile count differs from manifest generated_profiles")
+            return 2
+        for generated, expected in zip(sorted(generated_profile_paths), sorted(expected_profiles)):
+            generated_data = json.loads((args.root / generated if not generated.is_absolute() else generated).read_text(encoding="utf-8"))
+            expected_data = json.loads(expected.read_text(encoding="utf-8"))
+            if generated_data != expected_data:
+                print(f"generated profile differs from tracked target: {expected}")
+                return 2
     return 0
 
 
