@@ -53,7 +53,11 @@ r999_block_final
 
 ## Route intent table
 
-Maintain this table in `docs/routing-correctness.md`.
+Maintain this table in `docs/routing-correctness.md`. The machine-readable source of truth is `configs/route-intent.json`, verified by:
+
+```bash
+python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+```
 
 | Rule tag | Match | Outbound | Intent | Expected failure behavior |
 |---|---|---|---|---|

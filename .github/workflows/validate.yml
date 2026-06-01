@@ -59,6 +59,20 @@ jobs:
         run: |
           python scripts/route_policy_tests.py
 
+      - name: Sync route intent manifest against primary config
+        run: |
+          python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+          for config in Xray-config/MITM-DomainFronting.*.json; do
+            python scripts/route_intent_sync.py "$config"
+          done
+
+      - name: Optional Xray runtime config test
+        if: hashFiles('Xray-config/MITM-DomainFronting.json') != ''
+        run: |
+          python scripts/install_xray.py --out-dir xray --force
+          xray/xray run -test -config Xray-config/MITM-DomainFronting.json
+          python scripts/geodata_pin.py --verify --xray-bin xray/xray --root .
+
       - name: Run protocol policy tests
         run: |
           python scripts/protocol_policy_tests.py

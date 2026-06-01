@@ -106,7 +106,34 @@ def xray_check(config: Path, xray_bin: str | None) -> Dict[str, object]:
     }
 
 
-def build_policy_recommendation(checks: Dict[str, object], overall: str) -> Dict[str, object]:
+def load_profile_policy(profile: str, root: Path) -> Dict[str, str]:
+    path = root / "configs" / "profiles.yml"
+    if not path.exists() or profile not in {"strict", "balanced", "compatibility", "debug"}:
+        return {}
+    text = path.read_text(encoding="utf-8")
+    block_match = None
+    for line in text.splitlines():
+        if line.startswith(f"  {profile}:"):
+            block_match = profile
+            break
+    if not block_match:
+        return {}
+    fields: Dict[str, str] = {}
+    capture = False
+    for line in text.splitlines():
+        if line.startswith(f"  {profile}:"):
+            capture = True
+            continue
+        if capture:
+            if line and not line.startswith("    "):
+                break
+            if ":" in line:
+                key, value = line.strip().split(":", 1)
+                fields[key.strip()] = value.strip()
+    return fields
+
+
+def build_policy_recommendation(checks: Dict[str, object], overall: str, root: Path) -> Dict[str, object]:
     actions: List[str] = []
     suggested_profile = "balanced"
     rationale_parts: List[str] = []
@@ -160,9 +187,16 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str) -> Dict
         suggested_profile = "balanced"
         rationale_parts.append("health checks passed without warnings")
 
+    profile_policy = load_profile_policy(suggested_profile, root)
     return {
         "auto_switch": False,
         "suggested_profile": suggested_profile,
+        "profile_policy": {
+            "purpose": profile_policy.get("purpose", ""),
+            "non_private_catchall": profile_policy.get("non_private_catchall", ""),
+            "udp_443": profile_policy.get("udp_443", ""),
+            "source": "configs/profiles.yml",
+        },
         "rationale": "; ".join(rationale_parts) if rationale_parts else "no policy adjustment suggested",
         "actions": actions,
     }
@@ -201,7 +235,7 @@ def main() -> int:
             if isinstance(status, str):
                 all_checks.append({"id": key, "status": status, "detail": value.get("detail", "")})
     report["overall"] = _status_from_checks(all_checks)
-    report["policy_recommendation"] = build_policy_recommendation(report["checks"], str(report["overall"]))
+    report["policy_recommendation"] = build_policy_recommendation(report["checks"], str(report["overall"]), Path("."))
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0 if report["overall"] == "pass" else 1
 

@@ -71,6 +71,7 @@ MITM-DomainFronting/
     health-checks.yml
     browser-integration.json
     transport-experiments.json
+    route-intent.json
     provider-status.example.yml
     release-checklist.yml
 
@@ -109,6 +110,7 @@ MITM-DomainFronting/
     provider_dossier_validate.py
     health_probe.py
     health_probe.py
+    route_intent_sync.py
     transport_experiment_validate.py
     launch_browser_mitm.ps1
 

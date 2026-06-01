@@ -38,7 +38,16 @@ CHANGELOG.md
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
 python scripts/geodata_pin.py --verify
+python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
+```
+
+To pin geodata for a release after downloading Xray locally:
+
+```bash
+python scripts/install_xray.py --out-dir xray --force
+python scripts/geodata_pin.py --write-lock --xray-bin xray/xray --root .
+# Commit release-geodata-lock.json only after maintainer review (see release-geodata-lock.example.json)
 ```
 
 For a local maintainer machine with generated CA material, also run:

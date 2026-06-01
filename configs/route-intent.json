@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "source_doc": "docs/routing-correctness.md",
+  "base_rule_order": [
+    "r010_block_ads",
+    "r020_repack_dns_cloudflare",
+    "r025_repack_dns_google",
+    "r030_dns_port53",
+    "r040_direct_private_regional",
+    "r100_repack_googlevideo_h11",
+    "r110_block_unmatched_h11",
+    "r120_repack_google_h2",
+    "r130_repack_fastly_h2",
+    "r140_repack_meta_h2",
+    "r150_repack_fastly_ip_h2",
+    "r160_block_unmatched_h2",
+    "r200_redirect_googlevideo_tcp443_h11",
+    "r210_redirect_group_tcp443_h2",
+    "r300_block_static_bad_ranges",
+    "r310_direct_private_regional_ip",
+    "r320_redirect_fastly_ip_tcp443_h2",
+    "r900_direct_global_catchall",
+    "r999_block_final"
+  ],
+  "rules": {
+    "r010_block_ads": {
+      "outbound": "block",
+      "intent": "Reduce ad/tracker traffic"
+    },
+    "r020_repack_dns_cloudflare": {
+      "outbound": "tls-repack-dns-cloudflare",
+      "intent": "Keep primary DNS path reachable"
+    },
+    "r025_repack_dns_google": {
+      "outbound": "tls-repack-dns-google",
+      "intent": "Keep secondary DNS path reachable"
+    },
+    "r030_dns_port53": {
+      "outbound": "dns-out",
+      "intent": "Handle plain DNS"
+    },
+    "r040_direct_private_regional": {
+      "outbound": "direct",
+      "intent": "Avoid breaking local/regional services"
+    },
+    "r050_direct_quic_udp443": {
+      "outbound": "direct",
+      "profiles": ["balanced", "compatibility"],
+      "intent": "Documented QUIC/UDP443 direct path"
+    },
+    "r050_block_quic_udp443": {
+      "outbound": "block",
+      "profiles": ["strict", "debug"],
+      "intent": "Block QUIC/UDP443 leakage"
+    },
+    "r100_repack_googlevideo_h11": {
+      "outbound": "tls-repack-google",
+      "intent": "Keep video media path working on h11 path"
+    },
+    "r110_block_unmatched_h11": {
+      "outbound": "block",
+      "intent": "Prevent accidental unsupported h11 behavior"
+    },
+    "r120_repack_google_h2": {
+      "outbound": "tls-repack-google",
+      "intent": "Keep Google-family h2 path working"
+    },
+    "r130_repack_fastly_h2": {
+      "outbound": "tls-repack-fastly",
+      "intent": "Keep Fastly-backed targets working"
+    },
+    "r140_repack_meta_h2": {
+      "outbound": "tls-repack-meta",
+      "intent": "Keep Meta-family targets working"
+    },
+    "r150_repack_fastly_ip_h2": {
+      "outbound": "tls-repack-fastly",
+      "intent": "Cover IP-based Fastly classification"
+    },
+    "r160_block_unmatched_h2": {
+      "outbound": "block",
+      "intent": "Avoid undefined decrypted h2 handling"
+    },
+    "r200_redirect_googlevideo_tcp443_h11": {
+      "outbound": "redirect-out-h11",
+      "intent": "Enter local h11 decrypt/repack path"
+    },
+    "r210_redirect_group_tcp443_h2": {
+      "outbound": "redirect-out-h211",
+      "intent": "Enter local h2 decrypt/repack path"
+    },
+    "r300_block_static_bad_ranges": {
+      "outbound": "block",
+      "intent": "Preserve known bad-range behavior"
+    },
+    "r310_direct_private_regional_ip": {
+      "outbound": "direct",
+      "intent": "Preserve LAN/regional reachability"
+    },
+    "r320_redirect_fastly_ip_tcp443_h2": {
+      "outbound": "redirect-out-h211",
+      "intent": "Cover Fastly IP TCP/443 path"
+    },
+    "r900_direct_global_catchall": {
+      "outbound": "direct",
+      "profiles": ["base", "balanced", "compatibility", "debug"],
+      "intent": "Global catch-all direct fallback"
+    },
+    "r900_block_global_catchall": {
+      "outbound": "block",
+      "profiles": ["strict"],
+      "intent": "Strict global catch-all block"
+    },
+    "r999_block_final": {
+      "outbound": "block",
+      "intent": "Explicit final fallback"
+    }
+  }
+}

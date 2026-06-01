@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to release-geodata-lock.json after running: python scripts/geodata_pin.py --write-lock --xray-bin xray/xray",
+  "root": ".",
+  "xray_version": "replace-with-xray-version-output",
+  "geosite_path": "xray/geosite.dat",
+  "geosite_sha256": null,
+  "geoip_path": "xray/geoip.dat",
+  "geoip_sha256": null
+}
