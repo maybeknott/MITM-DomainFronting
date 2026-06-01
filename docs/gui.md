@@ -16,7 +16,11 @@ py scripts\gui.py
 
 ## What It Does
 
-- Opens on a compact **Dashboard** for new users with:
+- Opens on a guided **Control Hub** for new users with:
+  - grouped sidebar navigation for **Control**, **Diagnostics**, and **Reference** instead of a long flat tab row;
+  - DPI-aware sizing and a semantic color palette for setup, warning, and blocked states;
+  - a top metrics strip for tunnel state, observed stream count, privacy boundary, and the next recommended action;
+  - an inline remediation banner that turns common first-run problems into clear actions such as **Generate Local CA**, **Download Xray**, or **Connect Xray**;
   - connection status for local `127.0.0.1:10808`;
   - at-a-glance setup, connection, certificate, browser, and local telemetry status;
   - **Connect Xray** / **Disconnect** controls for the Xray process launched by the GUI;
@@ -24,8 +28,9 @@ py scripts\gui.py
   - URL, proxy, and browser executable path fields;
   - one-click **Check Setup**, **Safe Auto-Fix**, **Generate Local CA**, **Install Browser Tools**, and **Test Browser** actions;
   - local-only telemetry controls for status snapshots, recent events, export, and clear;
-  - always-visible local logs with copy/clear controls.
+  - always-visible multi-buffer local logs with separate **System**, **Xray Core**, and **Preflight / Linters** streams.
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
+- Locks conflicting controls and shows an indeterminate progress indicator while long-running local checks are active, so repeated clicks do not create overlapping subprocesses.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
 - Runs route graph verification and first-match route rule linting for decrypted-inbound isolation.
 - Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.

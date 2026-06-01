@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import queue
+import re
 import datetime as dt
 import json
 import os
@@ -36,16 +38,18 @@ CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
 XRAY_RELEASES_URL = "https://github.com/XTLS/Xray-core/releases"
 
 COLORS = {
-    "bg": "#f5f7fb",
+    "bg": "#f8fafc",
     "panel": "#ffffff",
-    "ink": "#18202f",
-    "muted": "#667085",
-    "line": "#d9e0ea",
+    "ink": "#0f172a",
+    "muted": "#64748b",
+    "line": "#e2e8f0",
     "blue": "#2563eb",
     "blue_dark": "#1d4ed8",
-    "green": "#15803d",
-    "amber": "#b45309",
-    "red": "#b91c1c",
+    "green": "#16a34a",
+    "amber": "#d97706",
+    "red": "#dc2626",
+    "sidebar": "#0f172a",
+    "sidebar_active": "#1e293b",
 }
 
 
@@ -193,13 +197,61 @@ def read_browser_integration() -> dict:
         }
 
 
+class LogMultiplexer:
+    """Route UI output into system, proxy, and audit buffers without cross-thread writes."""
+
+    def __init__(self, buffers: dict[str, tk.Text]) -> None:
+        self.buffers = buffers
+        self.queue: queue.Queue[tuple[str, str]] = queue.Queue()
+        self.xray_pattern = re.compile(r"\[xray\]|proxy/|accepted|tunnel|transport|xray", re.IGNORECASE)
+        self.audit_pattern = re.compile(r"\[PASS\]|\[FAIL\]|\[WARN\]|validation|linter|preflight|audit|route", re.IGNORECASE)
+
+    def enqueue(self, text: str, stream: str | None = None) -> None:
+        if not text:
+            return
+        target = stream or self.route(text)
+        self.queue.put((target, text))
+
+    def route(self, text: str) -> str:
+        if self.xray_pattern.search(text):
+            return "xray"
+        if self.audit_pattern.search(text):
+            return "audit"
+        return "sys"
+
+    def drain(self) -> None:
+        while True:
+            try:
+                target, text = self.queue.get_nowait()
+            except queue.Empty:
+                return
+            widget = self.buffers.get(target) or self.buffers["sys"]
+            widget.configure(state="normal")
+            tag = "normal"
+            lowered = text.lower()
+            if "[pass]" in lowered or "exited with code 0" in lowered:
+                tag = "success"
+            elif "[warn]" in lowered or "warning" in lowered:
+                tag = "warning"
+            elif "[fail]" in lowered or "error" in lowered or "traceback" in lowered:
+                tag = "danger"
+            widget.insert("end", text, tag)
+            if float(widget.index("end-1c").split(".")[0]) > 1500:
+                widget.delete("1.0", "150.0")
+            widget.configure(state="disabled")
+            widget.see("end")
+            self.queue.task_done()
+
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("MITM-DomainFronting Control Center")
         self.protocol("WM_DELETE_WINDOW", self.close_app)
-        self.geometry("1180x760")
-        self.minsize(1040, 680)
+        self.scaling_factor = self._query_hardware_dpi_scale()
+        self.fonts = self._build_fonts()
+        self.geometry(f"{self._scaled(1220)}x{self._scaled(820)}")
+        self.minsize(self._scaled(1040), self._scaled(700))
         self.configure(bg=COLORS["bg"])
         self.current_process_label = tk.StringVar(value="Ready")
         self.profile_offset = tk.StringVar(value="100")
@@ -225,10 +277,50 @@ class App(tk.Tk):
         self.telemetry_last = tk.StringVar(value="Last event: none")
         self.last_status_level = "unknown"
         self.status_chip_labels: dict[str, tk.Label] = {}
+        self.nav_button_widgets: dict[str, tk.Button] = {}
+        self.output_buffers: dict[str, tk.Text] = {}
+        self.log_multiplexer: LogMultiplexer | None = None
+        self.busy_controls: list[tk.Widget] = []
+        self.is_busy = False
+        self.stream_count = 0
+        self.active_banner: tk.Frame | None = None
         self._configure_style()
         self._build_layout()
         self.record_telemetry("app_started", "info", "GUI started")
         self.refresh_status()
+
+    def _query_hardware_dpi_scale(self) -> float:
+        if os.name == "nt":
+            try:
+                import ctypes
+                ctypes.windll.shcore.SetProcessDpiAwareness(2)
+                hdc = ctypes.windll.user32.GetDC(0)
+                dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
+                ctypes.windll.user32.ReleaseDC(0, hdc)
+                return max(1.0, min(1.8, dpi / 96.0))
+            except Exception:
+                pass
+        try:
+            # Tk reports points-per-pixel; 1.333 is the usual 96-DPI baseline.
+            return max(1.0, min(1.8, float(self.tk.call("tk", "scaling")) / 1.3333333333333333))
+        except Exception:
+            return 1.0
+
+    def _scaled(self, value: int) -> int:
+        return max(1, int(value * self.scaling_factor))
+
+    def _build_fonts(self) -> dict[str, tuple[str, int, str]]:
+        family = "Segoe UI" if os.name == "nt" else "Helvetica"
+        code_family = "Consolas" if os.name == "nt" else "Courier"
+        return {
+            "h1": (family, self._scaled(20), "bold"),
+            "h2": (family, self._scaled(13), "bold"),
+            "body": (family, self._scaled(10), "normal"),
+            "body_bold": (family, self._scaled(10), "bold"),
+            "caption": (family, self._scaled(9), "normal"),
+            "caption_bold": (family, self._scaled(9), "bold"),
+            "code": (code_family, self._scaled(10), "normal"),
+        }
 
     def _configure_style(self) -> None:
         style = ttk.Style(self)
@@ -236,78 +328,83 @@ class App(tk.Tk):
             style.theme_use("clam")
         except tk.TclError:
             pass
-        style.configure(".", font=("Segoe UI", 10), background=COLORS["bg"], foreground=COLORS["ink"])
+        style.configure(".", font=self.fonts["body"], background=COLORS["bg"], foreground=COLORS["ink"])
         style.configure("TNotebook", background=COLORS["bg"], borderwidth=0)
-        style.configure("TNotebook.Tab", padding=(18, 9), background="#e8edf5", foreground=COLORS["ink"])
+        style.configure("TNotebook.Tab", padding=(self._scaled(18), self._scaled(9)), background="#e8edf5", foreground=COLORS["ink"])
         style.map("TNotebook.Tab", background=[("selected", COLORS["panel"])], foreground=[("selected", COLORS["blue_dark"])])
-        style.configure("Accent.TButton", background=COLORS["blue"], foreground="#ffffff", padding=(12, 8), borderwidth=0)
+        try:
+            style.layout("Sidebar.TNotebook.Tab", [])
+        except tk.TclError:
+            pass
+        style.configure("Accent.TButton", background=COLORS["blue"], foreground="#ffffff", padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
         style.map("Accent.TButton", background=[("active", COLORS["blue_dark"])])
-        style.configure("Soft.TButton", background="#eef2ff", foreground=COLORS["blue_dark"], padding=(12, 8), borderwidth=0)
+        style.configure("Soft.TButton", background="#eef2ff", foreground=COLORS["blue_dark"], padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
         style.map("Soft.TButton", background=[("active", "#dbeafe")])
-        style.configure("Danger.TButton", background="#fee2e2", foreground=COLORS["red"], padding=(12, 8), borderwidth=0)
+        style.configure("Danger.TButton", background="#fee2e2", foreground=COLORS["red"], padding=(self._scaled(12), self._scaled(8)), borderwidth=0)
         style.map("Danger.TButton", background=[("active", "#fecaca")])
         style.configure("TEntry", fieldbackground="#ffffff", bordercolor=COLORS["line"], padding=6)
         style.configure("TLabelframe", background=COLORS["panel"], bordercolor=COLORS["line"], relief="solid")
-        style.configure("TLabelframe.Label", background=COLORS["panel"], foreground=COLORS["ink"], font=("Segoe UI", 10, "bold"))
+        style.configure("TLabelframe.Label", background=COLORS["panel"], foreground=COLORS["ink"], font=self.fonts["body_bold"])
 
     def _build_layout(self) -> None:
         root = tk.Frame(self, bg=COLORS["bg"])
         root.pack(fill="both", expand=True)
+        root.columnconfigure(0, minsize=self._scaled(270), weight=0)
+        root.columnconfigure(1, weight=1)
+        root.rowconfigure(0, weight=1)
 
-        sidebar = tk.Frame(root, width=278, bg="#111827")
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
+        sidebar = tk.Frame(root, bg=COLORS["sidebar"])
+        sidebar.grid(row=0, column=0, sticky="nsew")
+        sidebar.grid_propagate(False)
 
-        tk.Label(sidebar, text="MITM-DomainFronting", bg="#111827", fg="#ffffff", font=("Segoe UI", 18, "bold"), anchor="w").pack(fill="x", padx=22, pady=(24, 6))
-        tk.Label(sidebar, text="Local control center", bg="#111827", fg="#cbd5e1", font=("Segoe UI", 10), anchor="w").pack(fill="x", padx=22)
-        tk.Label(sidebar, text=str(ROOT), bg="#111827", fg="#94a3b8", font=("Segoe UI", 8), wraplength=230, justify="left", anchor="w").pack(fill="x", padx=22, pady=(10, 22))
-
-        self.nav_buttons: list[tuple[str, Callable[[], None]]] = [
-            ("Dashboard", lambda: self.tabs.select(self.dashboard_tab)),
-            ("Start Here", lambda: self.tabs.select(self.start_tab)),
-            ("Validation", lambda: self.tabs.select(self.validation_tab)),
-            ("Health", lambda: self.tabs.select(self.health_tab)),
-            ("Fixes and Help", lambda: self.tabs.select(self.fixes_tab)),
-            ("Profiles and DNS", lambda: self.tabs.select(self.profiles_tab)),
-            ("Certificates", lambda: self.tabs.select(self.certs_tab)),
-            ("Browser", lambda: self.tabs.select(self.browser_tab)),
-            ("Documentation", lambda: self.tabs.select(self.docs_tab)),
-        ]
-        for text, command in self.nav_buttons:
-            tk.Button(
-                sidebar,
-                text=text,
-                command=command,
-                bg="#1f2937",
-                fg="#f8fafc",
-                activebackground="#374151",
-                activeforeground="#ffffff",
-                relief="flat",
-                padx=16,
-                pady=10,
-                anchor="w",
-                font=("Segoe UI", 10, "bold"),
-            ).pack(fill="x", padx=16, pady=4)
-
-        tk.Label(sidebar, textvariable=self.current_process_label, bg="#111827", fg="#a7f3d0", font=("Segoe UI", 9), wraplength=230, justify="left").pack(side="bottom", fill="x", padx=22, pady=22)
+        tk.Label(sidebar, text="MITM Fronting", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(22), pady=(self._scaled(24), self._scaled(4)))
+        tk.Label(sidebar, text="Guided local control", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
+        tk.Label(
+            sidebar,
+            text=str(ROOT),
+            bg=COLORS["sidebar"],
+            fg="#94a3b8",
+            font=self.fonts["caption"],
+            wraplength=self._scaled(225),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=self._scaled(22), pady=(self._scaled(10), self._scaled(18)))
+        nav_holder = tk.Frame(sidebar, bg=COLORS["sidebar"])
+        nav_holder.pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(12)))
+        tk.Label(
+            sidebar,
+            textvariable=self.current_process_label,
+            bg=COLORS["sidebar"],
+            fg="#a7f3d0",
+            font=self.fonts["caption"],
+            wraplength=self._scaled(230),
+            justify="left",
+        ).pack(side="bottom", fill="x", padx=self._scaled(22), pady=self._scaled(22))
 
         content = tk.Frame(root, bg=COLORS["bg"])
-        content.pack(side="left", fill="both", expand=True)
+        content.grid(row=0, column=1, sticky="nsew")
+        content.columnconfigure(0, weight=1)
 
         header = tk.Frame(content, bg=COLORS["bg"])
-        header.pack(fill="x", padx=24, pady=(20, 10))
+        header.pack(fill="x", padx=self._scaled(24), pady=(self._scaled(20), self._scaled(10)))
         title_block = tk.Frame(header, bg=COLORS["bg"])
         title_block.pack(side="left", fill="x", expand=True)
-        tk.Label(title_block, text="Control Center", bg=COLORS["bg"], fg=COLORS["ink"], font=("Segoe UI", 22, "bold"), anchor="w").pack(fill="x")
+        tk.Label(title_block, text="Control Center", bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
         tk.Label(title_block, textvariable=self.overall_detail, bg=COLORS["bg"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 0))
         status_block = tk.Frame(header, bg=COLORS["bg"])
         status_block.pack(side="right")
-        self.header_status_label = tk.Label(status_block, textvariable=self.overall_status, bg="#fef3c7", fg=COLORS["amber"], font=("Segoe UI", 11, "bold"), padx=12, pady=6)
-        self.header_status_label.pack(side="left", padx=(0, 8))
+        self.header_status_label = tk.Label(status_block, textvariable=self.overall_status, bg="#fef3c7", fg=COLORS["amber"], font=self.fonts["body_bold"], padx=self._scaled(12), pady=self._scaled(6))
+        self.header_status_label.pack(side="left", padx=(0, self._scaled(8)))
+        self.task_progress = ttk.Progressbar(status_block, mode="indeterminate", length=self._scaled(118))
+        self.task_progress.pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
-        self.tabs = ttk.Notebook(content)
-        self.tabs.pack(fill="both", expand=True, padx=24, pady=(0, 10))
+        self._build_metrics_bar(content)
+        self.banner_slot = tk.Frame(content, bg=COLORS["bg"])
+        self.banner_slot.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
+
+        self.tabs = ttk.Notebook(content, style="Sidebar.TNotebook")
+        self.tabs.pack(fill="both", expand=True, padx=self._scaled(24), pady=(0, self._scaled(10)))
 
         self.start_tab = self._tab()
         self.dashboard_tab = self._tab()
@@ -327,6 +424,24 @@ class App(tk.Tk):
         self.tabs.add(self.certs_tab, text="Certificates")
         self.tabs.add(self.browser_tab, text="Browser")
         self.tabs.add(self.docs_tab, text="Docs")
+        self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._highlight_active_nav())
+
+        nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
+            ("Control", [("Dashboard", self.dashboard_tab), ("Start Here", self.start_tab)]),
+            ("Diagnostics", [("Validation", self.validation_tab), ("Health", self.health_tab), ("Fixes and Help", self.fixes_tab), ("Profiles and DNS", self.profiles_tab), ("Certificates", self.certs_tab)]),
+            ("Reference", [("Browser", self.browser_tab), ("Documentation", self.docs_tab)]),
+        ]
+        for group_name, items in nav_groups:
+            tk.Label(
+                nav_holder,
+                text=group_name.upper(),
+                bg=COLORS["sidebar"],
+                fg="#94a3b8",
+                font=self.fonts["caption_bold"],
+                anchor="w",
+            ).pack(fill="x", padx=self._scaled(8), pady=(self._scaled(12), self._scaled(4)))
+            for text, target in items:
+                self._make_nav_button(nav_holder, text, target)
 
         self._build_start_here()
         self._build_dashboard()
@@ -338,10 +453,75 @@ class App(tk.Tk):
         self._build_browser()
         self._build_docs()
         self._build_output_pane(content)
+        self.busy_controls = [widget for widget in self._walk_widgets(root) if isinstance(widget, (tk.Button, ttk.Button))]
         self._append_output("Ready. All actions run locally in this repository.\n")
+        self._highlight_active_nav()
+
+    def _walk_widgets(self, parent: tk.Widget) -> Iterable[tk.Widget]:
+        for child in parent.winfo_children():
+            yield child
+            yield from self._walk_widgets(child)
+
+    def _make_nav_button(self, parent: tk.Widget, text: str, target: tk.Frame) -> None:
+        button = tk.Button(
+            parent,
+            text=text,
+            command=lambda frame=target: self._select_workspace(frame),
+            bg=COLORS["sidebar_active"],
+            fg="#f8fafc",
+            activebackground="#334155",
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=self._scaled(14),
+            pady=self._scaled(9),
+            anchor="w",
+            font=self.fonts["body_bold"],
+        )
+        button.pack(fill="x", padx=self._scaled(4), pady=self._scaled(3))
+        self.nav_button_widgets[text] = button
+
+    def _select_workspace(self, frame: tk.Frame) -> None:
+        self.tabs.select(frame)
+        self._highlight_active_nav()
+
+    def _highlight_active_nav(self) -> None:
+        if not hasattr(self, "tabs"):
+            return
+        selected = self.tabs.select()
+        tab_to_name = {
+            str(self.dashboard_tab): "Dashboard",
+            str(self.start_tab): "Start Here",
+            str(self.validation_tab): "Validation",
+            str(self.health_tab): "Health",
+            str(self.fixes_tab): "Fixes and Help",
+            str(self.profiles_tab): "Profiles and DNS",
+            str(self.certs_tab): "Certificates",
+            str(self.browser_tab): "Browser",
+            str(self.docs_tab): "Documentation",
+        }
+        active_name = tab_to_name.get(selected)
+        for name, button in self.nav_button_widgets.items():
+            is_active = name == active_name
+            button.configure(bg=COLORS["blue"] if is_active else COLORS["sidebar_active"], fg="#ffffff" if is_active else "#f8fafc")
+
+    def _build_metrics_bar(self, parent: tk.Widget) -> None:
+        bar = tk.Frame(parent, bg=COLORS["bg"])
+        bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
+        self.metric_tunnel_label = self._metric_card(bar, "Tunnels", "Checking", COLORS["amber"])
+        self.metric_stream_label = self._metric_card(bar, "Streams", "0 Channels", COLORS["ink"])
+        self.metric_privacy_label = self._metric_card(bar, "Boundary", "Local Only", COLORS["green"])
+        self.metric_next_label = self._metric_card(bar, "Next Step", "Check setup", COLORS["blue"])
+
+    def _metric_card(self, parent: tk.Widget, title: str, value: str, color: str) -> tk.Label:
+        card = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        card.pack(side="left", fill="x", expand=True, padx=(0, self._scaled(8)))
+        tk.Label(card, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(12), pady=(self._scaled(9), 0))
+        label = tk.Label(card, text=value, bg=COLORS["panel"], fg=color, font=self.fonts["h2"], anchor="w")
+        label.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(2), self._scaled(10)))
+        return label
 
     def _tab(self) -> tk.Frame:
-        return tk.Frame(self.tabs, bg=COLORS["panel"], padx=20, pady=18)
+        return tk.Frame(self.tabs, bg=COLORS["panel"], padx=self._scaled(20), pady=self._scaled(18))
 
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -554,9 +734,9 @@ class App(tk.Tk):
 
         controls = tk.Frame(self.validation_tab, bg=COLORS["panel"])
         controls.pack(fill="x", pady=(0, 8))
-        ttk.Button(controls, text="Clear Output", style="Soft.TButton", command=lambda: self.output.delete("1.0", "end")).pack(side="left")
+        ttk.Button(controls, text="Clear Output", style="Soft.TButton", command=self.clear_output).pack(side="left")
         ttk.Button(controls, text="Copy Output", style="Soft.TButton", command=self.copy_output).pack(side="left", padx=8)
-        tk.Label(controls, text="Output is always visible in the bottom panel.", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left", padx=8)
+        tk.Label(controls, text="Output is always visible in the bottom log streams.", bg=COLORS["panel"], fg=COLORS["muted"]).pack(side="left", padx=8)
 
     def _build_health(self) -> None:
         intro = tk.Label(
@@ -662,16 +842,60 @@ class App(tk.Tk):
 
     def _build_output_pane(self, parent: tk.Widget) -> None:
         outer = tk.Frame(parent, bg=COLORS["bg"])
-        outer.pack(fill="x", padx=24, pady=(0, 24))
+        outer.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(24)))
         frame = tk.Frame(outer, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         frame.pack(fill="x")
         header = tk.Frame(frame, bg=COLORS["panel"])
-        header.pack(fill="x", padx=14, pady=(10, 6))
-        tk.Label(header, text="Local Output", bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 11, "bold")).pack(side="left")
-        ttk.Button(header, text="Clear", style="Soft.TButton", command=lambda: self.output.delete("1.0", "end")).pack(side="right")
-        ttk.Button(header, text="Copy", style="Soft.TButton", command=self.copy_output).pack(side="right", padx=8)
-        self.output = tk.Text(frame, height=8, bg="#0f172a", fg="#dbeafe", insertbackground="#ffffff", relief="flat", padx=12, pady=10, font=("Consolas", 10), wrap="word")
-        self.output.pack(fill="x", padx=14, pady=(0, 14))
+        header.pack(fill="x", padx=self._scaled(14), pady=(self._scaled(10), self._scaled(6)))
+        tk.Label(header, text="Local Log Streams", bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"]).pack(side="left")
+        tk.Label(header, text="System output, proxy output, and audit output are separated for easier triage.", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"]).pack(side="left", padx=self._scaled(10))
+        ttk.Button(header, text="Clear", style="Soft.TButton", command=self.clear_output).pack(side="right")
+        ttk.Button(header, text="Copy All", style="Soft.TButton", command=self.copy_output).pack(side="right", padx=self._scaled(8))
+        self.output_notebook = ttk.Notebook(frame)
+        self.output_notebook.pack(fill="both", expand=True, padx=self._scaled(14), pady=(0, self._scaled(14)))
+        self.output_buffers = {
+            "sys": self._create_log_buffer("System"),
+            "xray": self._create_log_buffer("Xray Core"),
+            "audit": self._create_log_buffer("Preflight / Linters"),
+        }
+        self.output = self.output_buffers["sys"]
+        self.log_multiplexer = LogMultiplexer(self.output_buffers)
+        self.after(100, self._drain_log_buffers)
+
+    def _create_log_buffer(self, title: str) -> tk.Text:
+        tab = tk.Frame(self.output_notebook, bg="#0f172a")
+        self.output_notebook.add(tab, text=title)
+        text = tk.Text(
+            tab,
+            height=8,
+            bg="#0f172a",
+            fg="#dbeafe",
+            insertbackground="#ffffff",
+            relief="flat",
+            padx=self._scaled(12),
+            pady=self._scaled(10),
+            font=self.fonts["code"],
+            wrap="word",
+            state="disabled",
+        )
+        text.pack(fill="both", expand=True)
+        text.tag_configure("normal", foreground="#dbeafe")
+        text.tag_configure("success", foreground="#86efac")
+        text.tag_configure("warning", foreground="#fbbf24")
+        text.tag_configure("danger", foreground="#fca5a5")
+        return text
+
+    def _drain_log_buffers(self) -> None:
+        if self.log_multiplexer:
+            self.log_multiplexer.drain()
+        self.after(100, self._drain_log_buffers)
+
+    def clear_output(self) -> None:
+        targets = self.output_buffers.values() if self.output_buffers else [self.output]
+        for widget in targets:
+            widget.configure(state="normal")
+            widget.delete("1.0", "end")
+            widget.configure(state="disabled")
 
     def _build_profiles_dns(self) -> None:
         profiles = self._card(self.profiles_tab, "Operating profiles")
@@ -911,6 +1135,71 @@ class App(tk.Tk):
         color = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
         label.configure(text=text, fg=color)
 
+    def _show_remediation_banner(self, level: str, code: str, message: str, action_text: str, action: Callable[[], None]) -> None:
+        self._clear_remediation_banner()
+        palette = {
+            "fail": ("#fee2e2", "#fca5a5", "#991b1b", COLORS["red"]),
+            "warn": ("#fffbeb", "#fde68a", "#92400e", COLORS["amber"]),
+            "info": ("#eff6ff", "#bfdbfe", "#1e40af", COLORS["blue"]),
+        }.get(level, ("#eff6ff", "#bfdbfe", "#1e40af", COLORS["blue"]))
+        bg, border, fg, button_bg = palette
+        banner = tk.Frame(self.banner_slot, bg=bg, highlightbackground=border, highlightthickness=1)
+        banner.pack(fill="x")
+        text_block = tk.Frame(banner, bg=bg)
+        text_block.pack(side="left", fill="x", expand=True, padx=self._scaled(14), pady=self._scaled(10))
+        tk.Label(text_block, text=f"{code}: {message}", bg=bg, fg=fg, font=self.fonts["body_bold"], anchor="w", justify="left", wraplength=self._scaled(680)).pack(fill="x")
+        tk.Label(text_block, text="This is advisory; no system trust store or proxy setting is changed silently.", bg=bg, fg=fg, font=self.fonts["caption"], anchor="w", justify="left").pack(fill="x", pady=(self._scaled(2), 0))
+        tk.Button(
+            banner,
+            text=action_text,
+            command=action,
+            bg=button_bg,
+            fg="#ffffff",
+            activebackground=COLORS["blue_dark"] if button_bg == COLORS["blue"] else button_bg,
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=self._scaled(12),
+            pady=self._scaled(7),
+            font=self.fonts["body_bold"],
+        ).pack(side="right", padx=self._scaled(14), pady=self._scaled(10))
+        self.active_banner = banner
+
+    def _clear_remediation_banner(self) -> None:
+        if self.active_banner is not None:
+            self.active_banner.destroy()
+            self.active_banner = None
+
+    def _update_remediation_banner(self, snapshot: dict[str, object], level: str) -> None:
+        if not snapshot["config_exists"]:
+            self._show_remediation_banner("fail", "CONFIG-MISSING", "Primary configuration is missing.", "Open Xray-config", lambda: self.open_path(ROOT / "Xray-config"))
+        elif not snapshot["xray_local"]:
+            self._show_remediation_banner("warn", "XRAY-MISSING", "The GUI cannot find a local Xray runtime.", "Download Xray", self.download_xray)
+        elif not snapshot["cert_exists"] or not snapshot["key_exists"]:
+            self._show_remediation_banner("warn", "CA-MISSING", "Local CA files are missing; browser MITM tests will fail until they exist and are trusted manually.", "Generate Local CA", self.generate_ca)
+        elif not snapshot["loopback_10808_open"]:
+            self._show_remediation_banner("info", "PROXY-OFFLINE", "No local proxy is listening yet. Start the dashboard-managed Xray process, or run Health if another client should be active.", "Connect Xray", self.connect_xray)
+        elif level == "pass":
+            self._clear_remediation_banner()
+        else:
+            self._show_remediation_banner("warn", "SETUP-ATTENTION", str(self.overall_detail.get()), "Run Check Setup", self.run_beginner_setup_check)
+
+    def _set_busy_state(self, busy: bool, label: str = "") -> None:
+        self.is_busy = busy
+        self.configure(cursor="watch" if busy else "")
+        state = "disabled" if busy else "normal"
+        for widget in self.busy_controls:
+            try:
+                widget.configure(state=state)
+            except tk.TclError:
+                pass
+        if hasattr(self, "task_progress"):
+            if busy:
+                self.task_progress.start(10)
+            else:
+                self.task_progress.stop()
+        if label:
+            self.current_process_label.set(f"Running: {label}" if busy else label)
+
     def run_status_snapshot(self) -> None:
         snapshot = self._status_snapshot()
         level, detail = self._status_level(snapshot)
@@ -1004,6 +1293,9 @@ class App(tk.Tk):
             self.record_telemetry("xray_connect", "fail", "Failed to start Xray")
             return
         self._append_output(f"\nStarted Xray: {short_path(xray)}\nConfig: {short_path(config_path)}\n")
+        self.stream_count = 0
+        if hasattr(self, "metric_stream_label"):
+            self.metric_stream_label.configure(text="0 Channels")
         self.record_telemetry("xray_connect", "info", "Started dashboard-launched Xray", {"xray_path": short_path(xray), "config": short_path(config_path)})
         self.current_process_label.set("Xray starting")
         threading.Thread(target=self._read_xray_output, daemon=True).start()
@@ -1014,14 +1306,22 @@ class App(tk.Tk):
         if proc is None or proc.stdout is None:
             return
         for line in proc.stdout:
-            self.after(0, lambda item=line: self._append_output("[xray] " + item))
+            self.after(0, lambda item=line: self._handle_xray_log_line(item))
         code = proc.poll()
         if self.xray_process is proc:
             self.xray_process = None
             self.xray_supervisor = None
+        self.stream_count = 0
         self.after(0, lambda: self.record_telemetry("xray_exit", "info" if code == 0 else "warn", "Xray process exited", {"exit_code": code}))
         self.after(0, lambda: self._append_output(f"\nXray process exited with code {code}\n"))
         self.after(0, self.refresh_status)
+
+    def _handle_xray_log_line(self, line: str) -> None:
+        self._append_output("[xray] " + line, stream="xray")
+        if "accepted" in line.lower():
+            self.stream_count += 1
+            if hasattr(self, "metric_stream_label"):
+                self.metric_stream_label.configure(text=f"{self.stream_count} Channels")
 
     def disconnect_xray(self) -> None:
         if not self._xray_running_from_gui():
@@ -1039,6 +1339,7 @@ class App(tk.Tk):
             return
         assert self.xray_process is not None
         self._stop_gui_xray()
+        self.stream_count = 0
         self._append_output("\nStopped dashboard-launched Xray.\n")
         self.record_telemetry("xray_disconnect", "info", "Stopped dashboard-launched Xray")
         self.current_process_label.set("Xray stopped")
@@ -1104,6 +1405,7 @@ class App(tk.Tk):
         snapshot = self._status_snapshot()
         level, detail = self._status_level(snapshot)
         loopback_open = bool(snapshot["loopback_10808_open"])
+        cert_ok = bool(snapshot["cert_exists"] and snapshot["key_exists"])
         self._update_telemetry_labels()
         status_text = {"pass": "Ready", "warn": "Needs Attention", "fail": "Blocked"}.get(level, "Checking")
         self.overall_status.set(status_text)
@@ -1126,9 +1428,18 @@ class App(tk.Tk):
             self.connection_state.set("Not connected")
             self.simple_next_step.set("Run Check Setup, then Connect Xray or start v2rayN before testing the browser.")
             self.connection_label.configure(fg=COLORS["amber"])
+        if hasattr(self, "metric_tunnel_label"):
+            if self._xray_running_from_gui():
+                self.metric_tunnel_label.configure(text="ACTIVE", fg=COLORS["green"])
+            elif loopback_open:
+                self.metric_tunnel_label.configure(text="EXTERNAL", fg=COLORS["green"])
+            else:
+                self.metric_tunnel_label.configure(text="OFFLINE", fg=COLORS["amber"])
+            self.metric_stream_label.configure(text=f"{self.stream_count} Channels")
+            next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Connect Xray"
+            self.metric_next_label.configure(text=next_text, fg=COLORS["blue"] if loopback_open else COLORS["amber"])
         self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
         self._set_label_state(self.status_chip_labels["Connection"], "Open" if loopback_open else "Closed", "pass" if loopback_open else "warn")
-        cert_ok = bool(snapshot["cert_exists"] and snapshot["key_exists"])
         self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
         browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
         self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
@@ -1160,13 +1471,17 @@ class App(tk.Tk):
             fg=COLORS["green"] if diag_ok and stealth_ok else COLORS["amber"],
         )
         self.status_labels["Privacy"].configure(text="Local telemetry only\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
+        self._update_remediation_banner(snapshot, level)
 
     def run_spec(self, spec: CommandSpec) -> None:
         self.run_async(spec.label, list(spec.args))
 
     def run_async(self, label: str, args: list[str], timeout: int = 120, after: Callable[[int, str], None] | None = None) -> None:
-        self.current_process_label.set(f"Running: {label}")
-        self._append_output(f"\n$ {' '.join(args)}\n")
+        if self.is_busy:
+            self._append_output(f"\nAnother task is already running. Wait for it to finish before starting: {label}\n", stream="sys")
+            return
+        self._set_busy_state(True, label)
+        self._append_output(f"\n$ {' '.join(args)}\n", stream="sys")
         self.record_telemetry("command_started", "info", label)
 
         def worker() -> None:
@@ -1183,8 +1498,11 @@ class App(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def run_sequence(self, label: str, steps: list[tuple[str, list[str], int]]) -> None:
-        self.current_process_label.set(f"Running: {label}")
-        self._append_output(f"\n== {label} ==\n")
+        if self.is_busy:
+            self._append_output(f"\nAnother task is already running. Wait for it to finish before starting: {label}\n", stream="sys")
+            return
+        self._set_busy_state(True, label)
+        self._append_output(f"\n== {label} ==\n", stream="audit")
         self.record_telemetry("sequence_started", "info", label, {"steps": len(steps)})
 
         def worker() -> None:
@@ -1212,7 +1530,7 @@ class App(tk.Tk):
 
     def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None, duration_ms: int | None = None) -> None:
         status = "PASS" if code == 0 else "WARN/FAIL"
-        self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n")
+        self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n", stream="audit")
         self.current_process_label.set(f"{label}: {status}")
         self.record_telemetry(
             "command_finished",
@@ -1222,14 +1540,27 @@ class App(tk.Tk):
         )
         if after:
             after(code, output)
+        self._set_busy_state(False, f"{label}: {status}")
         self.refresh_status()
 
-    def _append_output(self, text: str) -> None:
-        self.output.insert("end", text)
-        self.output.see("end")
+    def _append_output(self, text: str, stream: str | None = None) -> None:
+        if self.log_multiplexer:
+            self.log_multiplexer.enqueue(text, stream)
+            return
+        if hasattr(self, "output"):
+            self.output.configure(state="normal")
+            self.output.insert("end", text)
+            self.output.configure(state="disabled")
+            self.output.see("end")
 
     def copy_output(self) -> None:
-        text = self.output.get("1.0", "end").strip()
+        if self.output_buffers:
+            sections = []
+            for name, widget in self.output_buffers.items():
+                sections.append(f"== {name.upper()} ==\n{widget.get('1.0', 'end').strip()}")
+            text = "\n\n".join(sections).strip()
+        else:
+            text = self.output.get("1.0", "end").strip()
         self.clipboard_clear()
         self.clipboard_append(text)
         self.current_process_label.set("Output copied")
