@@ -1,7 +1,9 @@
 use std::error::Error;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::thread;
 
+use mitm_stream_core::ingress::StreamIngress;
+use mitm_stream_core::ingress_loopback::DesktopLoopbackIngress;
 use mitm_stream_core::parser::{read_client_hello_info, ParserError};
 
 const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:10808";
@@ -10,25 +12,26 @@ const MAX_CLIENT_HELLO_BYTES: usize = 64 * 1024;
 fn main() -> Result<(), Box<dyn Error>> {
     let listen_addr =
         std::env::var("MITM_STREAM_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN_ADDR.to_string());
-    let listener = TcpListener::bind(&listen_addr)?;
+    let mut ingress = DesktopLoopbackIngress::bind(&listen_addr, None)?;
     println!(
         "mitm_stream_core baseline listening on {} (parse-only, no MITM relay yet)",
         listen_addr
     );
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(socket) => {
+    loop {
+        match ingress.accept_flow() {
+            Ok((meta, socket)) => {
                 thread::spawn(move || {
                     if let Err(err) = handle_client(socket) {
-                        eprintln!("flow parse error: {}", err);
+                        eprintln!("flow parse error from {}: {}", meta.source, err);
                     }
                 });
             }
-            Err(err) => eprintln!("accept error: {}", err),
+            Err(err) => {
+                eprintln!("accept error: {}", err);
+            }
         }
     }
-    Ok(())
 }
 
 fn handle_client(mut socket: TcpStream) -> Result<(), ParserError> {

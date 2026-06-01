@@ -1,4 +1,4 @@
-# Rust Stream-Core Baseline (Milestones 4-8)
+# Rust Stream-Core Baseline (Milestones 4-9)
 
 This repository now includes a tested Rust stream-core baseline at the repo root:
 
@@ -7,8 +7,10 @@ This repository now includes a tested Rust stream-core baseline at the repo root
 - `src/alpn_policy.rs`
 - `src/h2_coalescing.rs`
 - `src/ingress.rs`
+- `src/ingress_loopback.rs`
 - `src/parser.rs`
 - `src/cert_cache.rs`
+- `src/cooperative_overlay.rs`
 - `src/regression_harness.rs`
 - `src/scheduler.rs`
 
@@ -36,15 +38,22 @@ Current scope:
 
 5. **Milestone 8: ingress boundary baseline**
    - Separate stream and packet ingress traits
+   - Desktop loopback ingress backend implementing the stream trait
    - Packet references reject empty packets
    - Flow metadata supports unknown original destination
 
-6. **ALPN policy lock baseline**
+6. **Milestone 9: cooperative overlay baseline**
+   - Session open/authentication boundary via `OverlayAuthenticator`
+   - Strict sequence handling with replay/out-of-order rejection
+   - Explicit UDP-to-TCP fallback state toggles
+   - Idle session pruning and bounded session capacity
+
+7. **ALPN policy lock baseline**
    - Local ALPN can only be selected from client-offered and provider-allowed values
    - Forced modes fail when the upstream result conflicts
    - Missing upstream selection is reported as a policy error
 
-7. **HTTP/2 coalescing guard baseline**
+8. **HTTP/2 coalescing guard baseline**
    - Sessions bind to one provider family
    - `:authority` values are normalized before tracking
    - Cross-provider reuse fails closed

@@ -17,7 +17,21 @@ MITM-DomainFronting/
   build_gui_exe.bat
   bootstrap.py
   main.py
+  Cargo.toml
   .gitignore
+
+  src/
+    lib.rs
+    main.rs
+    parser.rs
+    cert_cache.rs
+    scheduler.rs
+    alpn_policy.rs
+    h2_coalescing.rs
+    ingress.rs
+    ingress_loopback.rs
+    cooperative_overlay.rs
+    regression_harness.rs
 
   Xray-config/
     MITM-DomainFronting.json
@@ -139,9 +153,6 @@ MITM-DomainFronting/
       process_supervisor.py
       route_rule_linter.py
       trust_assistant.py
-
-  docs/
-    lab-evidence-checklist.md
 
   .github/
     ISSUE_TEMPLATE/

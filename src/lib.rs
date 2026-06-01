@@ -1,7 +1,9 @@
 pub mod alpn_policy;
 pub mod cert_cache;
+pub mod cooperative_overlay;
 pub mod h2_coalescing;
 pub mod ingress;
+pub mod ingress_loopback;
 pub mod parser;
 pub mod regression_harness;
 pub mod scheduler;
