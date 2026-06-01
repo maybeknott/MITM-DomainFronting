@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate config-src manifest and phase-1 pipeline boundaries."""
+"""Validate config-src manifest and build pipeline boundaries."""
 from __future__ import annotations
 
 import argparse

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deep-merge Xray JSON config fragments for config-src phase 2."""
+"""Deep-merge Xray JSON config fragments for config-src builds."""
 from __future__ import annotations
 
 import copy

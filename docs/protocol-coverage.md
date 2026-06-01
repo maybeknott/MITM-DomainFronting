@@ -2,7 +2,7 @@
 
 ## Objective
 
-Document what the current method is expected to handle, what is expected to pass through directly, what may partially work, and what is not supported. This reduces vague bug reports such as "site broken" by turning them into protocol-specific reports.
+Document what the current method is expected to handle, what is expected to pass through directly, what may behave inconsistently, and what is not supported. This reduces vague bug reports such as "site broken" by turning them into protocol-specific reports.
 
 ## Protocol matrix
 
@@ -32,7 +32,7 @@ Use these labels in issues and compatibility files:
 
 ```text
 supported       Expected to work in current config.
-degraded        May work partially or require browser/app setting.
+degraded        May require browser/app settings or behave inconsistently.
 pass_through    Not handled by method; direct behavior expected.
 unsupported     Known not to work reliably.
 unknown         Not tested yet.

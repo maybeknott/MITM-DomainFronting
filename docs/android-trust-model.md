@@ -17,7 +17,7 @@ Browser support is realistic. Arbitrary app support is not guaranteed.
 | App trusts user CAs | May work | App-specific |
 | App trusts only system CAs | Usually fails | Not a config bug |
 | App pins certificates | Usually fails | Do not try to bypass pinning |
-| App uses QUIC/WebRTC heavily | May partially fail | UDP-heavy behavior must be tested |
+| App uses QUIC/WebRTC heavily | May degrade or fail | UDP-heavy behavior must be tested |
 | App uses custom network stack | Unknown | App-specific |
 
 ## Issue template language

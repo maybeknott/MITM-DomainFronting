@@ -1,6 +1,6 @@
-# config-src fragments (phase 2)
+# config-src fragments
 
-Each file here is a **partial Xray JSON object** merged onto the primary config during `scripts/config_src_build.py`.
+Each file here is an overlay Xray JSON object merged onto the primary config during `scripts/build_config.py`.
 
 ## Merge rules
 
@@ -32,7 +32,7 @@ Add fragment paths to `config-src/manifest.json` → `fragments` in merge order,
 
 ```bash
 python scripts/config_src_validate.py --run-steps
-python scripts/config_src_build.py
+python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 ```
 
-The compiled output is written to `build/config/MITM-DomainFronting.json` (gitignored). Users still import `Xray-config/MITM-DomainFronting.json` until maintainers promote compiled output.
+The compiled output is written to `build/config/MITM-DomainFronting.json` (gitignored). Users still import `Xray-config/MITM-DomainFronting.json`; CI verifies that source output and tracked runtime output stay synchronized.

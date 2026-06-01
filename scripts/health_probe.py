@@ -39,6 +39,18 @@ def local_port_checks() -> List[Dict[str, object]]:
     return checks
 
 
+def listener_exposure_checks() -> List[Dict[str, object]]:
+    try:
+        from preflight import listener_exposure_checks as preflight_listener_exposure_checks
+    except Exception as exc:  # noqa: BLE001
+        return [{
+            "id": "runtime_listener_exposure",
+            "status": "info",
+            "detail": f"unavailable: {exc}",
+        }]
+    return preflight_listener_exposure_checks(EXPECTED_PORTS)
+
+
 def cert_checks(cert: Path, key: Path) -> List[Dict[str, object]]:
     checks: List[Dict[str, object]] = []
     checks.append({"id": "cert_exists", "status": "pass" if cert.exists() else "warn", "detail": str(cert)})
@@ -175,6 +187,16 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str, root: P
             actions.append("Start Xray/v2rayN and confirm mixed-in on 127.0.0.1:10808 before browser or health validation.")
             rationale_parts.append("local proxy ports are not listening")
 
+    listener_exposure = checks.get("runtime_listener_exposure", [])
+    if isinstance(listener_exposure, list):
+        exposed = [
+            c for c in listener_exposure
+            if isinstance(c, dict) and c.get("status") == "fail"
+        ]
+        if exposed:
+            actions.append("Restrict local proxy listeners to 127.0.0.1 before using strict or balanced profiles.")
+            rationale_parts.append("runtime listener exposure is not loopback-only")
+
     cert_checks = checks.get("certificate", [])
     if isinstance(cert_checks, list):
         if any(isinstance(c, dict) and c.get("status") == "warn" for c in cert_checks):
@@ -252,6 +274,7 @@ def main() -> int:
     report: Dict[str, object] = {
         "checks": {
             "local_ports": local_port_checks(),
+            "runtime_listener_exposure": listener_exposure_checks(),
             "certificate": cert_checks(args.cert, args.key),
             "dns": dns_checks(args.dns_domain, args.resolver or ["1.1.1.1", "8.8.8.8"], args.dns_timeout),
             "providers": provider_freshness(args.providers_dir, args.provider_stale_days),

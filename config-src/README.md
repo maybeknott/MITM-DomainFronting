@@ -14,7 +14,7 @@ not change the current user import workflow.
 
 ## Fragment Merge
 
-When fragments are listed in `manifest.json` -> `fragments`, `scripts/config_src_merge.py` deep-merges each partial JSON object onto the primary config:
+When fragments are listed in `manifest.json` -> `fragments`, `scripts/config_src_merge.py` deep-merges each overlay JSON object onto the primary config:
 
 - **Objects**: recursive merge
 - **Arrays**: concatenated, for example additional `routing.rules`

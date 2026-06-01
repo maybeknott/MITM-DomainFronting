@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build phase-1 compiled config artifact from config-src manifest."""
+"""Build compiled config artifacts from the config-src manifest."""
 from __future__ import annotations
 
 import argparse

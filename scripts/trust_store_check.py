@@ -244,7 +244,7 @@ def build_report(cert_path: Path) -> Dict[str, object]:
                 "store": f"{system}:unknown",
                 "status": "not_supported",
                 "matched": False,
-                "error": "platform trust-store checks not implemented",
+                "error": "platform trust-store checks are unavailable",
             }]
     status = evaluate_status(cert_exists, store_checks, system)
     return {
