@@ -204,7 +204,7 @@ class LogMultiplexer:
         self.buffers = buffers
         self.queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.xray_pattern = re.compile(r"\[xray\]|proxy/|accepted|tunnel|transport|xray", re.IGNORECASE)
-        self.audit_pattern = re.compile(r"\[PASS\]|\[FAIL\]|\[WARN\]|validation|linter|preflight|audit|route", re.IGNORECASE)
+        self.audit_pattern = re.compile(r"\[OK\]|\[PASS\]|\[FAIL\]|\[WARN\]|validation|linter|preflight|audit|route|needs attention", re.IGNORECASE)
 
     def enqueue(self, text: str, stream: str | None = None) -> None:
         if not text:
@@ -229,9 +229,9 @@ class LogMultiplexer:
             widget.configure(state="normal")
             tag = "normal"
             lowered = text.lower()
-            if "[pass]" in lowered or "exited with code 0" in lowered:
+            if "[ok]" in lowered or "[pass]" in lowered or "exited with code 0" in lowered:
                 tag = "success"
-            elif "[warn]" in lowered or "warning" in lowered:
+            elif "[warn]" in lowered or "warning" in lowered or "needs attention" in lowered:
                 tag = "warning"
             elif "[fail]" in lowered or "error" in lowered or "traceback" in lowered:
                 tag = "danger"
@@ -270,11 +270,12 @@ class App(tk.Tk):
         self.xray_process: subprocess.Popen[str] | None = None
         self.active_config = tk.StringVar(value=str(CONFIG))
         self.connection_state = tk.StringVar(value="Not connected")
-        self.simple_next_step = tk.StringVar(value="Run Check Setup, then connect Xray and test the browser.")
+        self.simple_next_step = tk.StringVar(value="Run Check Setup, then start the proxy and test the browser.")
+        self.screen_title = tk.StringVar(value="Dashboard")
         self.overall_status = tk.StringVar(value="Checking")
         self.overall_detail = tk.StringVar(value="Reading local config, certificates, ports, and tools.")
-        self.telemetry_summary = tk.StringVar(value="Telemetry: local only, 0 events")
-        self.telemetry_last = tk.StringVar(value="Last event: none")
+        self.telemetry_summary = tk.StringVar(value="Activity history: local only, 0 events")
+        self.telemetry_last = tk.StringVar(value="Last activity: none")
         self.last_status_level = "unknown"
         self.status_chip_labels: dict[str, tk.Label] = {}
         self.nav_button_widgets: dict[str, tk.Button] = {}
@@ -284,6 +285,7 @@ class App(tk.Tk):
         self.is_busy = False
         self.stream_count = 0
         self.active_banner: tk.Frame | None = None
+        self.help_topics = self._build_help_topics()
         self._configure_style()
         self._build_layout()
         self.record_telemetry("app_started", "info", "GUI started")
@@ -322,6 +324,111 @@ class App(tk.Tk):
             "code": (code_family, self._scaled(10), "normal"),
         }
 
+    def _build_help_topics(self) -> dict[str, str]:
+        return {
+            "dashboard": (
+                "Dashboard\n\n"
+                "Purpose: the main place to start, stop, and test the local proxy.\n\n"
+                "Proxy metric: shows whether 127.0.0.1:10808 is offline, running from this app, or already used by another local client.\n"
+                "Traffic metric: counts accepted Xray connection log lines seen during this app session. It is a live activity hint, not a billing or byte counter.\n"
+                "Data metric: reminds you that logs and activity history stay local.\n"
+                "Next Step metric: points to the safest next action based on current setup state.\n\n"
+                "Start Proxy launches the selected Xray config through this GUI. Stop Proxy only stops a process launched by this GUI. Check Health runs the redacted local health report."
+            ),
+            "start_here": (
+                "Start Here\n\n"
+                "Use this screen when setting up the workspace for the first time.\n\n"
+                "Check Setup runs the smallest useful validation set. Install Optional Dependencies adds browser and packaging tools. Generate Local CA creates local certificate files but does not install trust. Run Page Check opens a controlled browser check through the local proxy."
+            ),
+            "checks": (
+                "Checks\n\n"
+                "This screen runs local validation scripts. Use it before changing configs, publishing a build, or filing an issue.\n\n"
+                "Config checks validate JSON, ports, route tags, DNS tags, and required loopback listeners. Route checks verify first-match routing order and decrypted-inbound isolation. Secret Scan checks tracked files for private-key material."
+            ),
+            "health_report": (
+                "Health Report\n\n"
+                "This screen produces support-safe local reports.\n\n"
+                "Run Health Probe checks ports, certificate files, trust alignment, DNS reachability, provider freshness, and local runtime state. Lab Evidence runs DNS/fakeDNS harness scenarios. Decision Report creates a compact redacted summary for debugging."
+            ),
+            "fix_tools": (
+                "Fix Tools\n\n"
+                "These actions repair local workspace files and optional tools. They do not silently install certificate trust, change system proxy settings, or delete browser profiles.\n\n"
+                "Repair Local Files regenerates profiles, creates alternate-port profiles, runs policy checks, and offers CA generation only after confirmation."
+            ),
+            "profiles_dns": (
+                "Profiles & DNS\n\n"
+                "Operating profiles are generated Xray config variants. The Profile selector on Dashboard chooses which config this GUI starts.\n\n"
+                "Offset is added to local listener ports when creating alternate profiles. Suffix is appended to generated alternate profile filenames. DNS Sweep checks A, AAAA, HTTPS, and SVCB records against selected resolvers."
+            ),
+            "certificates": (
+                "Certificates\n\n"
+                "Certificate Status inspects local CA files. Check Cert/Key Pair verifies that the certificate and key match. Generate Local CA creates or replaces Xray-config/mycert.crt and mycert.key. Trust Instructions prints copy-paste commands; the GUI does not elevate privileges or install trust silently."
+            ),
+            "browser_tests": (
+                "Browser Tests\n\n"
+                "Target URL is the page to test. Proxy is usually socks5://127.0.0.1:10808. Browser path is optional; leave it blank to use the default Playwright browser when available.\n\n"
+                "Run Page Check verifies proxy, certificate, and page loading with stock Chromium. Run Fingerprint Check uses CloakBrowser for application-layer fingerprint testing while traffic still goes through the local proxy."
+            ),
+            "docs": (
+                "Docs\n\n"
+                "This screen opens local repository documentation. It does not use the network. Pick the guide that matches the problem you are debugging: operating profiles, browser integration, certificates, DNS, local activity history, or platform compatibility."
+            ),
+            "1_proxy_control": (
+                "Proxy Control\n\n"
+                "Profile selects the config file used when the GUI starts Xray. Start Proxy launches that config. Stop Proxy stops only the process launched by this GUI. Check Health runs a redacted environment report.\n\n"
+                "If another app already owns 127.0.0.1:10808, this GUI will not kill it."
+            ),
+            "2_browser_check": (
+                "Browser Check\n\n"
+                "URL is the page to open. Proxy is the local proxy endpoint. Browser path is optional and useful when you want a specific Chrome or Edge executable.\n\n"
+                "Run Page Check is the first browser test to use. Run Fingerprint Check is for the CloakBrowser path."
+            ),
+            "3_quick_actions": (
+                "Quick Actions\n\n"
+                "Check Setup is the first troubleshooting action. Repair Local Files performs deterministic local regeneration and validation. Generate Local CA creates certificate files. Install Browser Tools installs only optional browser check dependencies."
+            ),
+            "4_activity_history": (
+                "Activity History\n\n"
+                "Run Full Status records a local snapshot. Show Activity displays recent GUI events. Export Activity writes a redacted local JSON file. Clear Activity removes the GUI event history."
+            ),
+            "status_summary": (
+                "Status Summary\n\n"
+                "These tiles summarize the selected config, certificate files, generated profiles, health tool availability, dependencies, browser setup, and privacy boundaries."
+            ),
+            "operating_profiles": (
+                "Operating Profiles\n\n"
+                "Regenerate Standard Profiles rebuilds committed profile variants. Generate Alternate Profiles creates local ignored config variants with shifted ports for machines where default ports are occupied."
+            ),
+            "dns_diagnostics": (
+                "DNS Check\n\n"
+                "Domain is the name to query. Resolvers is a comma-separated list such as 1.1.1.1, 8.8.8.8. DNS Sweep checks common record types for resolver drift."
+            ),
+            "dns_check": (
+                "DNS Check\n\n"
+                "Domain is the name to query. Resolvers is a comma-separated list such as 1.1.1.1, 8.8.8.8. DNS Sweep checks common record types for resolver drift."
+            ),
+            "certificate_lifecycle": (
+                "Certificate Lifecycle\n\n"
+                "Use this screen to inspect, match, generate, and manually trust the local CA. The private key is local and ignored by git."
+            ),
+            "shared_settings": (
+                "Shared Browser Settings\n\n"
+                "Target URL and Proxy are reused by both browser test modes. The default proxy should point at the local mixed inbound."
+            ),
+            "path_1_diagnostics_stock_chromium": (
+                "Page Check Browser Path\n\n"
+                "Use this first. It checks whether a stock browser can load the target page through the local proxy and local CA setup."
+            ),
+            "path_1_page_check_stock_chromium": (
+                "Page Check Browser Path\n\n"
+                "Use this first. It checks whether a stock browser can load the target page through the local proxy and local CA setup."
+            ),
+            "path_2_fingerprint_check_cloakbrowser": (
+                "Fingerprint Browser Path\n\n"
+                "Use this after the basic page check works. Fingerprint seed makes runs reproducible. GeoIP aligns browser timezone/locale to the proxy. Humanize enables realistic interaction timing."
+            ),
+        }
+
     def _configure_style(self) -> None:
         style = ttk.Style(self)
         try:
@@ -358,7 +465,7 @@ class App(tk.Tk):
         sidebar.grid_propagate(False)
 
         tk.Label(sidebar, text="MITM Fronting", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(22), pady=(self._scaled(24), self._scaled(4)))
-        tk.Label(sidebar, text="Guided local control", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
+        tk.Label(sidebar, text="Setup - Run - Verify", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
         tk.Label(
             sidebar,
             text=str(ROOT),
@@ -389,7 +496,7 @@ class App(tk.Tk):
         header.pack(fill="x", padx=self._scaled(24), pady=(self._scaled(20), self._scaled(10)))
         title_block = tk.Frame(header, bg=COLORS["bg"])
         title_block.pack(side="left", fill="x", expand=True)
-        tk.Label(title_block, text="Control Center", bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
+        tk.Label(title_block, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
         tk.Label(title_block, textvariable=self.overall_detail, bg=COLORS["bg"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 0))
         status_block = tk.Frame(header, bg=COLORS["bg"])
         status_block.pack(side="right")
@@ -397,6 +504,7 @@ class App(tk.Tk):
         self.header_status_label.pack(side="left", padx=(0, self._scaled(8)))
         self.task_progress = ttk.Progressbar(status_block, mode="indeterminate", length=self._scaled(118))
         self.task_progress.pack(side="left", padx=(0, self._scaled(8)))
+        ttk.Button(status_block, text="Help", style="Soft.TButton", command=self.show_current_help).pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
         self._build_metrics_bar(content)
@@ -419,7 +527,7 @@ class App(tk.Tk):
         self.tabs.add(self.start_tab, text="Start Here")
         self.tabs.add(self.validation_tab, text="Validation")
         self.tabs.add(self.health_tab, text="Health")
-        self.tabs.add(self.fixes_tab, text="Fixes and Help")
+        self.tabs.add(self.fixes_tab, text="Fix Tools")
         self.tabs.add(self.profiles_tab, text="Profiles and DNS")
         self.tabs.add(self.certs_tab, text="Certificates")
         self.tabs.add(self.browser_tab, text="Browser")
@@ -428,8 +536,8 @@ class App(tk.Tk):
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
             ("Control", [("Dashboard", self.dashboard_tab), ("Start Here", self.start_tab)]),
-            ("Diagnostics", [("Validation", self.validation_tab), ("Health", self.health_tab), ("Fixes and Help", self.fixes_tab), ("Profiles and DNS", self.profiles_tab), ("Certificates", self.certs_tab)]),
-            ("Reference", [("Browser", self.browser_tab), ("Documentation", self.docs_tab)]),
+            ("Verify", [("Checks", self.validation_tab), ("Health Report", self.health_tab), ("Fix Tools", self.fixes_tab), ("Profiles & DNS", self.profiles_tab), ("Certificates", self.certs_tab)]),
+            ("Reference", [("Browser Tests", self.browser_tab), ("Docs", self.docs_tab)]),
         ]
         for group_name, items in nav_groups:
             tk.Label(
@@ -484,6 +592,42 @@ class App(tk.Tk):
         self.tabs.select(frame)
         self._highlight_active_nav()
 
+    def _current_help_key(self) -> str:
+        selected = self.tabs.select() if hasattr(self, "tabs") else ""
+        tab_to_key = {
+            str(self.dashboard_tab): "dashboard",
+            str(self.start_tab): "start_here",
+            str(self.validation_tab): "checks",
+            str(self.health_tab): "health_report",
+            str(self.fixes_tab): "fix_tools",
+            str(self.profiles_tab): "profiles_dns",
+            str(self.certs_tab): "certificates",
+            str(self.browser_tab): "browser_tests",
+            str(self.docs_tab): "docs",
+        }
+        return tab_to_key.get(selected, "dashboard")
+
+    def show_current_help(self) -> None:
+        self.show_help_topic(self._current_help_key())
+
+    def show_help_topic(self, key: str) -> None:
+        text = self.help_topics.get(key, "No help topic is registered for this item yet.")
+        window = tk.Toplevel(self)
+        window.title("Help")
+        window.configure(bg=COLORS["bg"])
+        window.geometry(f"{self._scaled(640)}x{self._scaled(520)}")
+        window.minsize(self._scaled(520), self._scaled(360))
+        window.transient(self)
+        header = tk.Frame(window, bg=COLORS["bg"])
+        header.pack(fill="x", padx=self._scaled(18), pady=(self._scaled(16), self._scaled(8)))
+        title = text.splitlines()[0] if text else "Help"
+        tk.Label(header, text=title, bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(side="left", fill="x", expand=True)
+        ttk.Button(header, text="Close", style="Soft.TButton", command=window.destroy).pack(side="right")
+        body = tk.Text(window, bg=COLORS["panel"], fg=COLORS["ink"], relief="flat", wrap="word", font=self.fonts["body"], padx=self._scaled(14), pady=self._scaled(12))
+        body.pack(fill="both", expand=True, padx=self._scaled(18), pady=(0, self._scaled(18)))
+        body.insert("1.0", text)
+        body.configure(state="disabled")
+
     def _highlight_active_nav(self) -> None:
         if not hasattr(self, "tabs"):
             return
@@ -491,15 +635,17 @@ class App(tk.Tk):
         tab_to_name = {
             str(self.dashboard_tab): "Dashboard",
             str(self.start_tab): "Start Here",
-            str(self.validation_tab): "Validation",
-            str(self.health_tab): "Health",
-            str(self.fixes_tab): "Fixes and Help",
-            str(self.profiles_tab): "Profiles and DNS",
+            str(self.validation_tab): "Checks",
+            str(self.health_tab): "Health Report",
+            str(self.fixes_tab): "Fix Tools",
+            str(self.profiles_tab): "Profiles & DNS",
             str(self.certs_tab): "Certificates",
-            str(self.browser_tab): "Browser",
-            str(self.docs_tab): "Documentation",
+            str(self.browser_tab): "Browser Tests",
+            str(self.docs_tab): "Docs",
         }
         active_name = tab_to_name.get(selected)
+        if active_name:
+            self.screen_title.set(active_name)
         for name, button in self.nav_button_widgets.items():
             is_active = name == active_name
             button.configure(bg=COLORS["blue"] if is_active else COLORS["sidebar_active"], fg="#ffffff" if is_active else "#f8fafc")
@@ -507,9 +653,9 @@ class App(tk.Tk):
     def _build_metrics_bar(self, parent: tk.Widget) -> None:
         bar = tk.Frame(parent, bg=COLORS["bg"])
         bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
-        self.metric_tunnel_label = self._metric_card(bar, "Tunnels", "Checking", COLORS["amber"])
-        self.metric_stream_label = self._metric_card(bar, "Streams", "0 Channels", COLORS["ink"])
-        self.metric_privacy_label = self._metric_card(bar, "Boundary", "Local Only", COLORS["green"])
+        self.metric_tunnel_label = self._metric_card(bar, "Proxy", "Checking", COLORS["amber"])
+        self.metric_stream_label = self._metric_card(bar, "Traffic", "0 Connections", COLORS["ink"])
+        self.metric_privacy_label = self._metric_card(bar, "Data", "Local Only", COLORS["green"])
         self.metric_next_label = self._metric_card(bar, "Next Step", "Check setup", COLORS["blue"])
 
     def _metric_card(self, parent: tk.Widget, title: str, value: str, color: str) -> tk.Label:
@@ -525,8 +671,15 @@ class App(tk.Tk):
 
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
-        tk.Label(frame, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 12, "bold"), anchor="w").pack(fill="x", padx=16, pady=(14, 4))
+        header = tk.Frame(frame, bg=COLORS["panel"])
+        header.pack(fill="x", padx=16, pady=(14, 4))
+        tk.Label(header, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"], anchor="w").pack(side="left", fill="x", expand=True)
+        if self._help_key(title) in self.help_topics:
+            ttk.Button(header, text="Help", style="Soft.TButton", command=lambda key=self._help_key(title): self.show_help_topic(key)).pack(side="right")
         return frame
+
+    def _help_key(self, raw: str) -> str:
+        return re.sub(r"_+", "_", "".join(ch.lower() if ch.isalnum() else "_" for ch in raw)).strip("_")
 
     def _form_row(self, parent: tk.Widget, label: str, variable: tk.StringVar) -> None:
         row = tk.Frame(parent, bg=COLORS["panel"])
@@ -558,10 +711,10 @@ class App(tk.Tk):
         flow = tk.Frame(self.start_tab, bg=COLORS["panel"])
         flow.pack(fill="x", pady=(0, 14))
         steps = [
-            ("1. Validate", "Confirms config, routes, metadata, and static preflight.", self.safe_auto_fix, "Run Safe Auto-Fix", "Accent.TButton"),
+            ("1. Validate", "Confirms config, routes, metadata, and static preflight.", self.safe_auto_fix, "Repair Local Files", "Accent.TButton"),
             ("2. Dependencies", "Adds Playwright, CloakBrowser, PyInstaller, and local Xray only when needed.", self.install_optional_dependencies, "Install Optional Dependencies", "Soft.TButton"),
             ("3. Certificate", "Creates personal local CA files; trust-store install stays manual.", self.generate_ca, "Generate Local CA", "Danger.TButton"),
-            ("4. Browser Probe", "Loads a page through 127.0.0.1:10808 after Xray is running.", self.run_browser_diagnostics, "Run Diagnostics Probe", "Accent.TButton"),
+            ("4. Browser Check", "Loads a page through 127.0.0.1:10808 after Xray is running.", self.run_browser_diagnostics, "Run Page Check", "Accent.TButton"),
         ]
         for index, (title, detail, command, button, style) in enumerate(steps):
             card = self._card(flow, title)
@@ -608,7 +761,7 @@ class App(tk.Tk):
         glance.pack(fill="x", pady=(0, 12))
         chip_row = tk.Frame(glance, bg=COLORS["panel"])
         chip_row.pack(fill="x", padx=16, pady=(8, 16))
-        for name in ("Setup", "Connection", "Certificate", "Browser", "Telemetry"):
+        for name in ("Setup", "Proxy", "Certificate", "Browser", "Privacy"):
             self._status_chip(chip_row, name)
 
         main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
@@ -616,7 +769,7 @@ class App(tk.Tk):
         main.columnconfigure(0, weight=1)
         main.columnconfigure(1, weight=1)
 
-        connection = self._card(main, "1. Connect")
+        connection = self._card(main, "1. Proxy Control")
         connection.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 12))
         tk.Label(
             connection,
@@ -629,17 +782,17 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(2, 10))
         profile_row = tk.Frame(connection, bg=COLORS["panel"])
         profile_row.pack(fill="x", padx=16, pady=(0, 10))
-        tk.Label(profile_row, text="Active profile", bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
+        tk.Label(profile_row, text="Profile", bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
         profile_box = ttk.Combobox(profile_row, textvariable=self.active_config, values=self._profile_choices(), state="readonly")
         profile_box.pack(side="left", fill="x", expand=True)
         profile_box.bind("<<ComboboxSelected>>", lambda _event: self.refresh_status())
         conn_row = tk.Frame(connection, bg=COLORS["panel"])
         conn_row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(conn_row, text="Connect Xray", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(conn_row, text="Disconnect", style="Danger.TButton", command=self.disconnect_xray).pack(side="left", padx=(0, 10))
-        ttk.Button(conn_row, text="Health Check", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
+        ttk.Button(conn_row, text="Start Proxy", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 10))
+        ttk.Button(conn_row, text="Stop Proxy", style="Danger.TButton", command=self.disconnect_xray).pack(side="left", padx=(0, 10))
+        ttk.Button(conn_row, text="Check Health", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
 
-        browser = self._card(main, "2. Browser Test")
+        browser = self._card(main, "2. Browser Check")
         browser.grid(row=0, column=1, sticky="nsew", padx=(0, 0), pady=(0, 12))
         self._form_row(browser, "URL", self.browser_url)
         self._form_row(browser, "Proxy", self.browser_proxy)
@@ -650,21 +803,21 @@ class App(tk.Tk):
         ttk.Button(path_row, text="Browse", style="Soft.TButton", command=self.choose_browser_path).pack(side="left", padx=(8, 0))
         brow_row = tk.Frame(browser, bg=COLORS["panel"])
         brow_row.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(brow_row, text="Test Browser", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
-        ttk.Button(brow_row, text="Stealth Test", style="Soft.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
+        ttk.Button(brow_row, text="Run Page Check", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
+        ttk.Button(brow_row, text="Run Fingerprint Check", style="Soft.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
         ttk.Button(brow_row, text="Reset Fields", style="Soft.TButton", command=self.reset_gui_defaults).pack(side="left")
 
-        fixes = self._card(self.dashboard_tab, "3. One-click fixes")
+        fixes = self._card(self.dashboard_tab, "3. Quick Actions")
         fixes.pack(fill="x", pady=(0, 12))
         fix_row = tk.Frame(fixes, bg=COLORS["panel"])
         fix_row.pack(fill="x", padx=16, pady=(8, 16))
         ttk.Button(fix_row, text="Check Setup", style="Accent.TButton", command=self.run_beginner_setup_check).pack(side="left", padx=(0, 10))
-        ttk.Button(fix_row, text="Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
+        ttk.Button(fix_row, text="Repair Local Files", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
         ttk.Button(fix_row, text="Generate Local CA", style="Danger.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
         ttk.Button(fix_row, text="Install Browser Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
         ttk.Button(fix_row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left")
 
-        telemetry = self._card(self.dashboard_tab, "4. Status and local telemetry")
+        telemetry = self._card(self.dashboard_tab, "4. Activity History")
         telemetry.pack(fill="x", pady=(0, 12))
         tk.Label(
             telemetry,
@@ -680,9 +833,9 @@ class App(tk.Tk):
         telemetry_row = tk.Frame(telemetry, bg=COLORS["panel"])
         telemetry_row.pack(fill="x", padx=16, pady=(0, 16))
         ttk.Button(telemetry_row, text="Run Full Status", style="Accent.TButton", command=self.run_status_snapshot).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Show Telemetry", style="Soft.TButton", command=self.show_telemetry_summary).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Export Telemetry", style="Soft.TButton", command=self.export_telemetry).pack(side="left", padx=(0, 10))
-        ttk.Button(telemetry_row, text="Clear Telemetry", style="Danger.TButton", command=self.clear_telemetry).pack(side="left")
+        ttk.Button(telemetry_row, text="Show Activity", style="Soft.TButton", command=self.show_telemetry_summary).pack(side="left", padx=(0, 10))
+        ttk.Button(telemetry_row, text="Export Activity", style="Soft.TButton", command=self.export_telemetry).pack(side="left", padx=(0, 10))
+        ttk.Button(telemetry_row, text="Clear Activity", style="Danger.TButton", command=self.clear_telemetry).pack(side="left")
 
         summary = self._card(self.dashboard_tab, "Status summary")
         summary.pack(fill="x")
@@ -777,7 +930,7 @@ class App(tk.Tk):
         smoke.pack(fill="x", pady=(0, 12))
         tk.Label(
             smoke,
-            text="Optional wrapper that runs diagnostics and stealth probes against the same URL/proxy and summarizes pass/warn state.",
+            text="Optional wrapper that runs browser checks against the same URL/proxy and summarizes ready/attention state.",
             bg=COLORS["panel"],
             fg=COLORS["muted"],
             wraplength=860,
@@ -792,7 +945,7 @@ class App(tk.Tk):
     def _build_fixes_help(self) -> None:
         intro = tk.Label(
             self.fixes_tab,
-            text="Use these when diagnostics are noisy or the app feels stuck. Fixes stay local and do not install certificate trust.",
+            text="Use these when checks are noisy or the app feels stuck. Fixes stay local and do not install certificate trust.",
             bg=COLORS["panel"],
             fg=COLORS["muted"],
             anchor="w",
@@ -812,7 +965,7 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(4, 10))
         qrow = tk.Frame(quick, bg=COLORS["panel"])
         qrow.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(qrow, text="Run Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
+        ttk.Button(qrow, text="Repair Local Files", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
         ttk.Button(qrow, text="Install Optional Dependencies", style="Accent.TButton", command=self.install_optional_dependencies).pack(side="left", padx=(0, 10))
         ttk.Button(qrow, text="Reset GUI Defaults", style="Soft.TButton", command=self.reset_gui_defaults).pack(side="left", padx=(0, 10))
         ttk.Button(qrow, text="Open Preflight Guide", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
@@ -828,8 +981,8 @@ class App(tk.Tk):
 
         row2 = tk.Frame(common, bg=COLORS["panel"])
         row2.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(row2, text="Install Diagnostics", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
-        ttk.Button(row2, text="Install Stealth", style="Soft.TButton", command=self.install_stealth_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Install Page Check Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(row2, text="Install Fingerprint Tools", style="Soft.TButton", command=self.install_stealth_dependencies).pack(side="left", padx=(0, 10))
         ttk.Button(row2, text="Browser Install Hints", style="Soft.TButton", command=self.browser_install_hints).pack(side="left", padx=(0, 10))
         ttk.Button(row2, text="Open Xray Releases", style="Soft.TButton", command=lambda: webbrowser.open(XRAY_RELEASES_URL)).pack(side="left")
 
@@ -910,7 +1063,7 @@ class App(tk.Tk):
         ttk.Entry(row, textvariable=self.profile_suffix, width=14).pack(side="left", padx=6)
         ttk.Button(row, text="Generate Alternate Profiles", style="Soft.TButton", command=self.generate_alt_profiles).pack(side="left", padx=10)
 
-        dns = self._card(self.profiles_tab, "DNS diagnostics")
+        dns = self._card(self.profiles_tab, "DNS Check")
         dns.pack(fill="x", pady=(0, 14))
         tk.Label(dns, text="Query A, AAAA, HTTPS, and SVCB records for resolver drift checks.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", padx=16, pady=(4, 10))
         row2 = tk.Frame(dns, bg=COLORS["panel"])
@@ -939,8 +1092,8 @@ class App(tk.Tk):
 
     def _build_browser(self) -> None:
         intro = (
-            "Two-part browser model: Diagnostics verifies proxy and CA wiring with stock Chromium. "
-            "Stealth uses CloakBrowser (default) for fingerprint and anti-bot evasion. "
+            "Two-part browser model: Page Check verifies proxy and CA wiring with stock Chromium. "
+            "Fingerprint Check uses CloakBrowser (default) for browser fingerprint testing. "
             "Both paths send traffic to the local mixed inbound only."
         )
         tk.Label(self.browser_tab, text=intro, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=820, justify="left", anchor="w").pack(fill="x", pady=(0, 12))
@@ -955,11 +1108,11 @@ class App(tk.Tk):
         ttk.Entry(row, textvariable=self.browser_proxy, width=30).pack(side="left", padx=6)
         ttk.Button(row, text="Open integration doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")).pack(side="left", padx=10)
 
-        diag = self._card(self.browser_tab, "Path 1 — Diagnostics (stock Chromium)")
+        diag = self._card(self.browser_tab, "Path 1 - Page Check (stock Chromium)")
         diag.pack(fill="x", pady=(0, 14))
         tk.Label(
             diag,
-            text="Playwright + optional system Chrome/Edge. Use after preflight passes to confirm page load through mixed-in.",
+            text="Playwright + optional system Chrome/Edge. Use after setup checks are ready to confirm page load through the local proxy.",
             bg=COLORS["panel"],
             fg=COLORS["muted"],
             wraplength=780,
@@ -973,13 +1126,13 @@ class App(tk.Tk):
         drow2 = tk.Frame(diag, bg=COLORS["panel"])
         drow2.pack(fill="x", padx=16, pady=(0, 16))
         ttk.Checkbutton(drow2, text="Headless", variable=self.browser_headless).pack(side="left", padx=(0, 12))
-        ttk.Button(drow2, text="Run diagnostics probe", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
+        ttk.Button(drow2, text="Run page check", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
         ttk.Button(
             drow2,
             text="Install hint (Playwright)",
             style="Soft.TButton",
             command=lambda: self._append_output(
-                "\nDiagnostics install:\n  pip install -r requirements-browser-diagnostics.txt\n"
+                "\nPage check tools install:\n  pip install -r requirements-browser-diagnostics.txt\n"
                 "  playwright install chromium\n"
                 "  # Linux only, if dependencies are missing: playwright install-deps chromium\n"
             ),
@@ -987,7 +1140,7 @@ class App(tk.Tk):
         if os.name == "nt":
             ttk.Button(drow2, text="Launch stock Chrome (PS)", style="Soft.TButton", command=self.launch_diagnostics_chrome_ps).pack(side="left")
 
-        stealth = self._card(self.browser_tab, "Path 2 — Stealth (CloakBrowser, default)")
+        stealth = self._card(self.browser_tab, "Path 2 - Fingerprint Check (CloakBrowser)")
         stealth.pack(fill="x", pady=(0, 14))
         stealth_url = read_browser_integration().get("stealth", {}).get("project_url", CLOAKBROWSER_URL)
         tk.Label(
@@ -1002,7 +1155,7 @@ class App(tk.Tk):
         ).pack(fill="x", padx=16, pady=(2, 4))
         tk.Label(
             stealth,
-            text="Application-layer evasion only. Xray still owns MITM, routing, and domain fronting.",
+            text="Browser fingerprint testing only. Xray still owns MITM, routing, and domain fronting.",
             bg=COLORS["panel"],
             fg=COLORS["muted"],
             wraplength=780,
@@ -1017,13 +1170,13 @@ class App(tk.Tk):
         ttk.Checkbutton(srow, text="humanize", variable=self.browser_humanize).pack(side="left", padx=12)
         srow2 = tk.Frame(stealth, bg=COLORS["panel"])
         srow2.pack(fill="x", padx=16, pady=(0, 16))
-        ttk.Button(srow2, text="Run stealth probe", style="Accent.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
+        ttk.Button(srow2, text="Run fingerprint check", style="Accent.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
         ttk.Button(
             srow2,
             text="Install hint (CloakBrowser)",
             style="Soft.TButton",
             command=lambda: self._append_output(
-                f"\nStealth install:\n  pip install -r requirements-browser-stealth.txt\n"
+                f"\nFingerprint tools install:\n  pip install -r requirements-browser-stealth.txt\n"
                 f"  python -m cloakbrowser install\n  Project: {stealth_url}\n"
             ),
         ).pack(side="left", padx=(0, 10))
@@ -1035,13 +1188,13 @@ class App(tk.Tk):
             ("README", ROOT / "README.md"),
             ("Operating profiles", ROOT / "docs" / "operating-profiles.md"),
             ("Chromium integration", ROOT / "docs" / "chromium-integration.md"),
-            ("Preflight and diagnostics", ROOT / "docs" / "preflight-and-diagnostics.md"),
+            ("Preflight guide", ROOT / "docs" / "preflight-and-diagnostics.md"),
             ("Certificate lifecycle", ROOT / "docs" / "certificate-lifecycle.md"),
             ("DNS resilience", ROOT / "docs" / "dns-resilience.md"),
             ("Platform compatibility", ROOT / "docs" / "platform-compatibility.md"),
             ("FakeDNS recovery", ROOT / "docs" / "fakedns-recovery.md"),
             ("Provider status", ROOT / "docs" / "provider-status.md"),
-            ("Local telemetry", ROOT / "docs" / "local-telemetry.md"),
+            ("Local activity history", ROOT / "docs" / "local-telemetry.md"),
         ]
         tk.Label(self.docs_tab, text="Open the focused guide you need. These files are local repository docs.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(0, 12))
         grid = tk.Frame(self.docs_tab, bg=COLORS["panel"])
@@ -1091,11 +1244,11 @@ class App(tk.Tk):
         events = self._telemetry_events()
         if latest is None and events:
             latest = events[-1]
-        self.telemetry_summary.set(f"Telemetry: local only, {len(events)} event{'s' if len(events) != 1 else ''}")
+        self.telemetry_summary.set(f"Activity history: local only, {len(events)} event{'s' if len(events) != 1 else ''}")
         if latest:
-            self.telemetry_last.set(f"Last event: {latest.get('event', 'unknown')} / {latest.get('status', 'info')} / {latest.get('detail', '')}")
+            self.telemetry_last.set(f"Last activity: {latest.get('event', 'unknown')} / {latest.get('status', 'info')} / {latest.get('detail', '')}")
         else:
-            self.telemetry_last.set("Last event: none")
+            self.telemetry_last.set("Last activity: none")
 
     def _status_snapshot(self) -> dict[str, object]:
         profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
@@ -1126,9 +1279,9 @@ class App(tk.Tk):
         if not snapshot["cert_exists"] or not snapshot["key_exists"]:
             return "warn", "Generate local CA files before browser MITM testing."
         if not snapshot["loopback_10808_open"]:
-            return "warn", "Local proxy is not listening yet. Connect Xray or start v2rayN."
+            return "warn", "Local proxy is not listening yet. Start Proxy or start v2rayN."
         if not snapshot["diagnostics_script"] or not snapshot["stealth_script"]:
-            return "warn", "Browser diagnostics scripts are missing."
+            return "warn", "Browser check scripts are missing."
         return "pass", "Ready for browser testing through the local proxy."
 
     def _set_label_state(self, label: tk.Label, text: str, level: str) -> None:
@@ -1177,7 +1330,7 @@ class App(tk.Tk):
         elif not snapshot["cert_exists"] or not snapshot["key_exists"]:
             self._show_remediation_banner("warn", "CA-MISSING", "Local CA files are missing; browser MITM tests will fail until they exist and are trusted manually.", "Generate Local CA", self.generate_ca)
         elif not snapshot["loopback_10808_open"]:
-            self._show_remediation_banner("info", "PROXY-OFFLINE", "No local proxy is listening yet. Start the dashboard-managed Xray process, or run Health if another client should be active.", "Connect Xray", self.connect_xray)
+            self._show_remediation_banner("info", "PROXY-OFFLINE", "No local proxy is listening yet. Start the dashboard-managed Xray process, or run Health if another client should be active.", "Start Proxy", self.connect_xray)
         elif level == "pass":
             self._clear_remediation_banner()
         else:
@@ -1210,9 +1363,9 @@ class App(tk.Tk):
     def show_telemetry_summary(self) -> None:
         events = self._telemetry_events(limit=25)
         if not events:
-            self._append_output("\nNo local GUI telemetry events recorded yet.\n")
+            self._append_output("\nNo local GUI activity events recorded yet.\n")
             return
-        self._append_output("\nRecent local GUI telemetry:\n" + json.dumps(events, indent=2) + "\n")
+        self._append_output("\nRecent local GUI activity:\n" + json.dumps(events, indent=2) + "\n")
 
     def export_telemetry(self) -> None:
         events = self._telemetry_events()
@@ -1220,17 +1373,17 @@ class App(tk.Tk):
         LOCAL_STATE.mkdir(exist_ok=True)
         target.write_text(json.dumps({"events": events}, indent=2), encoding="utf-8")
         self.record_telemetry("telemetry_exported", "info", short_path(target), {"event_count": len(events)})
-        self._append_output(f"\nExported local telemetry: {short_path(target)}\n")
+        self._append_output(f"\nExported local activity history: {short_path(target)}\n")
 
     def clear_telemetry(self) -> None:
         if GUI_TELEMETRY.exists():
             try:
                 GUI_TELEMETRY.unlink()
             except OSError as exc:
-                messagebox.showerror("Clear telemetry failed", str(exc))
+                messagebox.showerror("Clear activity history failed", str(exc))
                 return
         self._update_telemetry_labels(None)
-        self._append_output("\nCleared local GUI telemetry.\n")
+        self._append_output("\nCleared local GUI activity history.\n")
 
     def choose_browser_path(self) -> None:
         initial = self.browser_executable.get().strip()
@@ -1273,7 +1426,7 @@ class App(tk.Tk):
             return
         xray = find_local_xray()
         if xray is None:
-            self._append_output("\nLocal Xray binary not found. Use Download Xray, then Connect Xray again.\n")
+            self._append_output("\nLocal Xray binary not found. Use Download Xray, then Start Proxy again.\n")
             self.record_telemetry("xray_connect", "warn", "Local Xray binary not found")
             if messagebox.askyesno("Xray not found", "Download local Xray runtime now?"):
                 self.download_xray()
@@ -1295,7 +1448,7 @@ class App(tk.Tk):
         self._append_output(f"\nStarted Xray: {short_path(xray)}\nConfig: {short_path(config_path)}\n")
         self.stream_count = 0
         if hasattr(self, "metric_stream_label"):
-            self.metric_stream_label.configure(text="0 Channels")
+            self.metric_stream_label.configure(text="0 Connections")
         self.record_telemetry("xray_connect", "info", "Started dashboard-launched Xray", {"xray_path": short_path(xray), "config": short_path(config_path)})
         self.current_process_label.set("Xray starting")
         threading.Thread(target=self._read_xray_output, daemon=True).start()
@@ -1321,7 +1474,7 @@ class App(tk.Tk):
         if "accepted" in line.lower():
             self.stream_count += 1
             if hasattr(self, "metric_stream_label"):
-                self.metric_stream_label.configure(text=f"{self.stream_count} Channels")
+                self.metric_stream_label.configure(text=f"{self.stream_count} Connections")
 
     def disconnect_xray(self) -> None:
         if not self._xray_running_from_gui():
@@ -1426,7 +1579,7 @@ class App(tk.Tk):
             self.connection_label.configure(fg=COLORS["green"])
         else:
             self.connection_state.set("Not connected")
-            self.simple_next_step.set("Run Check Setup, then Connect Xray or start v2rayN before testing the browser.")
+            self.simple_next_step.set("Run Check Setup, then Start Proxy or start v2rayN before testing the browser.")
             self.connection_label.configure(fg=COLORS["amber"])
         if hasattr(self, "metric_tunnel_label"):
             if self._xray_running_from_gui():
@@ -1435,15 +1588,15 @@ class App(tk.Tk):
                 self.metric_tunnel_label.configure(text="EXTERNAL", fg=COLORS["green"])
             else:
                 self.metric_tunnel_label.configure(text="OFFLINE", fg=COLORS["amber"])
-            self.metric_stream_label.configure(text=f"{self.stream_count} Channels")
-            next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Connect Xray"
+            self.metric_stream_label.configure(text=f"{self.stream_count} Connections")
+            next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Start Proxy"
             self.metric_next_label.configure(text=next_text, fg=COLORS["blue"] if loopback_open else COLORS["amber"])
         self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
-        self._set_label_state(self.status_chip_labels["Connection"], "Open" if loopback_open else "Closed", "pass" if loopback_open else "warn")
+        self._set_label_state(self.status_chip_labels["Proxy"], "Running" if loopback_open else "Stopped", "pass" if loopback_open else "warn")
         self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
         browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
         self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
-        self._set_label_state(self.status_chip_labels["Telemetry"], "Local only", "info")
+        self._set_label_state(self.status_chip_labels["Privacy"], "Local only", "info")
         self.status_labels["Config"].configure(text=f"{short_path(selected_config)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if selected_config.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
@@ -1467,10 +1620,10 @@ class App(tk.Tk):
         diag_ok = (SCRIPTS / "browser_diagnostics.py").exists()
         stealth_ok = (SCRIPTS / "browser_stealth.py").exists()
         self.status_labels["Browser"].configure(
-            text=f"proxy: {self.browser_proxy.get().strip() or proxy}\nbrowser: {self.browser_executable.get().strip() or 'bundled/default'}\ndiagnostics: {'ready' if diag_ok else 'missing'}",
+            text=f"proxy: {self.browser_proxy.get().strip() or proxy}\nbrowser: {self.browser_executable.get().strip() or 'bundled/default'}\npage check: {'ready' if diag_ok else 'missing'}",
             fg=COLORS["green"] if diag_ok and stealth_ok else COLORS["amber"],
         )
-        self.status_labels["Privacy"].configure(text="Local telemetry only\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
+        self.status_labels["Privacy"].configure(text="Local activity history only\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
         self._update_remediation_banner(snapshot, level)
 
     def run_spec(self, spec: CommandSpec) -> None:
@@ -1519,7 +1672,7 @@ class App(tk.Tk):
                     code, output = 1, str(exc)
                 if output:
                     chunks.append(output)
-                chunks.append(f"[{'PASS' if code == 0 else 'WARN/FAIL'}] {step_label} exited with code {code}")
+                chunks.append(f"[{'OK' if code == 0 else 'Needs attention'}] {step_label} exited with code {code}")
                 if code != 0 and final_code == 0:
                     final_code = code
             text = "\n".join(chunks)
@@ -1529,7 +1682,7 @@ class App(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None, duration_ms: int | None = None) -> None:
-        status = "PASS" if code == 0 else "WARN/FAIL"
+        status = "OK" if code == 0 else "Needs attention"
         self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n", stream="audit")
         self.current_process_label.set(f"{label}: {status}")
         self.record_telemetry(
@@ -1568,11 +1721,11 @@ class App(tk.Tk):
     def explain_output(self) -> None:
         self._append_output(
             "\nOutput guide:\n"
-            "  PASS: the check completed successfully.\n"
-            "  WARN/FAIL: read the last lines above first; they usually name the missing file, dependency, port, or route.\n"
-            "  Static preflight WARN about Windows proxy: review system proxy to avoid proxy loops.\n"
+            "  OK: the check completed successfully.\n"
+            "  Needs attention: read the last lines above first; they usually name the missing file, dependency, port, or route.\n"
+            "  Windows proxy warning: review system proxy settings to avoid proxy loops.\n"
             "  Missing certificate: use Generate Local CA, then install mycert.crt manually into the intended trust store.\n"
-            "  Browser dependency errors: use Install Diagnostics or Install Stealth in Fixes and Help.\n"
+            "  Browser dependency errors: use Install Diagnostics or Install Fingerprint Tools in Fix Tools.\n"
         )
 
     def copy_issue_summary(self) -> None:
@@ -1693,10 +1846,10 @@ class App(tk.Tk):
         self._append_output(
             "\nBrowser dependency hints:\n"
             f"  Host Python detected: {python_hint}\n"
-            f"  Diagnostics: {python_hint} -m pip install -r requirements-browser-diagnostics.txt\n"
-            f"  Diagnostics browser: {python_hint} -m playwright install chromium\n"
+            f"  Page check tools: {python_hint} -m pip install -r requirements-browser-diagnostics.txt\n"
+            f"  Page check browser: {python_hint} -m playwright install chromium\n"
             f"  Linux deps if needed: {python_hint} -m playwright install-deps chromium\n"
-            f"  Stealth: {python_hint} -m pip install -r requirements-browser-stealth.txt\n"
+            f"  Fingerprint tools: {python_hint} -m pip install -r requirements-browser-stealth.txt\n"
             f"  CloakBrowser setup: {python_hint} -m cloakbrowser install\n"
             f"  Xray releases: {XRAY_RELEASES_URL}\n  Project: {CLOAKBROWSER_URL}\n"
         )
@@ -1710,7 +1863,7 @@ class App(tk.Tk):
             ("Install Playwright package", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-diagnostics.txt")], 600),
             ("Install Playwright Chromium", [*host_python, "-m", "playwright", "install", "chromium"], 900),
         ]
-        self.run_sequence("Install Diagnostics Dependencies", steps)
+        self.run_sequence("Install Page Check Tools", steps)
 
     def install_stealth_dependencies(self) -> None:
         host_python = self.host_python_or_warn()
@@ -1721,7 +1874,7 @@ class App(tk.Tk):
             ("Install CloakBrowser package", [*host_python, "-m", "pip", "install", "-r", str(ROOT / "requirements-browser-stealth.txt")], 600),
             ("Run CloakBrowser setup", [*host_python, "-m", "cloakbrowser", "install"], 900),
         ]
-        self.run_sequence("Install Stealth Dependencies", steps)
+        self.run_sequence("Install Fingerprint Tools", steps)
 
     def install_pyinstaller(self) -> None:
         host_python = self.host_python_or_warn()
@@ -1793,7 +1946,7 @@ class App(tk.Tk):
             "mycert.crt or mycert.key is missing. Generate local CA files now? This does not install trust.",
         ):
             steps.append(("Generate or rotate local CA", py_script("mitm_trust.py", "rotate", "--out-dir", str(ROOT / "Xray-config")), 120))
-        self.run_sequence("Safe Auto-Fix", steps)
+        self.run_sequence("Repair Local Files", steps)
 
     def cert_status(self) -> None:
         self.run_async("Certificate status", py_script("mitm_trust.py", "status", "--cert", str(CERT), "--key", str(KEY), "--json"))
@@ -1830,7 +1983,7 @@ class App(tk.Tk):
             args.extend(["--executable", executable])
         if self.browser_headless.get():
             args.append("--headless")
-        self.run_async("Diagnostics browser probe", args, timeout=180)
+        self.run_async("Page check browser test", args, timeout=180)
 
     def run_browser_stealth(self) -> None:
         try:
@@ -1848,7 +2001,7 @@ class App(tk.Tk):
         seed = self.browser_fingerprint_seed.get().strip()
         if seed:
             args.extend(["--fingerprint-seed", seed])
-        self.run_async("Stealth browser probe (CloakBrowser)", args, timeout=180)
+        self.run_async("Fingerprint browser check (CloakBrowser)", args, timeout=180)
 
     def check_cloakbrowser_installed(self) -> None:
         host_python = find_host_python() or [sys.executable]
@@ -1861,7 +2014,7 @@ class App(tk.Tk):
                 f"\nCloakBrowser not installed.\n{output}\n"
                 f"Run: pip install -r requirements-browser-stealth.txt\n"
                 f"Then: python -m cloakbrowser install\n"
-                f"Or click Install Stealth in Fixes and Help.\nProject: {CLOAKBROWSER_URL}\n"
+                f"Or click Install Fingerprint Tools in Fix Tools.\nProject: {CLOAKBROWSER_URL}\n"
             )
             self.current_process_label.set("CloakBrowser: not installed")
 

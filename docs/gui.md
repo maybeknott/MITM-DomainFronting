@@ -17,24 +17,25 @@ py scripts\gui.py
 ## What It Does
 
 - Opens on a guided **Control Hub** for new users with:
-  - grouped sidebar navigation for **Control**, **Diagnostics**, and **Reference** instead of a long flat tab row;
+  - grouped sidebar navigation for **Control**, **Verify**, and **Reference** instead of a long flat tab row;
   - DPI-aware sizing and a semantic color palette for setup, warning, and blocked states;
-  - a top metrics strip for tunnel state, observed stream count, privacy boundary, and the next recommended action;
-  - an inline remediation banner that turns common first-run problems into clear actions such as **Generate Local CA**, **Download Xray**, or **Connect Xray**;
+  - a top metrics strip for proxy state, observed connection activity, local data boundary, and the next recommended action;
+  - screen-level and panel-level **Help** buttons that explain fields, buttons, parameters, expected outputs, and safety boundaries without cluttering the default view;
+  - an inline remediation banner that turns common first-run problems into clear actions such as **Generate Local CA**, **Download Xray**, or **Start Proxy**;
   - connection status for local `127.0.0.1:10808`;
-  - at-a-glance setup, connection, certificate, browser, and local telemetry status;
-  - **Connect Xray** / **Disconnect** controls for the Xray process launched by the GUI;
-  - an **Active profile** selector for the base, strict, balanced, compatibility, and debug config files;
+  - at-a-glance setup, proxy, certificate, browser, and local privacy status;
+  - **Start Proxy** / **Stop Proxy** controls for the Xray process launched by the GUI;
+  - a **Profile** selector for the base, strict, balanced, compatibility, and debug config files;
   - URL, proxy, and browser executable path fields;
-  - one-click **Check Setup**, **Safe Auto-Fix**, **Generate Local CA**, **Install Browser Tools**, and **Test Browser** actions;
-  - local-only telemetry controls for status snapshots, recent events, export, and clear;
+  - one-click **Check Setup**, **Repair Local Files**, **Generate Local CA**, **Install Browser Tools**, and **Run Page Check** actions;
+  - local-only activity history controls for status snapshots, recent events, export, and clear;
   - always-visible multi-buffer local logs with separate **System**, **Xray Core**, and **Preflight / Linters** streams.
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Locks conflicting controls and shows an indeterminate progress indicator while long-running local checks are active, so repeated clicks do not create overlapping subprocesses.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
 - Runs route graph verification and first-match route rule linting for decrypted-inbound isolation.
 - Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.
-- Provides a **Fixes and Help** tab with safe local repair actions.
+- Provides a **Fix Tools** screen with safe local repair actions.
 - Provides a **Health** tab for redacted local health probes, lab evidence bundles, decision reports, and browser smoke summaries:
   - **Run Health Probe** — `health_probe.py` (ports, cert, trust store, DNS, providers, read-only `policy_recommendation`).
   - **Run Lab Evidence** — `lab_evidence_run.py` (DNS harness scenarios + fakeDNS recovery; see `docs/lab-evidence-checklist.md`).
@@ -42,14 +43,14 @@ py scripts\gui.py
   - **Open Health Policy** / **Open Decision Engine Doc** — local reference files.
 - Regenerates standard operating profiles.
 - Generates optional alternate-port profile files for local port conflicts.
-- Runs a safe auto-fix sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.
-- Provides one-click installers for optional diagnostics dependencies, Playwright Chromium, CloakBrowser, PyInstaller, and a local Xray runtime download.
+- Runs a **Repair Local Files** sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.
+- Provides one-click installers for optional page-check tools, Playwright Chromium, CloakBrowser fingerprint tools, PyInstaller, and a local Xray runtime download.
 - Runs DNS query-type sweeps for `A`, `AAAA`, `HTTPS`, and `SVCB`.
 - Shows certificate status, certificate/key pair checks, and advisory trust-store command instructions without installing trust automatically.
-- Records local GUI telemetry under `.local-state/` only. It never uploads diagnostics or payloads.
+- Records local GUI activity history under `.local-state/` only. It never uploads diagnostics or payloads.
 - Runs the **two-part browser model** from the **Browser** tab:
-  - **Diagnostics** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).
-  - **Stealth** — [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) via `browser_stealth.py` (fingerprint and anti-bot path; default stealth engine).
+  - **Page Check** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).
+  - **Fingerprint Check** — [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) via `browser_stealth.py` (browser fingerprint path).
 - Runs optional combined browser smoke summary via `browser_smoke.py`.
 - Shared fields: target URL and proxy (`socks5://127.0.0.1:10808` by default, from `configs/browser-integration.json`).
 - Optional: launch stock Chrome on Windows through `launch_browser_mitm.ps1`, check whether `cloakbrowser` imports, open `docs/chromium-integration.md`.
@@ -60,7 +61,7 @@ py scripts\gui.py
 - The GUI runs locally from the repository checkout.
 - It does not silently install a root CA.
 - It does not upload diagnostics or reports.
-- It does not send telemetry to remote services.
+- It does not send activity history to remote services.
 - It does not inspect browser payloads.
 - It does not commit generated files.
 - Local CA files and alternate-port outputs remain subject to `.gitignore` and normal review.
