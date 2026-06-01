@@ -51,6 +51,7 @@ MITM-DomainFronting/
     listener-binding.md
     chromium-integration.md
     transport-extension-governance.md
+    lab-evidence-checklist.md
     firewall-and-network-testing.md
     fakedns-recovery.md
     assumptions-and-unknowns.md

@@ -52,9 +52,22 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
     "ech": {
       "status": "info|warn"
     }
+  },
+  "captive_portal": {
+    "id": "captive_portal",
+    "status": "pass|warn|info",
+    "detail": "best-effort HTTP connectivity probe"
+  },
+  "policy_recommendation": {
+    "auto_switch": false,
+    "suggested_profile": "balanced",
+    "profile_policy": {},
+    "local_actions": []
   }
 }
 ```
+
+`policy_recommendation.auto_switch` is always `false`. The report suggests profiles and local actions only; it never mutates Xray config. For repeatable DNS/captive/FakeDNS lab scenarios, see [`lab-evidence-checklist.md`](lab-evidence-checklist.md).
 
 ## Boundary
 

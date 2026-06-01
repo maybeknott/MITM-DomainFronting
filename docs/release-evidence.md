@@ -7,8 +7,17 @@ Every release should include evidence that the single shipped config was checked
 ```sh
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/repository_structure_tests.py
+python scripts/provider_dossier_validate.py
+python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/config_src_validate.py --run-steps
+python scripts/transport_experiment_validate.py
+python scripts/geodata_pin.py --verify
+python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
+
+See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) for scenario matrix and attach list.
 
 For local release verification with generated CA files:
 
@@ -58,6 +67,8 @@ For a normal release:
 - `build_release_manifest.py` exits successfully.
 - Private-key scan in CI passes.
 - Metadata validation and route policy tests pass.
+- Route intent sync and config-src validation pass.
+- Transport experiment manifest validation passes.
 - Known issues and support matrix are reviewed.
 - Final verdict is written.
 
@@ -69,6 +80,7 @@ For a stronger release:
 - Android browser path is tested if Android support is claimed.
 - DNS fallback is tested by temporarily making the primary resolver unavailable in a lab.
 - FakeDNS recovery is tested after stopping the client.
+- Lab evidence bundle (`lab-evidence.bundle.json`) is collected on at least one target platform when DNS/captive claims change.
 
 ## Interpreting Dirty Tree State
 

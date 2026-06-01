@@ -146,12 +146,16 @@ This repository now keeps runtime files, documentation, and local diagnostics se
 - The docs in `docs/` describe routing, DNS, platform compatibility, certificate lifecycle, and recovery workflows.
 - The scripts in `scripts/` run local-only validation and diagnostics. They do not upload keys, logs, cookies, credentials, request bodies, or browser traffic.
 - Chromium integration uses two paths: **diagnostics** (stock Chrome / Playwright) and **stealth** (default browser: [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)). See `docs/chromium-integration.md`.
+- Route intent, config-src validation, transport governance, and lab evidence bundles support maintainers without changing the user import path. See `docs/routing-correctness.md`, `config-src/README.md`, and `docs/lab-evidence-checklist.md`.
 
 Useful maintainer checks:
 
 ```bash
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/config_src_validate.py --run-steps
+python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
 

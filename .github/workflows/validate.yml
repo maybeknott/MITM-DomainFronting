@@ -71,7 +71,7 @@ jobs:
         run: |
           python scripts/install_xray.py --out-dir xray --force
           xray/xray run -test -config Xray-config/MITM-DomainFronting.json
-          python scripts/geodata_pin.py --verify --xray-bin xray/xray --root .
+          python scripts/geodata_pin.py --verify --strict --xray-bin xray/xray --root .
 
       - name: Run protocol policy tests
         run: |

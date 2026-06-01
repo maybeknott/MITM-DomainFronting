@@ -17,10 +17,14 @@ py scripts\gui.py
 ## What It Does
 
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
-- Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, and decision report.
+- Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
 - Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.
 - Provides a **Fixes and Help** tab with safe local repair actions.
-- Provides a **Health** tab for redacted local health probes and browser smoke summaries.
+- Provides a **Health** tab for redacted local health probes, lab evidence bundles, decision reports, and browser smoke summaries:
+  - **Run Health Probe** — `health_probe.py` (ports, cert, trust store, DNS, providers, read-only `policy_recommendation`).
+  - **Run Lab Evidence** — `lab_evidence_run.py` (DNS harness scenarios + fakeDNS recovery; see `docs/lab-evidence-checklist.md`).
+  - **Run Decision Report** — `decision_report.py` (captive portal warning + policy recommendation + redacted routing summary).
+  - **Open Health Policy** / **Open Decision Engine Doc** — local reference files.
 - Regenerates standard operating profiles.
 - Generates optional alternate-port profile files for local port conflicts.
 - Runs a safe auto-fix sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.

@@ -22,7 +22,7 @@ EXCLUDED_TRACKED_PREFIXES = (
 EXCLUDED_TRACKED_FILES = {
     ".gitignore",
 }
-FALLBACK_DIRS = ("scripts", "configs", "docs", "providers", "Xray-config")
+FALLBACK_DIRS = ("scripts", "configs", "docs", "providers", "Xray-config", "config-src")
 FALLBACK_TOP_FILES = (
     "README.md",
     "SECURITY.md",

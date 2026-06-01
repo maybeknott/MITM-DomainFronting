@@ -412,7 +412,8 @@ class App(tk.Tk):
             self.health_tab,
             text=(
                 "Health checks are local-only and redacted. They evaluate listener state, cert/key presence, trust-store match, "
-                "DNS reachability, provider freshness, geodata hashes, and optional runtime checks."
+                "DNS reachability, provider freshness, geodata hashes, captive portal warnings, read-only policy recommendations, "
+                "and optional runtime checks. Use Lab Evidence for DNS harness scenarios and Decision Report for a support-safe summary."
             ),
             bg=COLORS["panel"],
             fg=COLORS["muted"],
@@ -1107,6 +1108,7 @@ def self_test() -> int:
         SCRIPTS / "generate_profiles.py",
         SCRIPTS / "mitm_trust.py",
         SCRIPTS / "check_dns.py",
+        SCRIPTS / "decision_report.py",
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
         SCRIPTS / "browser_stealth.py",
@@ -1122,8 +1124,12 @@ def self_test() -> int:
         SCRIPTS / "install_xray.py",
         SCRIPTS / "route_intent_sync.py",
         SCRIPTS / "config_src_validate.py",
+        SCRIPTS / "config_src_build.py",
         SCRIPTS / "lab_evidence_run.py",
         SCRIPTS / "transport_experiment_validate.py",
+        ROOT / "configs" / "health-checks.yml",
+        ROOT / "configs" / "route-intent.json",
+        ROOT / "configs" / "transport-experiments.json",
         ROOT / "config-src" / "manifest.json",
         ROOT / "docs" / "lab-evidence-checklist.md",
         BROWSER_CONFIG,

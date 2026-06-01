@@ -66,6 +66,7 @@ REQUIRED_FILES = [
     "scripts/lab_evidence_run.py",
     "docs/lab-evidence-checklist.md",
     "release-geodata-lock.example.json",
+    "release-geodata-lock.json",
     "scripts/gui.py",
     "scripts/build_gui_exe.py",
     ".github/workflows/validate.yml",

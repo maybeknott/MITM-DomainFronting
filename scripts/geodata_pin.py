@@ -23,6 +23,15 @@ def locate(root: Path, name: str) -> Optional[Path]:
     return matches[0] if matches else None
 
 
+def path_for_lock(root: Path, path: Optional[Path]) -> Optional[str]:
+    if path is None:
+        return None
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def xray_version(xray_bin: str) -> str:
     try:
         proc = subprocess.run(
@@ -43,11 +52,11 @@ def build_report(root: Path, xray_bin: str) -> Dict[str, object]:
     geosite = locate(root, "geosite.dat")
     geoip = locate(root, "geoip.dat")
     return {
-        "root": str(root),
+        "root": ".",
         "xray_version": xray_version(xray_bin),
-        "geosite_path": str(geosite) if geosite else None,
+        "geosite_path": path_for_lock(root, geosite),
         "geosite_sha256": sha256_file(geosite) if geosite else None,
-        "geoip_path": str(geoip) if geoip else None,
+        "geoip_path": path_for_lock(root, geoip),
         "geoip_sha256": sha256_file(geoip) if geoip else None,
     }
 
@@ -60,10 +69,19 @@ def verify_against_lock(lock: Dict[str, object], current: Dict[str, object]) -> 
         if expected is None:
             continue
         if actual is None:
-            errors.append(f"{key}: expected hash in lock but file not found locally")
             continue
         if str(expected).lower() != str(actual).lower():
             errors.append(f"{key}: lock mismatch expected={expected} actual={actual}")
+    return errors
+
+
+def missing_geodata_errors(lock: Dict[str, object], current: Dict[str, object]) -> List[str]:
+    errors: List[str] = []
+    for key in ("geosite_sha256", "geoip_sha256"):
+        if lock.get(key) is None:
+            continue
+        if current.get(key) is None:
+            errors.append(f"{key}: expected hash in lock but geodata file not found locally")
     return errors
 
 
@@ -74,6 +92,11 @@ def main() -> int:
     parser.add_argument("--xray-bin", default="xray")
     parser.add_argument("--write-lock", action="store_true")
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="fail verification when lock expects geodata hashes but local geodata files are absent",
+    )
     args = parser.parse_args()
 
     root = args.root.resolve()
@@ -94,12 +117,22 @@ def main() -> int:
             }
         else:
             lock = json.loads(lock_file.read_text(encoding="utf-8"))
+            missing = missing_geodata_errors(lock, report)
             errors = verify_against_lock(lock, report)
-            output["verification"] = {
-                "status": "pass" if not errors else "fail",
-                "errors": errors,
-                "lock_file": str(lock_file),
-            }
+            if missing and not errors:
+                output["verification"] = {
+                    "status": "info" if not args.strict else "fail",
+                    "errors": missing,
+                    "lock_file": str(lock_file),
+                    "detail": "geodata files not present locally; hash comparison skipped",
+                }
+            else:
+                combined = missing + errors
+                output["verification"] = {
+                    "status": "pass" if not combined else "fail",
+                    "errors": combined,
+                    "lock_file": str(lock_file),
+                }
 
     print(json.dumps(output, indent=2, ensure_ascii=False))
     verification = output.get("verification", {})

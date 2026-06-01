@@ -37,4 +37,4 @@ This runs DNS harness scenarios (including `fake-dns-lab` and `captive-portal`) 
 - Provider CDN drift in every region
 - Long-running QUIC leakage under mixed network conditions
 
-Record those manually in issue templates or `docs/release-evidence.md`.
+Record those manually in issue templates or [`release-evidence.md`](release-evidence.md).

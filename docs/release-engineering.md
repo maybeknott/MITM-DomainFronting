@@ -40,6 +40,7 @@ python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-d
 python scripts/geodata_pin.py --verify
 python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 python scripts/config_src_validate.py --run-steps
+python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
 
@@ -80,6 +81,8 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
 - [ ] Known issues updated.
 - [ ] Checksums generated.
 - [ ] Validation report attached.
+- [ ] Lab evidence bundle attached when DNS/captive/NAT64 behavior changed.
+- [ ] Route intent sync and config-src validation recorded in validation report.
 - [ ] Git commit, branch, and dirty-tree state recorded.
 - [ ] Xray version and config-test result recorded when available.
 - [ ] Final verdict written.

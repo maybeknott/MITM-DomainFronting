@@ -193,6 +193,7 @@ def main() -> int:
         "validation": run_validate(config) if config.exists() else {"status": "fail", "reason": "config missing"},
         "metadata_validation": tracked_command(root, "validate_metadata.py"),
         "provider_dossier_validation": tracked_command(root, "provider_dossier_validate.py"),
+        "repository_structure_tests": tracked_command(root, "repository_structure_tests.py"),
         "route_intent_sync": tracked_command(root, "route_intent_sync.py", str(config)),
         "transport_experiment_validate": tracked_command(root, "transport_experiment_validate.py"),
         "config_src_validate": tracked_command(root, "config_src_validate.py", "--run-steps"),
