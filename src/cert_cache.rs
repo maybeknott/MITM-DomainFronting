@@ -115,9 +115,14 @@ impl CertCache {
         self.entries.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     fn evict_expired(&mut self, now_ms: u64) {
         self.entries.retain(|_, entry| entry.expires_at_ms > now_ms);
-        self.negative.retain(|_, entry| entry.expires_at_ms > now_ms);
+        self.negative
+            .retain(|_, entry| entry.expires_at_ms > now_ms);
     }
 
     fn evict_for_provider_cap(&mut self) {
@@ -188,7 +193,13 @@ mod tests {
     fn cache_hit_updates_entry() {
         let mut cache = CertCache::new(16, 16);
         let k = key("*.googlevideo.com", ProviderFamily::Google);
-        cache.insert(k.clone(), vec![1, 2, 3], "google-k1".to_string(), 1000, 60_000);
+        cache.insert(
+            k.clone(),
+            vec![1, 2, 3],
+            "google-k1".to_string(),
+            1000,
+            60_000,
+        );
         let first = cache.get(&k, 1200).expect("first hit");
         let second = cache.get(&k, 1300).expect("second hit");
         assert!(second.hits > first.hits);
@@ -214,8 +225,10 @@ mod tests {
     fn negative_cache_expires() {
         let mut cache = CertCache::new(4, 4);
         cache.mark_denied("blocked.example", "policy deny", 100, 50);
-        assert_eq!(cache.denied_reason("blocked.example", 120).as_deref(), Some("policy deny"));
+        assert_eq!(
+            cache.denied_reason("blocked.example", 120).as_deref(),
+            Some("policy deny")
+        );
         assert_eq!(cache.denied_reason("blocked.example", 151), None);
     }
 }
-

@@ -19,7 +19,24 @@ jobs:
 
       - name: Compile Python scripts
         run: |
-          python -m py_compile scripts/*.py
+          python - <<'PY'
+          import py_compile
+          from pathlib import Path
+          for path in Path("scripts").rglob("*.py"):
+              if "__pycache__" not in path.parts:
+                  py_compile.compile(str(path), doraise=True)
+          PY
+
+      - name: Set up Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy --component rustfmt
+          rustup default stable
+
+      - name: Run Rust stream-core checks
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test --locked
 
       - name: Validate Xray JSON if present
         run: |

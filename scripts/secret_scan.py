@@ -37,6 +37,8 @@ def looks_binary(data: bytes) -> bool:
 
 def scan_file(path: Path) -> list[str]:
     errors: list[str] = []
+    if not path.exists():
+        return errors
     name = path.name.lower()
     suffix = path.suffix.lower()
     if name in SENSITIVE_NAMES or suffix in SENSITIVE_SUFFIXES:

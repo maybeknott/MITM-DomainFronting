@@ -30,7 +30,11 @@ impl fmt::Display for ParserError {
             ParserError::Io(err) => write!(f, "io error: {}", err),
             ParserError::NotHandshakeRecord => write!(f, "not a TLS handshake record"),
             ParserError::UnexpectedRecordType(kind) => {
-                write!(f, "unexpected TLS record type {:#x} while collecting ClientHello", kind)
+                write!(
+                    f,
+                    "unexpected TLS record type {:#x} while collecting ClientHello",
+                    kind
+                )
             }
             ParserError::ClientHelloTooLarge(limit) => {
                 write!(f, "client hello exceeds configured limit ({} bytes)", limit)
@@ -126,7 +130,9 @@ pub fn read_client_hello_info<R: Read>(
         return Err(ParserError::Invalid("handshake fragment too short"));
     }
     if first_payload[0] != HANDSHAKE_TYPE_CLIENT_HELLO {
-        return Err(ParserError::Invalid("first handshake message is not ClientHello"));
+        return Err(ParserError::Invalid(
+            "first handshake message is not ClientHello",
+        ));
     }
 
     let hello_len = ((first_payload[1] as usize) << 16)
@@ -166,9 +172,8 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
     if handshake[0] != HANDSHAKE_TYPE_CLIENT_HELLO {
         return Err(ParserError::Invalid("handshake is not ClientHello"));
     }
-    let declared_len = ((handshake[1] as usize) << 16)
-        | ((handshake[2] as usize) << 8)
-        | (handshake[3] as usize);
+    let declared_len =
+        ((handshake[1] as usize) << 16) | ((handshake[2] as usize) << 8) | (handshake[3] as usize);
     if handshake.len() < 4 + declared_len {
         return Err(ParserError::Invalid("truncated ClientHello body"));
     }
@@ -182,8 +187,10 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
     reader.skip(session_id_len)?;
 
     let cipher_suites_len = reader.read_u16()? as usize;
-    if cipher_suites_len % 2 != 0 {
-        return Err(ParserError::Invalid("cipher suite vector length must be even"));
+    if !cipher_suites_len.is_multiple_of(2) {
+        return Err(ParserError::Invalid(
+            "cipher suite vector length must be even",
+        ));
     }
     reader.skip(cipher_suites_len)?;
 
@@ -208,10 +215,8 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
             let ext_len = ext_reader.read_u16()? as usize;
             let ext_payload = ext_reader.read_slice(ext_len)?;
             match ext_type {
-                0x0000 => {
-                    if sni.is_none() {
-                        sni = parse_sni(ext_payload)?;
-                    }
+                0x0000 if sni.is_none() => {
+                    sni = parse_sni(ext_payload)?;
                 }
                 0x0010 => {
                     alpn = parse_alpn(ext_payload)?;
@@ -276,7 +281,7 @@ fn parse_alpn(data: &[u8]) -> Result<Vec<Vec<u8>>, ParserError> {
 fn parse_u16_vector_with_u16_len(data: &[u8]) -> Result<Vec<u16>, ParserError> {
     let mut reader = Reader::new(data);
     let len = reader.read_u16()? as usize;
-    if len % 2 != 0 {
+    if !len.is_multiple_of(2) {
         return Err(ParserError::Invalid("u16 vector length must be even"));
     }
     let list = reader.read_slice(len)?;
@@ -291,7 +296,7 @@ fn parse_u16_vector_with_u16_len(data: &[u8]) -> Result<Vec<u16>, ParserError> {
 fn parse_u16_vector_with_u8_len(data: &[u8]) -> Result<Vec<u16>, ParserError> {
     let mut reader = Reader::new(data);
     let len = reader.read_u8()? as usize;
-    if len % 2 != 0 {
+    if !len.is_multiple_of(2) {
         return Err(ParserError::Invalid("u16 vector length must be even"));
     }
     let list = reader.read_slice(len)?;
@@ -355,11 +360,12 @@ mod tests {
         body.extend_from_slice(&(extensions.len() as u16).to_be_bytes());
         body.extend_from_slice(&extensions);
 
-        let mut hello = Vec::new();
-        hello.push(HANDSHAKE_TYPE_CLIENT_HELLO);
-        hello.push(((body.len() >> 16) & 0xff) as u8);
-        hello.push(((body.len() >> 8) & 0xff) as u8);
-        hello.push((body.len() & 0xff) as u8);
+        let mut hello = vec![
+            HANDSHAKE_TYPE_CLIENT_HELLO,
+            ((body.len() >> 16) & 0xff) as u8,
+            ((body.len() >> 8) & 0xff) as u8,
+            (body.len() & 0xff) as u8,
+        ];
         hello.extend_from_slice(&body);
         hello
     }
@@ -383,4 +389,3 @@ mod tests {
         assert!(matches!(err, ParserError::Invalid(_)));
     }
 }
-

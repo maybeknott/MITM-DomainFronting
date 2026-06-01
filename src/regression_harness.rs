@@ -26,7 +26,10 @@ pub struct RegressionResult {
     pub failures: Vec<String>,
 }
 
-pub fn evaluate_profile(observed: &TlsObservation, expected: &ExpectedTlsProfile) -> RegressionResult {
+pub fn evaluate_profile(
+    observed: &TlsObservation,
+    expected: &ExpectedTlsProfile,
+) -> RegressionResult {
     let mut failures = Vec::new();
 
     if observed.ja3_hash_md5 != expected.expected_ja3_hash_md5 {
@@ -50,7 +53,8 @@ pub fn evaluate_profile(observed: &TlsObservation, expected: &ExpectedTlsProfile
         ));
     }
 
-    let expected_settings: BTreeSet<u16> = expected.expected_h2_settings_ids.iter().copied().collect();
+    let expected_settings: BTreeSet<u16> =
+        expected.expected_h2_settings_ids.iter().copied().collect();
     let observed_settings: BTreeSet<u16> = observed.h2_settings_ids.iter().copied().collect();
     if expected_settings != observed_settings {
         failures.push(format!(
@@ -116,10 +120,22 @@ mod tests {
         };
         let result = evaluate_profile(&observed, &expected);
         assert!(!result.passed);
-        assert!(result.failures.iter().any(|f| f.starts_with("ja3_hash_mismatch")));
-        assert!(result.failures.iter().any(|f| f.starts_with("ja4_mismatch")));
-        assert!(result.failures.iter().any(|f| f.starts_with("alpn_mismatch")));
-        assert!(result.failures.iter().any(|f| f.starts_with("h2_settings_mismatch")));
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("ja3_hash_mismatch")));
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("ja4_mismatch")));
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("alpn_mismatch")));
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("h2_settings_mismatch")));
         assert!(result.failures.iter().any(|f| f == "grease_invalid"));
     }
 }

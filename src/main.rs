@@ -8,10 +8,11 @@ const DEFAULT_LISTEN_ADDR: &str = "127.0.0.1:10808";
 const MAX_CLIENT_HELLO_BYTES: usize = 64 * 1024;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let listen_addr = std::env::var("MITM_STREAM_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN_ADDR.to_string());
+    let listen_addr =
+        std::env::var("MITM_STREAM_LISTEN").unwrap_or_else(|_| DEFAULT_LISTEN_ADDR.to_string());
     let listener = TcpListener::bind(&listen_addr)?;
     println!(
-        "mitm_stream_core prototype listening on {} (parse-only, no MITM relay yet)",
+        "mitm_stream_core baseline listening on {} (parse-only, no MITM relay yet)",
         listen_addr
     );
 
@@ -53,4 +54,3 @@ fn handle_client(mut socket: TcpStream) -> Result<(), ParserError> {
     );
     Ok(())
 }
-
