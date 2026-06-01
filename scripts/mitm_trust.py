@@ -21,6 +21,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+def hidden_subprocess_kwargs() -> Dict[str, object]:
+    if os.name != "nt":
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {
+        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        "startupinfo": startupinfo,
+    }
+
+
 def sha256_file(path: Path) -> Optional[str]:
     if not path.exists():
         return None
@@ -62,6 +74,7 @@ def openssl_info(cert: Path) -> str:
             text=True,
             timeout=5,
             check=False,
+            **hidden_subprocess_kwargs(),
         )
     except Exception as exc:  # noqa: BLE001
         return f"openssl unavailable: {exc}"
@@ -79,6 +92,7 @@ def run_openssl(args: List[str], timeout: float = 5.0) -> subprocess.CompletedPr
             text=True,
             timeout=timeout,
             check=False,
+            **hidden_subprocess_kwargs(),
         )
     except Exception:
         return None
@@ -93,6 +107,7 @@ def run_openssl_bytes(args: List[str], timeout: float = 5.0) -> subprocess.Compl
             text=False,
             timeout=timeout,
             check=False,
+            **hidden_subprocess_kwargs(),
         )
     except Exception:
         return None
@@ -184,6 +199,7 @@ def windows_acl_text(path: Path) -> str:
             stderr=subprocess.DEVNULL,
             timeout=5,
             check=False,
+            **hidden_subprocess_kwargs(),
         )
     except Exception:
         return ""
@@ -257,7 +273,15 @@ def generate(out_dir: Path, backup: bool = False) -> int:
         return 2
     cmd = [xray, "tls", "cert", "-ca", "-file=mycert"]
     print("running: " + " ".join(cmd))
-    p = subprocess.run(cmd, cwd=str(out_dir), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    p = subprocess.run(
+        cmd,
+        cwd=str(out_dir),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        **hidden_subprocess_kwargs(),
+    )
     if p.returncode != 0:
         print(p.stdout)
         print(p.stderr, file=sys.stderr)

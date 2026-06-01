@@ -24,6 +24,15 @@ VPN_INTERFACE_KEYWORDS = {
 
 def _run(cmd: List[str], timeout: int = 8) -> str:
     try:
+        kwargs: dict[str, object] = {}
+        if platform.system().lower() == "windows":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
+            kwargs = {
+                "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                "startupinfo": startupinfo,
+            }
         proc = subprocess.run(
             cmd,
             text=True,
@@ -31,8 +40,61 @@ def _run(cmd: List[str], timeout: int = 8) -> str:
             stderr=subprocess.STDOUT,
             timeout=timeout,
             check=False,
+            **kwargs,
         )
         return (proc.stdout or "").strip()
+    except Exception:
+        return ""
+
+
+def _windows_file_version(path: Path) -> str:
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        version = ctypes.WinDLL("version", use_last_error=True)
+        version.GetFileVersionInfoSizeW.argtypes = [wintypes.LPCWSTR, wintypes.LPDWORD]
+        version.GetFileVersionInfoSizeW.restype = wintypes.DWORD
+        version.GetFileVersionInfoW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID]
+        version.GetFileVersionInfoW.restype = wintypes.BOOL
+        version.VerQueryValueW.argtypes = [wintypes.LPCVOID, wintypes.LPCWSTR, ctypes.POINTER(wintypes.LPVOID), ctypes.POINTER(wintypes.UINT)]
+        version.VerQueryValueW.restype = wintypes.BOOL
+
+        handle = wintypes.DWORD(0)
+        size = version.GetFileVersionInfoSizeW(str(path), ctypes.byref(handle))
+        if not size:
+            return ""
+        buffer = ctypes.create_string_buffer(size)
+        if not version.GetFileVersionInfoW(str(path), 0, size, buffer):
+            return ""
+        pointer = wintypes.LPVOID()
+        length = wintypes.UINT()
+        if not version.VerQueryValueW(buffer, "\\", ctypes.byref(pointer), ctypes.byref(length)):
+            return ""
+
+        class VsFixedFileInfo(ctypes.Structure):
+            _fields_ = [
+                ("dwSignature", wintypes.DWORD),
+                ("dwStrucVersion", wintypes.DWORD),
+                ("dwFileVersionMS", wintypes.DWORD),
+                ("dwFileVersionLS", wintypes.DWORD),
+                ("dwProductVersionMS", wintypes.DWORD),
+                ("dwProductVersionLS", wintypes.DWORD),
+                ("dwFileFlagsMask", wintypes.DWORD),
+                ("dwFileFlags", wintypes.DWORD),
+                ("dwFileOS", wintypes.DWORD),
+                ("dwFileType", wintypes.DWORD),
+                ("dwFileSubtype", wintypes.DWORD),
+                ("dwFileDateMS", wintypes.DWORD),
+                ("dwFileDateLS", wintypes.DWORD),
+            ]
+
+        info = ctypes.cast(pointer, ctypes.POINTER(VsFixedFileInfo)).contents
+        major = info.dwProductVersionMS >> 16
+        minor = info.dwProductVersionMS & 0xFFFF
+        build = info.dwProductVersionLS >> 16
+        patch = info.dwProductVersionLS & 0xFFFF
+        return f"{major}.{minor}.{build}.{patch}"
     except Exception:
         return ""
 
@@ -54,7 +116,7 @@ def _detect_windows_browsers() -> List[Dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        result.append({"family": family, "path": str(path), "version": _run([str(path), "--version"])})
+        result.append({"family": family, "path": str(path), "version": _windows_file_version(path) or "version unavailable"})
     return result
 
 

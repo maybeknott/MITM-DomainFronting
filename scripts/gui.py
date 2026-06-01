@@ -36,22 +36,187 @@ LOCAL_STATE = ROOT / ".local-state"
 GUI_TELEMETRY = LOCAL_STATE / "gui-telemetry.jsonl"
 CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
 XRAY_RELEASES_URL = "https://github.com/XTLS/Xray-core/releases"
+STATUS_REFRESH_MS = 3500
+NETWORK_REFRESH_MS = 7000
+HOST_PYTHON_CACHE_SECONDS = 45.0
+_HOST_PYTHON_CACHE: tuple[float, list[str] | None] = (0.0, None)
 
 COLORS = {
     "bg": "#f8fafc",
     "panel": "#ffffff",
     "panel_alt": "#f8fafc",
+    "panel_soft": "#f1f5f9",
     "ink": "#0f172a",
     "muted": "#64748b",
+    "muted_soft": "#94a3b8",
     "line": "#e2e8f0",
     "blue": "#2563eb",
     "blue_dark": "#1d4ed8",
+    "blue_soft": "#eff6ff",
     "green": "#16a34a",
+    "green_soft": "#f0fdf4",
     "amber": "#d97706",
+    "amber_soft": "#fffbeb",
     "red": "#dc2626",
+    "red_soft": "#fee2e2",
     "sidebar": "#0f172a",
     "sidebar_active": "#1e293b",
+    "sidebar_line": "#334155",
 }
+
+
+def hidden_subprocess_kwargs() -> dict[str, object]:
+    """Keep child helper processes from opening console windows in the GUI build."""
+    if os.name != "nt":
+        return {}
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {"creationflags": flags, "startupinfo": startupinfo}
+
+
+def _parse_int(value: str) -> int:
+    return int(re.sub(r"[^0-9]", "", value) or "0")
+
+
+def system_network_totals() -> tuple[int, int, str] | None:
+    """Return cumulative received/sent bytes for visible system interfaces."""
+    if os.name == "nt":
+        native = windows_network_totals()
+        if native is not None:
+            return native
+        try:
+            proc = subprocess.run(
+                ["netstat", "-e"],
+                cwd=str(ROOT),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=4,
+                check=False,
+                **hidden_subprocess_kwargs(),
+            )
+        except Exception:
+            return None
+        if proc.returncode != 0:
+            return None
+        for line in proc.stdout.splitlines():
+            if line.strip().lower().startswith("bytes"):
+                values = re.findall(r"[\d,]+", line)
+                if len(values) >= 2:
+                    return _parse_int(values[0]), _parse_int(values[1]), "netstat -e"
+        return None
+    proc_net = Path("/proc/net/dev")
+    if proc_net.exists():
+        rx_total = 0
+        tx_total = 0
+        try:
+            for line in proc_net.read_text(encoding="utf-8").splitlines()[2:]:
+                if ":" not in line:
+                    continue
+                name, payload = line.split(":", 1)
+                if name.strip() == "lo":
+                    continue
+                fields = payload.split()
+                if len(fields) >= 16:
+                    rx_total += int(fields[0])
+                    tx_total += int(fields[8])
+        except Exception:
+            return None
+        return rx_total, tx_total, "/proc/net/dev"
+    return None
+
+
+def windows_network_totals() -> tuple[int, int, str] | None:
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class MibIfRow(ctypes.Structure):
+            _fields_ = [
+                ("wszName", wintypes.WCHAR * 256),
+                ("dwIndex", wintypes.DWORD),
+                ("dwType", wintypes.DWORD),
+                ("dwMtu", wintypes.DWORD),
+                ("dwSpeed", wintypes.DWORD),
+                ("dwPhysAddrLen", wintypes.DWORD),
+                ("bPhysAddr", ctypes.c_ubyte * 8),
+                ("dwAdminStatus", wintypes.DWORD),
+                ("dwOperStatus", wintypes.DWORD),
+                ("dwLastChange", wintypes.DWORD),
+                ("dwInOctets", wintypes.DWORD),
+                ("dwInUcastPkts", wintypes.DWORD),
+                ("dwInNUcastPkts", wintypes.DWORD),
+                ("dwInDiscards", wintypes.DWORD),
+                ("dwInErrors", wintypes.DWORD),
+                ("dwInUnknownProtos", wintypes.DWORD),
+                ("dwOutOctets", wintypes.DWORD),
+                ("dwOutUcastPkts", wintypes.DWORD),
+                ("dwOutNUcastPkts", wintypes.DWORD),
+                ("dwOutDiscards", wintypes.DWORD),
+                ("dwOutErrors", wintypes.DWORD),
+                ("dwOutQLen", wintypes.DWORD),
+                ("dwDescrLen", wintypes.DWORD),
+                ("bDescr", ctypes.c_ubyte * 256),
+            ]
+
+        iphlpapi = ctypes.WinDLL("iphlpapi", use_last_error=True)
+        get_if_table = iphlpapi.GetIfTable
+        get_if_table.argtypes = [wintypes.LPVOID, ctypes.POINTER(wintypes.ULONG), wintypes.BOOL]
+        get_if_table.restype = wintypes.DWORD
+        size = wintypes.ULONG(0)
+        insufficient_buffer = 122
+        result = get_if_table(None, ctypes.byref(size), False)
+        if result != insufficient_buffer or size.value <= ctypes.sizeof(wintypes.DWORD):
+            return None
+        buffer = ctypes.create_string_buffer(size.value)
+        result = get_if_table(buffer, ctypes.byref(size), False)
+        if result != 0:
+            return None
+        count = ctypes.cast(buffer, ctypes.POINTER(wintypes.DWORD)).contents.value
+        row_offset = ctypes.sizeof(wintypes.DWORD)
+        rx_total = 0
+        tx_total = 0
+        loopback_type = 24
+        for index in range(count):
+            row = MibIfRow.from_buffer_copy(buffer, row_offset + index * ctypes.sizeof(MibIfRow))
+            if row.dwType == loopback_type:
+                continue
+            rx_total += int(row.dwInOctets)
+            tx_total += int(row.dwOutOctets)
+        return rx_total, tx_total, "Windows IP Helper"
+    except Exception:
+        return None
+
+
+def format_bytes(value: int) -> str:
+    units = ("B", "KB", "MB", "GB", "TB")
+    amount = float(max(0, value))
+    for unit in units:
+        if amount < 1024 or unit == units[-1]:
+            if unit == "B":
+                return f"{int(amount)} {unit}"
+            return f"{amount:.1f} {unit}"
+        amount /= 1024
+    return f"{amount:.1f} TB"
+
+
+def format_rate(bytes_per_second: float) -> str:
+    return f"{format_bytes(int(max(0.0, bytes_per_second)))}/s"
+
+
+def format_duration(seconds: float | None) -> str:
+    if seconds is None or seconds < 1:
+        return "0s"
+    total = int(seconds)
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
 
 
 @dataclass(frozen=True)
@@ -61,7 +226,11 @@ class CommandSpec:
     args: tuple[str, ...]
 
 
-def find_host_python() -> list[str] | None:
+def find_host_python(*, force: bool = False) -> list[str] | None:
+    global _HOST_PYTHON_CACHE
+    cached_at, cached_value = _HOST_PYTHON_CACHE
+    if not force and time.monotonic() - cached_at < HOST_PYTHON_CACHE_SECONDS:
+        return cached_value
     candidates: list[list[str]] = []
     env_python = os.environ.get("PYTHON", "").strip()
     if env_python:
@@ -81,11 +250,14 @@ def find_host_python() -> list[str] | None:
                 stderr=subprocess.DEVNULL,
                 timeout=8,
                 check=False,
+                **hidden_subprocess_kwargs(),
             )
         except Exception:
             continue
         if proc.returncode == 0:
+            _HOST_PYTHON_CACHE = (time.monotonic(), candidate)
             return candidate
+    _HOST_PYTHON_CACHE = (time.monotonic(), None)
     return None
 
 
@@ -138,6 +310,7 @@ def run_command(args: Iterable[str], timeout: int = 120) -> tuple[int, str]:
         stderr=subprocess.PIPE,
         timeout=timeout,
         check=False,
+        **hidden_subprocess_kwargs(),
     )
     output = proc.stdout
     if proc.stderr:
@@ -221,7 +394,8 @@ class LogMultiplexer:
         return "sys"
 
     def drain(self) -> None:
-        while True:
+        processed = 0
+        while processed < 120:
             try:
                 target, text = self.queue.get_nowait()
             except queue.Empty:
@@ -242,6 +416,7 @@ class LogMultiplexer:
             widget.configure(state="disabled")
             widget.see("end")
             self.queue.task_done()
+            processed += 1
 
 
 class App(tk.Tk):
@@ -288,9 +463,34 @@ class App(tk.Tk):
         self.overall_detail = tk.StringVar(value="Reading local config, certificates, ports, and tools.")
         self.telemetry_summary = tk.StringVar(value="Activity history: local only, 0 events")
         self.telemetry_last = tk.StringVar(value="Last activity: none")
+        self.auto_refresh_state = tk.StringVar(value="Auto refresh: starting")
+        self.diagnostic_title = tk.StringVar(value="Setup is being checked")
+        self.diagnostic_detail = tk.StringVar(value="The app is reading local files, tool paths, and proxy state.")
+        self.diagnostic_action = tk.StringVar(value="Next: wait for the first status refresh.")
+        self.network_down_rate = tk.StringVar(value="Down: measuring")
+        self.network_up_rate = tk.StringVar(value="Up: measuring")
+        self.network_total = tk.StringVar(value="Traffic: measuring")
+        self.network_duration = tk.StringVar(value="Connection time: 0s")
+        self.network_source = tk.StringVar(value="Counters: local system interfaces")
+        self.primary_action_text = tk.StringVar(value="Check Setup")
+        self.primary_action_detail = tk.StringVar(value="Start with a safe local setup check.")
+        self.output_toggle_text = tk.StringVar(value="Hide Logs")
         self.last_status_level = "unknown"
+        self.last_command_failure: dict[str, object] | None = None
+        self.status_refresh_count = 0
+        self._status_loop_running = False
+        self._primary_action: Callable[[], None] = self.run_beginner_setup_check
+        self._proxy_active_since: float | None = None
+        self._network_baseline: tuple[float, int, int, str] | None = None
+        self._network_last: tuple[float, int, int, str] | None = None
+        self._network_next_poll = 0.0
+        self._network_last_rates: tuple[float, float] = (0.0, 0.0)
+        self._network_poll_running = False
+        self.output_visible = tk.BooleanVar(value=True)
         self.status_chip_labels: dict[str, tk.Label] = {}
+        self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.nav_button_widgets: dict[str, tk.Button] = {}
+        self.tab_pages: dict[str, tk.Frame] = {}
         self.output_buffers: dict[str, tk.Text] = {}
         self.log_multiplexer: LogMultiplexer | None = None
         self.busy_controls: list[tk.Widget] = []
@@ -302,6 +502,7 @@ class App(tk.Tk):
         self._build_layout()
         self.record_telemetry("app_started", "info", "GUI started")
         self.refresh_status()
+        self._start_status_loop()
 
     def _query_hardware_dpi_scale(self) -> float:
         if os.name == "nt":
@@ -479,6 +680,32 @@ class App(tk.Tk):
                 "Status Summary\n\n"
                 "These tiles summarize the selected config, certificate files, generated profiles, health tool availability, dependencies, browser setup, and privacy boundaries."
             ),
+            "can_i_use_it_now": (
+                "Can I Use It Now?\n\n"
+                "This is the shortest readiness view. Green means that part is ready, yellow means setup is still needed, and red means the app cannot continue safely.\n\n"
+                "Read it left to right: config, runtime, certificate, then proxy listener. When all four are ready, run Page Check."
+            ),
+            "live_network": (
+                "Live Network\n\n"
+                "Shows local system network counters sampled during the GUI auto-refresh loop: download rate, upload rate, total traffic since the GUI opened, and how long the local proxy has been active.\n\n"
+                "Privacy boundary:\n"
+                "These are byte counters from the operating system. The GUI does not inspect payloads, request bodies, cookies, or browser history."
+            ),
+            "live_diagnostic_guidance": (
+                "Live Diagnostic Guidance\n\n"
+                "Shows the current reason the app thinks setup is ready or needs attention, plus the safest next action.\n\n"
+                "After a command fails, this card keeps the last failure visible so newcomers do not have to search through the log pane."
+            ),
+            "choose_your_path": (
+                "Choose Your Path\n\n"
+                "Use this when you are not sure which screen or button matters.\n\n"
+                "New setup runs the first safe checks. Proxy already running skips straight to the browser check. Something failed collects a local health report before you change settings."
+            ),
+            "setup_map": (
+                "Setup Map\n\n"
+                "A compact overview of the normal app flow: check, create CA, connect, verify.\n\n"
+                "Use this as orientation. The Best Next Action bar and Can I Use It Now panel update live as the machine state changes."
+            ),
             "1_check_setup": (
                 "Check Setup\n\n"
                 "Runs the smallest useful local check set for first-time setup. It validates the main config, static preflight shape, transport profile policy, UDP/443 profile policy, and tracked-file secret hygiene.\n\n"
@@ -649,8 +876,8 @@ class App(tk.Tk):
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
 
-        tk.Label(sidebar, text="MITM Fronting", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(22), pady=(self._scaled(24), self._scaled(4)))
-        tk.Label(sidebar, text="Setup - Run - Verify", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
+        tk.Label(sidebar, text="MITM Control", bg=COLORS["sidebar"], fg="#ffffff", font=self.fonts["h1"], anchor="w").pack(fill="x", padx=self._scaled(22), pady=(self._scaled(24), self._scaled(4)))
+        tk.Label(sidebar, text="Run, test, repair", bg=COLORS["sidebar"], fg="#cbd5e1", font=self.fonts["body"], anchor="w").pack(fill="x", padx=self._scaled(22))
         tk.Label(
             sidebar,
             text=str(ROOT),
@@ -661,6 +888,7 @@ class App(tk.Tk):
             justify="left",
             anchor="w",
         ).pack(fill="x", padx=self._scaled(22), pady=(self._scaled(10), self._scaled(18)))
+        tk.Frame(sidebar, bg=COLORS["sidebar_line"], height=1).pack(fill="x", padx=self._scaled(18), pady=(0, self._scaled(8)))
         nav_holder = tk.Frame(sidebar, bg=COLORS["sidebar"])
         nav_holder.pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(12)))
         tk.Label(
@@ -692,6 +920,7 @@ class App(tk.Tk):
         ttk.Button(status_block, text="Help", style="Soft.TButton", command=self.show_current_help).pack(side="left", padx=(0, self._scaled(8)))
         ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
+        self._build_primary_action_bar(content)
         self._build_metrics_bar(content)
         self.banner_slot = tk.Frame(content, bg=COLORS["bg"])
         self.banner_slot.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
@@ -708,15 +937,15 @@ class App(tk.Tk):
         self.certs_tab = self._tab()
         self.browser_tab = self._tab()
         self.docs_tab = self._tab()
-        self.tabs.add(self.start_tab, text="Start Here")
-        self.tabs.add(self.dashboard_tab, text="Run and Test")
-        self.tabs.add(self.validation_tab, text="Advanced Checks")
-        self.tabs.add(self.health_tab, text="Health")
-        self.tabs.add(self.fixes_tab, text="Repair")
-        self.tabs.add(self.profiles_tab, text="Profiles and DNS")
-        self.tabs.add(self.certs_tab, text="Certificates")
-        self.tabs.add(self.browser_tab, text="Browser Check")
-        self.tabs.add(self.docs_tab, text="Docs")
+        self.tabs.add(self._tab_page(self.start_tab), text="Start Here")
+        self.tabs.add(self._tab_page(self.dashboard_tab), text="Run and Test")
+        self.tabs.add(self._tab_page(self.validation_tab), text="Advanced Checks")
+        self.tabs.add(self._tab_page(self.health_tab), text="Health")
+        self.tabs.add(self._tab_page(self.fixes_tab), text="Repair")
+        self.tabs.add(self._tab_page(self.profiles_tab), text="Profiles and DNS")
+        self.tabs.add(self._tab_page(self.certs_tab), text="Certificates")
+        self.tabs.add(self._tab_page(self.browser_tab), text="Browser Check")
+        self.tabs.add(self._tab_page(self.docs_tab), text="Docs")
         self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._highlight_active_nav())
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
@@ -746,15 +975,30 @@ class App(tk.Tk):
         self._build_browser()
         self._build_docs()
         self._build_output_pane(content)
-        self.busy_controls = [widget for widget in self._walk_widgets(root) if isinstance(widget, (tk.Button, ttk.Button))]
+        self.busy_controls = [widget for widget in self._walk_widgets(root) if self._is_busy_managed_control(widget)]
         self._append_output("Ready. All actions run locally in this repository.\n")
-        self.tabs.select(self.start_tab)
+        self.tabs.select(self._tab_page(self.start_tab))
         self._highlight_active_nav()
 
     def _walk_widgets(self, parent: tk.Widget) -> Iterable[tk.Widget]:
         for child in parent.winfo_children():
             yield child
             yield from self._walk_widgets(child)
+
+    def _is_busy_managed_control(self, widget: tk.Widget) -> bool:
+        if not isinstance(widget, (tk.Button, ttk.Button)):
+            return False
+        try:
+            text = str(widget.cget("text"))
+        except tk.TclError:
+            return True
+        always_available = {
+            "Help", "Refresh Status", "Clear", "Copy All", "Copy Output", "Close", "Copy",
+            "Hide Logs", "Show Logs",
+            "Start Here", "Run & Test", "Checks", "Health Report", "Repair", "Profiles & DNS",
+            "Certificates", "Browser Check", "Docs",
+        }
+        return text not in always_available and not text.startswith("Open ")
 
     def _make_nav_button(self, parent: tk.Widget, text: str, target: tk.Frame) -> None:
         button = tk.Button(
@@ -775,21 +1019,21 @@ class App(tk.Tk):
         self.nav_button_widgets[text] = button
 
     def _select_workspace(self, frame: tk.Frame) -> None:
-        self.tabs.select(frame)
+        self.tabs.select(self._tab_page(frame))
         self._highlight_active_nav()
 
     def _current_help_key(self) -> str:
         selected = self.tabs.select() if hasattr(self, "tabs") else ""
         tab_to_key = {
-            str(self.dashboard_tab): "dashboard",
-            str(self.start_tab): "start_here",
-            str(self.validation_tab): "checks",
-            str(self.health_tab): "health_report",
-            str(self.fixes_tab): "fix_tools",
-            str(self.profiles_tab): "profiles_dns",
-            str(self.certs_tab): "certificates",
-            str(self.browser_tab): "browser_tests",
-            str(self.docs_tab): "docs",
+            str(self._tab_page(self.dashboard_tab)): "dashboard",
+            str(self._tab_page(self.start_tab)): "start_here",
+            str(self._tab_page(self.validation_tab)): "checks",
+            str(self._tab_page(self.health_tab)): "health_report",
+            str(self._tab_page(self.fixes_tab)): "fix_tools",
+            str(self._tab_page(self.profiles_tab)): "profiles_dns",
+            str(self._tab_page(self.certs_tab)): "certificates",
+            str(self._tab_page(self.browser_tab)): "browser_tests",
+            str(self._tab_page(self.docs_tab)): "docs",
         }
         return tab_to_key.get(selected, "dashboard")
 
@@ -849,15 +1093,15 @@ class App(tk.Tk):
             return
         selected = self.tabs.select()
         tab_to_name = {
-            str(self.start_tab): "Start Here",
-            str(self.dashboard_tab): "Run & Test",
-            str(self.validation_tab): "Checks",
-            str(self.health_tab): "Health Report",
-            str(self.fixes_tab): "Repair",
-            str(self.profiles_tab): "Profiles & DNS",
-            str(self.certs_tab): "Certificates",
-            str(self.browser_tab): "Browser Check",
-            str(self.docs_tab): "Docs",
+            str(self._tab_page(self.start_tab)): "Start Here",
+            str(self._tab_page(self.dashboard_tab)): "Run & Test",
+            str(self._tab_page(self.validation_tab)): "Checks",
+            str(self._tab_page(self.health_tab)): "Health Report",
+            str(self._tab_page(self.fixes_tab)): "Repair",
+            str(self._tab_page(self.profiles_tab)): "Profiles & DNS",
+            str(self._tab_page(self.certs_tab)): "Certificates",
+            str(self._tab_page(self.browser_tab)): "Browser Check",
+            str(self._tab_page(self.docs_tab)): "Docs",
         }
         active_name = tab_to_name.get(selected)
         if active_name:
@@ -866,24 +1110,118 @@ class App(tk.Tk):
             is_active = name == active_name
             button.configure(bg=COLORS["blue"] if is_active else COLORS["sidebar_active"], fg="#ffffff" if is_active else "#f8fafc")
 
+    def _start_status_loop(self) -> None:
+        if self._status_loop_running:
+            return
+        self._status_loop_running = True
+        self.after(STATUS_REFRESH_MS, self._periodic_status_refresh)
+
+    def _periodic_status_refresh(self) -> None:
+        if not self._status_loop_running:
+            return
+        try:
+            if not self.is_busy:
+                self.refresh_status()
+        finally:
+            if self._status_loop_running:
+                self.after(STATUS_REFRESH_MS, self._periodic_status_refresh)
+
+    def _build_primary_action_bar(self, parent: tk.Widget) -> None:
+        bar = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
+        accent = tk.Frame(bar, bg=COLORS["blue"], width=self._scaled(4))
+        accent.pack(side="left", fill="y")
+        text = tk.Frame(bar, bg=COLORS["panel"])
+        text.pack(side="left", fill="x", expand=True, padx=self._scaled(14), pady=self._scaled(10))
+        tk.Label(text, text="BEST NEXT ACTION", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x")
+        tk.Label(text, textvariable=self.primary_action_detail, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(760), justify="left").pack(fill="x", pady=(2, 0))
+        self.primary_action_button = tk.Button(
+            bar,
+            textvariable=self.primary_action_text,
+            command=self.run_primary_action,
+            bg=COLORS["blue"],
+            fg="#ffffff",
+            activebackground=COLORS["blue_dark"],
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=self._scaled(16),
+            pady=self._scaled(8),
+            font=self.fonts["body_bold"],
+        )
+        self.primary_action_button.pack(side="right", padx=self._scaled(14), pady=self._scaled(10))
+
+    def run_primary_action(self) -> None:
+        self._primary_action()
+
+    def _set_primary_action(self, text: str, detail: str, command: Callable[[], None], tone: str = "blue") -> None:
+        self.primary_action_text.set(text)
+        self.primary_action_detail.set(detail)
+        self._primary_action = command
+        palette = {
+            "blue": (COLORS["blue"], COLORS["blue_dark"]),
+            "green": (COLORS["green"], "#15803d"),
+            "amber": (COLORS["amber"], "#b45309"),
+            "red": (COLORS["red"], "#b91c1c"),
+        }.get(tone, (COLORS["blue"], COLORS["blue_dark"]))
+        if hasattr(self, "primary_action_button"):
+            bg, active = palette
+            self.primary_action_button.configure(bg=bg, activebackground=active)
+
     def _build_metrics_bar(self, parent: tk.Widget) -> None:
         bar = tk.Frame(parent, bg=COLORS["bg"])
         bar.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(10)))
-        self.metric_tunnel_label = self._metric_card(bar, "Proxy", "Checking", COLORS["amber"])
+        self.metric_tunnel_label = self._metric_card(bar, "Working", "Checking", COLORS["amber"])
         self.metric_stream_label = self._metric_card(bar, "Connections", "0 Seen", COLORS["ink"])
-        self.metric_privacy_label = self._metric_card(bar, "Data", "Local Only", COLORS["green"])
+        self.metric_down_label = self._metric_card(bar, "Download", "Measuring", COLORS["blue"])
+        self.metric_up_label = self._metric_card(bar, "Upload", "Measuring", COLORS["green"])
+        self.metric_refresh_label = self._metric_card(bar, "Auto Update", "Starting", COLORS["blue"])
         self.metric_next_label = self._metric_card(bar, "Next Step", "Check setup", COLORS["blue"])
 
     def _metric_card(self, parent: tk.Widget, title: str, value: str, color: str) -> tk.Label:
         card = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         card.pack(side="left", fill="x", expand=True, padx=(0, self._scaled(8)))
-        tk.Label(card, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(12), pady=(self._scaled(9), 0))
+        accent = tk.Frame(card, bg=color, height=self._scaled(3))
+        accent.pack(fill="x")
+        tk.Label(card, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(12), pady=(self._scaled(8), 0))
         label = tk.Label(card, text=value, bg=COLORS["panel"], fg=color, font=self.fonts["h2"], anchor="w")
-        label.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(2), self._scaled(10)))
+        label.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(2), self._scaled(9)))
         return label
 
     def _tab(self) -> tk.Frame:
-        return tk.Frame(self.tabs, bg=COLORS["panel"], padx=self._scaled(20), pady=self._scaled(18))
+        page = tk.Frame(self.tabs, bg=COLORS["panel"])
+        canvas = tk.Canvas(page, bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
+        scrollbar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
+        inner = tk.Frame(canvas, bg=COLORS["panel"], padx=self._scaled(20), pady=self._scaled(18))
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def sync_scroll_region(_event: tk.Event | None = None) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def sync_width(event: tk.Event) -> None:
+            canvas.itemconfigure(window_id, width=event.width)
+
+        def on_mousewheel(event: tk.Event) -> None:
+            if event.num == 4:
+                canvas.yview_scroll(-3, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(3, "units")
+            else:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        inner.bind("<Configure>", sync_scroll_region)
+        canvas.bind("<Configure>", sync_width)
+        for widget in (page, canvas, inner):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_mousewheel)
+            widget.bind("<Button-5>", on_mousewheel)
+        self.tab_pages[str(inner)] = page
+        return inner
+
+    def _tab_page(self, frame: tk.Frame) -> tk.Frame:
+        return self.tab_pages.get(str(frame), frame)
 
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -1002,13 +1340,78 @@ class App(tk.Tk):
         ttk.Entry(row, textvariable=variable).pack(side="left", fill="x", expand=True)
 
     def _status_chip(self, parent: tk.Widget, name: str) -> tk.Label:
-        box = tk.Frame(parent, bg="#f8fafc", highlightbackground=COLORS["line"], highlightthickness=1)
+        box = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
         box.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        tk.Label(box, text=name, bg="#f8fafc", fg=COLORS["muted"], font=self.fonts["caption"], anchor="w").pack(fill="x", padx=10, pady=(8, 1))
-        label = tk.Label(box, text="Checking", bg="#f8fafc", fg=COLORS["amber"], font=self.fonts["body_bold"], anchor="w")
+        tk.Label(box, text=name, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w").pack(fill="x", padx=10, pady=(8, 1))
+        label = tk.Label(box, text="Checking", bg=COLORS["panel_alt"], fg=COLORS["amber"], font=self.fonts["body_bold"], anchor="w")
         label.pack(fill="x", padx=10, pady=(0, 8))
         self.status_chip_labels[name] = label
         return label
+
+    def _readiness_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
+        item = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
+        top = tk.Frame(item, bg=COLORS["panel_alt"])
+        top.pack(fill="x", padx=12, pady=(9, 2))
+        tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+        status = tk.Label(top, text="Checking", bg=COLORS["amber_soft"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=8, pady=3)
+        status.pack(side="right")
+        detail_label = tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(290), justify="left", anchor="nw")
+        detail_label.pack(fill="x", padx=12, pady=(0, 10))
+        self.readiness_labels[key] = (status, detail_label)
+        return item
+
+    def _set_readiness_item(self, key: str, status: str, detail: str, level: str) -> None:
+        labels = self.readiness_labels.get(key)
+        if not labels:
+            return
+        status_label, detail_label = labels
+        bg = {"pass": COLORS["green_soft"], "warn": COLORS["amber_soft"], "fail": COLORS["red_soft"], "info": COLORS["blue_soft"]}.get(level, COLORS["panel_soft"])
+        fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
+        status_label.configure(text=status, bg=bg, fg=fg)
+        detail_label.configure(text=detail)
+
+    def _action_tile(self, parent: tk.Widget, title: str, detail: str, button: str, command: Callable[[], None], tone: str = "blue") -> tk.Frame:
+        palette = {
+            "blue": (COLORS["blue"], COLORS["blue_soft"], COLORS["blue_dark"]),
+            "green": (COLORS["green"], COLORS["green_soft"], COLORS["green"]),
+            "amber": (COLORS["amber"], COLORS["amber_soft"], COLORS["amber"]),
+            "red": (COLORS["red"], COLORS["red_soft"], COLORS["red"]),
+        }.get(tone, (COLORS["blue"], COLORS["blue_soft"], COLORS["blue_dark"]))
+        accent, soft, fg = palette
+        tile = tk.Frame(parent, bg=soft, highlightbackground=COLORS["line"], highlightthickness=1)
+        stripe = tk.Frame(tile, bg=accent, width=self._scaled(4))
+        stripe.pack(side="left", fill="y")
+        body = tk.Frame(tile, bg=soft)
+        body.pack(side="left", fill="both", expand=True, padx=12, pady=10)
+        tk.Label(body, text=title, bg=soft, fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
+        tk.Label(body, text=detail, bg=soft, fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(290), justify="left", anchor="w").pack(fill="x", pady=(2, 8))
+        tk.Button(
+            body,
+            text=button,
+            command=command,
+            bg=accent,
+            fg="#ffffff",
+            activebackground=fg,
+            activeforeground="#ffffff",
+            relief="flat",
+            padx=self._scaled(10),
+            pady=self._scaled(6),
+            font=self.fonts["caption_bold"],
+        ).pack(anchor="w")
+        return tile
+
+    def _workflow_rail(self, parent: tk.Widget, steps: list[tuple[str, str, str]]) -> tk.Frame:
+        rail = tk.Frame(parent, bg=COLORS["panel"])
+        for index, (number, title, detail) in enumerate(steps):
+            item = tk.Frame(rail, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
+            item.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 8, 0))
+            rail.columnconfigure(index, weight=1)
+            top = tk.Frame(item, bg=COLORS["panel_alt"])
+            top.pack(fill="x", padx=12, pady=(10, 3))
+            tk.Label(top, text=number, bg=COLORS["blue"], fg="#ffffff", font=self.fonts["caption_bold"], padx=7, pady=3).pack(side="left")
+            tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", padx=(8, 0), fill="x", expand=True)
+            tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(210), justify="left", anchor="nw").pack(fill="x", padx=12, pady=(0, 10))
+        return rail
 
     def _build_start_here(self) -> None:
         intro = tk.Label(
@@ -1027,6 +1430,32 @@ class App(tk.Tk):
             "The visible buttons are ordered for a first run. Advanced installers and deeper checks are tucked away until a check asks for them.",
             "info",
         ).pack(fill="x", pady=(0, 12))
+
+        chooser = self._card(self.start_tab, "Choose Your Path")
+        chooser.pack(fill="x", pady=(0, 14))
+        chooser_grid = tk.Frame(chooser, bg=COLORS["panel"])
+        chooser_grid.pack(fill="x", padx=16, pady=(6, 16))
+        quick_paths = [
+            ("New setup", "Start with the smallest safe check set.", "Check Setup", self.run_beginner_setup_check, "blue"),
+            ("Proxy already running", "Skip launch and test the browser path.", "Run Page Check", self.run_browser_diagnostics, "green"),
+            ("Something failed", "Collect a redacted health snapshot next.", "Run Health", self.run_health_probe, "amber"),
+        ]
+        for index, (title, detail, button, command, tone) in enumerate(quick_paths):
+            tile = self._action_tile(chooser_grid, title, detail, button, command, tone)
+            tile.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 8, 0))
+            chooser_grid.columnconfigure(index, weight=1)
+
+        map_card = self._card(self.start_tab, "Setup Map")
+        map_card.pack(fill="x", pady=(0, 14))
+        self._workflow_rail(
+            map_card,
+            [
+                ("1", "Check", "Find missing files, tools, or policy drift."),
+                ("2", "Create CA", "Generate local cert/key; trust install stays manual."),
+                ("3", "Connect", "Start app-managed Xray or use your external client."),
+                ("4", "Verify", "Run a browser page check and then Health if needed."),
+            ],
+        ).pack(fill="x", padx=16, pady=(6, 16))
 
         flow = tk.Frame(self.start_tab, bg=COLORS["panel"])
         flow.pack(fill="x", pady=(0, 14))
@@ -1067,24 +1496,29 @@ class App(tk.Tk):
         ttk.Button(row, text="Open Troubleshooting Docs", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
 
     def _build_dashboard(self) -> None:
-        hero = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
+        hero = tk.Frame(self.dashboard_tab, bg=COLORS["blue_soft"], highlightbackground="#bfdbfe", highlightthickness=1)
         hero.pack(fill="x", pady=(0, 12))
-        left = tk.Frame(hero, bg=COLORS["panel"])
-        left.pack(side="left", fill="both", expand=True)
-        tk.Label(left, text="Run & Test", bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 18, "bold"), anchor="w").pack(fill="x")
+        left = tk.Frame(hero, bg=COLORS["blue_soft"])
+        left.pack(side="left", fill="both", expand=True, padx=16, pady=14)
+        tk.Label(left, text="Run & Test", bg=COLORS["blue_soft"], fg=COLORS["ink"], font=("Segoe UI", 18, "bold"), anchor="w").pack(fill="x")
         tk.Label(
             left,
             textvariable=self.simple_next_step,
-            bg=COLORS["panel"],
+            bg=COLORS["blue_soft"],
             fg=COLORS["muted"],
             wraplength=620,
             justify="left",
             anchor="w",
         ).pack(fill="x", pady=(4, 0))
-        right = tk.Frame(hero, bg=COLORS["panel"])
-        right.pack(side="right", fill="y", padx=(18, 0))
-        tk.Label(right, text="Connection", bg=COLORS["panel"], fg=COLORS["muted"], anchor="e").pack(fill="x")
-        self.connection_label = tk.Label(right, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["amber"], font=("Segoe UI", 14, "bold"), anchor="e")
+        hero_actions = tk.Frame(left, bg=COLORS["blue_soft"])
+        hero_actions.pack(fill="x", pady=(12, 0))
+        ttk.Button(hero_actions, text="Start Proxy", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 8))
+        ttk.Button(hero_actions, text="Run Page Check", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 8))
+        ttk.Button(hero_actions, text="Health Probe", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
+        right = tk.Frame(hero, bg=COLORS["blue_soft"])
+        right.pack(side="right", fill="y", padx=(18, 16), pady=14)
+        tk.Label(right, text="CONNECTION", bg=COLORS["blue_soft"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="e").pack(fill="x")
+        self.connection_label = tk.Label(right, textvariable=self.connection_state, bg=COLORS["blue_soft"], fg=COLORS["amber"], font=("Segoe UI", 14, "bold"), anchor="e")
         self.connection_label.pack(fill="x")
         self._info_strip(
             self.dashboard_tab,
@@ -1099,6 +1533,59 @@ class App(tk.Tk):
         chip_row.pack(fill="x", padx=16, pady=(8, 16))
         for name in ("Setup", "Proxy", "Certificate", "Browser", "Privacy"):
             self._status_chip(chip_row, name)
+
+        overview = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
+        overview.pack(fill="x", pady=(0, 12))
+        overview.columnconfigure(0, weight=3)
+        overview.columnconfigure(1, weight=2)
+
+        readiness = self._card(overview, "Can I Use It Now?")
+        readiness.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        readiness_grid = tk.Frame(readiness, bg=COLORS["panel"])
+        readiness_grid.pack(fill="x", padx=16, pady=(6, 16))
+        readiness_items = [
+            ("config", "Config", "Primary runtime config is present."),
+            ("runtime", "Runtime", "Local Xray runtime can be found."),
+            ("cert", "Certificate", "Local CA files exist; trust remains manual."),
+            ("listener", "Proxy", "Listener on 127.0.0.1:10808 is checked live."),
+        ]
+        for index, (key, title, item_detail) in enumerate(readiness_items):
+            item = self._readiness_item(readiness_grid, key, title, item_detail)
+            item.grid(row=index // 2, column=index % 2, sticky="nsew", padx=(0 if index % 2 == 0 else 8, 0), pady=(0, 8))
+            readiness_grid.columnconfigure(index % 2, weight=1)
+
+        network = self._card(overview, "Live Network")
+        network.grid(row=0, column=1, sticky="nsew")
+        network_body = tk.Frame(network, bg=COLORS["panel"])
+        network_body.pack(fill="both", expand=True, padx=16, pady=(6, 16))
+        for variable, color in (
+            (self.network_down_rate, COLORS["blue"]),
+            (self.network_up_rate, COLORS["green"]),
+            (self.network_total, COLORS["ink"]),
+            (self.network_duration, COLORS["amber"]),
+        ):
+            tk.Label(network_body, textvariable=variable, bg=COLORS["panel"], fg=color, font=self.fonts["body_bold"], anchor="w").pack(fill="x", pady=(0, 5))
+        tk.Label(
+            network_body,
+            textvariable=self.network_source,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption"],
+            wraplength=self._scaled(330),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", pady=(4, 0))
+
+        diagnostic = self._card(self.dashboard_tab, "Live diagnostic guidance")
+        diagnostic.pack(fill="x", pady=(0, 12))
+        diag_body = tk.Frame(diagnostic, bg=COLORS["panel"])
+        diag_body.pack(fill="x", padx=16, pady=(6, 16))
+        diag_text = tk.Frame(diag_body, bg=COLORS["panel"])
+        diag_text.pack(side="left", fill="x", expand=True)
+        tk.Label(diag_text, textvariable=self.diagnostic_title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
+        tk.Label(diag_text, textvariable=self.diagnostic_detail, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=self._scaled(760), justify="left", anchor="w").pack(fill="x", pady=(2, 4))
+        tk.Label(diag_text, textvariable=self.diagnostic_action, bg=COLORS["panel"], fg=COLORS["blue_dark"], font=self.fonts["caption_bold"], wraplength=self._scaled(760), justify="left", anchor="w").pack(fill="x")
+        tk.Label(diag_body, textvariable=self.auto_refresh_state, bg="#eff6ff", fg=COLORS["blue_dark"], font=self.fonts["caption_bold"], padx=10, pady=7).pack(side="right", padx=(16, 0))
 
         main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         main.pack(fill="x", pady=(0, 12))
@@ -1429,15 +1916,19 @@ class App(tk.Tk):
     def _build_output_pane(self, parent: tk.Widget) -> None:
         outer = tk.Frame(parent, bg=COLORS["bg"])
         outer.pack(fill="x", padx=self._scaled(24), pady=(0, self._scaled(24)))
+        self.output_outer = outer
         frame = tk.Frame(outer, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         frame.pack(fill="x")
         header = tk.Frame(frame, bg=COLORS["panel"])
         header.pack(fill="x", padx=self._scaled(14), pady=(self._scaled(10), self._scaled(6)))
-        tk.Label(header, text="Output", bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"]).pack(side="left")
-        tk.Label(header, text="System messages, proxy messages, and check results are separated for easier reading.", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"]).pack(side="left", padx=self._scaled(10))
-        ttk.Button(header, text="Clear", style="Soft.TButton", command=self.clear_output).pack(side="right")
-        ttk.Button(header, text="Copy All", style="Soft.TButton", command=self.copy_output).pack(side="right", padx=self._scaled(8))
-        self.output_notebook = ttk.Notebook(frame)
+        tk.Label(header, text="Log Drawer", bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"]).pack(side="left")
+        tk.Label(header, text="System, proxy, and check output are separated. Hide this drawer when you only need status.", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"]).pack(side="left", padx=self._scaled(10))
+        ttk.Button(header, textvariable=self.output_toggle_text, style="Soft.TButton", command=self.toggle_output_drawer).pack(side="right")
+        ttk.Button(header, text="Clear", style="Soft.TButton", command=self.clear_output).pack(side="right", padx=self._scaled(8))
+        ttk.Button(header, text="Copy All", style="Soft.TButton", command=self.copy_output).pack(side="right")
+        self.output_body = tk.Frame(frame, bg=COLORS["panel"])
+        self.output_body.pack(fill="x")
+        self.output_notebook = ttk.Notebook(self.output_body)
         self.output_notebook.pack(fill="both", expand=True, padx=self._scaled(14), pady=(0, self._scaled(14)))
         self.output_buffers = {
             "sys": self._create_log_buffer("System"),
@@ -1447,6 +1938,15 @@ class App(tk.Tk):
         self.output = self.output_buffers["sys"]
         self.log_multiplexer = LogMultiplexer(self.output_buffers)
         self.after(100, self._drain_log_buffers)
+
+    def toggle_output_drawer(self) -> None:
+        self.output_visible.set(not self.output_visible.get())
+        if self.output_visible.get():
+            self.output_body.pack(fill="x")
+            self.output_toggle_text.set("Hide Logs")
+        else:
+            self.output_body.pack_forget()
+            self.output_toggle_text.set("Show Logs")
 
     def _create_log_buffer(self, title: str) -> tk.Text:
         tab = tk.Frame(self.output_notebook, bg="#0f172a")
@@ -1766,6 +2266,185 @@ class App(tk.Tk):
             return "warn", "Browser check scripts are missing."
         return "pass", "Ready for browser testing through the local proxy."
 
+    def _update_readiness_items(self, snapshot: dict[str, object], selected_config: Path) -> None:
+        self._set_readiness_item(
+            "config",
+            "Ready" if snapshot["config_exists"] else "Missing",
+            f"{short_path(selected_config)}" if snapshot["config_exists"] else "Primary config was not found.",
+            "pass" if snapshot["config_exists"] else "fail",
+        )
+        self._set_readiness_item(
+            "runtime",
+            "Ready" if snapshot["xray_local"] else "Missing",
+            str(snapshot.get("xray_path") or "Download Xray from Repair."),
+            "pass" if snapshot["xray_local"] else "warn",
+        )
+        cert_ready = bool(snapshot["cert_exists"] and snapshot["key_exists"])
+        self._set_readiness_item(
+            "cert",
+            "Ready" if cert_ready else "Missing",
+            "crt and key are present locally." if cert_ready else "Generate Local CA; install trust manually.",
+            "pass" if cert_ready else "warn",
+        )
+        listener_ready = bool(snapshot["loopback_10808_open"])
+        listener_detail = (
+            "GUI-managed Xray is active."
+            if snapshot["xray_started_by_gui"]
+            else "External local client is active."
+            if listener_ready
+            else "No listener detected on default port."
+        )
+        self._set_readiness_item(
+            "listener",
+            "Running" if listener_ready else "Stopped",
+            listener_detail,
+            "pass" if listener_ready else "warn",
+        )
+
+    def _update_network_telemetry(self, proxy_active: bool) -> None:
+        now = time.monotonic()
+        if proxy_active:
+            if self._proxy_active_since is None:
+                self._proxy_active_since = now
+            self.network_duration.set(f"Connection time: {format_duration(now - self._proxy_active_since)}")
+        else:
+            self._proxy_active_since = None
+            self.network_duration.set("Connection time: 0s")
+
+        if now < self._network_next_poll:
+            down_rate, up_rate = self._network_last_rates
+            if hasattr(self, "metric_down_label"):
+                self.metric_down_label.configure(text=format_rate(down_rate), fg=COLORS["blue"])
+                self.metric_up_label.configure(text=format_rate(up_rate), fg=COLORS["green"])
+            return
+        self._network_next_poll = now + NETWORK_REFRESH_MS / 1000.0
+
+        sample = system_network_totals()
+        if sample is None:
+            self.network_down_rate.set("Down: unavailable")
+            self.network_up_rate.set("Up: unavailable")
+            self.network_total.set("Traffic: counters unavailable")
+            self.network_source.set("Counters: local OS network counters unavailable")
+            if hasattr(self, "metric_down_label"):
+                self.metric_down_label.configure(text="Unavailable", fg=COLORS["muted"])
+                self.metric_up_label.configure(text="Unavailable", fg=COLORS["muted"])
+            return
+
+        rx, tx, source = sample
+        if self._network_baseline is None or rx < self._network_baseline[1] or tx < self._network_baseline[2]:
+            self._network_baseline = (now, rx, tx, source)
+        last = self._network_last
+        if last is None or rx < last[1] or tx < last[2] or now <= last[0]:
+            down_rate = 0.0
+            up_rate = 0.0
+        else:
+            elapsed = max(0.001, now - last[0])
+            down_rate = (rx - last[1]) / elapsed
+            up_rate = (tx - last[2]) / elapsed
+        self._network_last_rates = (down_rate, up_rate)
+        self._network_last = (now, rx, tx, source)
+        assert self._network_baseline is not None
+        total_rx = max(0, rx - self._network_baseline[1])
+        total_tx = max(0, tx - self._network_baseline[2])
+
+        self.network_down_rate.set(f"Down: {format_rate(down_rate)}")
+        self.network_up_rate.set(f"Up: {format_rate(up_rate)}")
+        self.network_total.set(f"Traffic: {format_bytes(total_rx)} down / {format_bytes(total_tx)} up")
+        self.network_source.set(f"Counters: {source}; local system traffic since this GUI opened, not payload inspection.")
+        if hasattr(self, "metric_down_label"):
+            self.metric_down_label.configure(text=format_rate(down_rate), fg=COLORS["blue"])
+            self.metric_up_label.configure(text=format_rate(up_rate), fg=COLORS["green"])
+
+    def _update_diagnostic_guidance(self, snapshot: dict[str, object], level: str, detail: str) -> None:
+        if self.last_command_failure:
+            label = str(self.last_command_failure.get("label", "Last command"))
+            advice = str(self.last_command_failure.get("advice", "Read the last failed output, then run Health Probe."))
+            self.diagnostic_title.set(f"Last issue: {label}")
+            self.diagnostic_detail.set(str(self.last_command_failure.get("summary", detail)))
+            self.diagnostic_action.set(f"Suggested fix: {advice}")
+            return
+        if not snapshot["config_exists"]:
+            self.diagnostic_title.set("Primary configuration is missing")
+            self.diagnostic_detail.set("The selected Xray config could not be found, so proxy launch and checks cannot continue.")
+            self.diagnostic_action.set("Open the Xray-config folder or run Repair Setup after restoring repository files.")
+        elif not snapshot["xray_local"]:
+            self.diagnostic_title.set("Local Xray runtime is missing")
+            self.diagnostic_detail.set("The app can run checks, but Start Proxy needs a local xray executable under the project runtime folder.")
+            self.diagnostic_action.set("Click Download Xray in the Repair screen, then Start Proxy again.")
+        elif not snapshot["cert_exists"] or not snapshot["key_exists"]:
+            self.diagnostic_title.set("Local CA files are not ready")
+            self.diagnostic_detail.set("Browser MITM checks need both mycert.crt and mycert.key. The app never installs trust silently.")
+            self.diagnostic_action.set("Generate Local CA, then follow the manual trust-store guide for your browser or OS.")
+        elif not snapshot["loopback_10808_open"]:
+            self.diagnostic_title.set("Proxy is offline")
+            self.diagnostic_detail.set("No local listener is accepting connections on 127.0.0.1:10808 yet.")
+            self.diagnostic_action.set("Start Proxy from the app, or start your external v2rayN/Xray client before browser tests.")
+        elif level == "pass":
+            self.diagnostic_title.set("Ready for browser testing")
+            self.diagnostic_detail.set("The local proxy is listening, required scripts are present, and certificate files exist.")
+            self.diagnostic_action.set("Run Page Check. If a site still fails, run Health Probe and Copy Issue Summary.")
+        else:
+            self.diagnostic_title.set("Setup needs attention")
+            self.diagnostic_detail.set(detail)
+            self.diagnostic_action.set("Run Check Setup, then follow the first failed step in the Checks output.")
+
+    def _failure_advice(self, label: str, code: int, output: str) -> tuple[str, str]:
+        lowered = output.lower()
+        if code == 124 or "timed out" in lowered:
+            return (
+                "The command timed out before it could finish.",
+                "Check proxy/DNS connectivity, then rerun Health Probe with the same target.",
+            )
+        if "no module named playwright" in lowered or "playwright" in lowered and "install" in lowered:
+            return (
+                "The browser diagnostic dependency is missing.",
+                "Open Repair and run Install Page Check Tools.",
+            )
+        if "no module named cloakbrowser" in lowered or "cloakbrowser" in lowered:
+            return (
+                "Fingerprint tooling is missing or not initialized.",
+                "Open Repair and run Install Fingerprint Tools, or use Page Check first.",
+            )
+        if "xray" in lowered and ("not found" in lowered or "missing" in lowered):
+            return (
+                "The local Xray runtime could not be found.",
+                "Open Repair and run Download Xray.",
+            )
+        if "certificate" in lowered or "cert" in lowered or "mycert" in lowered:
+            return (
+                "Certificate files or trust-store alignment need attention.",
+                "Run Certificate Status, then Generate Local CA or open the trust guide.",
+            )
+        if "address already in use" in lowered or "bind" in lowered and "10808" in lowered:
+            return (
+                "A local proxy port is already occupied.",
+                "Use the external client already running, stop it there, or create alternate-port profiles.",
+            )
+        if "connection refused" in lowered or "proxy-offline" in lowered:
+            return (
+                "The browser or probe could not reach the local proxy.",
+                "Start Proxy and confirm the Proxy tile says Running.",
+            )
+        if "dns" in lowered or "getaddrinfo" in lowered or "name resolution" in lowered:
+            return (
+                "DNS resolution or resolver reachability failed.",
+                "Run the DNS sweep in Profiles and DNS, then run Health Probe.",
+            )
+        if "permission denied" in lowered or "access is denied" in lowered:
+            return (
+                "Windows denied access to a file, process, or helper executable.",
+                "Close apps using the files, check antivirus/quarantine, then rerun the same action.",
+            )
+        if "json" in lowered and ("decode" in lowered or "invalid" in lowered):
+            return (
+                "A generated or selected JSON file is malformed.",
+                "Run Repair Setup to regenerate derived profiles and validate metadata.",
+            )
+        return (
+            f"{label} exited with code {code}.",
+            "Read the last failed lines, run Health Probe, then Copy Issue Summary for support.",
+        )
+
     def _set_label_state(self, label: tk.Label, text: str, level: str) -> None:
         color = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
         label.configure(text=text, fg=color)
@@ -1972,14 +2651,20 @@ class App(tk.Tk):
             return
         for line in proc.stdout:
             self.after(0, lambda item=line: self._handle_xray_log_line(item))
-        code = proc.poll()
+        try:
+            code = proc.wait(timeout=0.2)
+        except Exception:
+            code = proc.poll()
+        self.after(0, lambda: self._handle_xray_exit(proc, code))
+
+    def _handle_xray_exit(self, proc: subprocess.Popen[str], code: int | None) -> None:
         if self.xray_process is proc:
             self.xray_process = None
             self.xray_supervisor = None
         self.stream_count = 0
-        self.after(0, lambda: self.record_telemetry("xray_exit", "info" if code == 0 else "warn", "Xray process exited", {"exit_code": code}))
-        self.after(0, lambda: self._append_output(f"\nXray process exited with code {code}\n"))
-        self.after(0, self.refresh_status)
+        self.record_telemetry("xray_exit", "info" if code == 0 else "warn", "Xray process exited", {"exit_code": code})
+        self._append_output(f"\nXray process exited with code {code}\n")
+        self.refresh_status()
 
     def _handle_xray_log_line(self, line: str) -> None:
         self._append_output("[xray] " + line, stream="xray")
@@ -2024,6 +2709,7 @@ class App(tk.Tk):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                **hidden_subprocess_kwargs(),
             )
             try:
                 proc.wait(timeout=5)
@@ -2041,6 +2727,7 @@ class App(tk.Tk):
         self.xray_supervisor = None
 
     def close_app(self) -> None:
+        self._status_loop_running = False
         if self._xray_running_from_gui():
             self.record_telemetry("app_closed", "info", "Stopping GUI-launched Xray before close")
             self._stop_gui_xray()
@@ -2076,9 +2763,12 @@ class App(tk.Tk):
         profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
         snapshot = self._status_snapshot()
         level, detail = self._status_level(snapshot)
+        self.status_refresh_count += 1
         loopback_open = bool(snapshot["loopback_10808_open"])
         cert_ok = bool(snapshot["cert_exists"] and snapshot["key_exists"])
         self._update_telemetry_labels()
+        if level == "pass" and self.last_command_failure:
+            self.last_command_failure = None
         status_text = {"pass": "Ready", "warn": "Needs Attention", "fail": "Blocked"}.get(level, "Checking")
         self.overall_status.set(status_text)
         self.overall_detail.set(detail)
@@ -2092,14 +2782,26 @@ class App(tk.Tk):
             self.connection_state.set("Connected")
             self.simple_next_step.set("Xray is running from this app. Test the browser, then review Health if anything fails.")
             self.connection_label.configure(fg=COLORS["green"])
+            self._set_primary_action("Run Page Check", "Proxy is active. Test the browser path through the local listener.", self.run_browser_diagnostics, "green")
         elif loopback_open:
             self.connection_state.set("External client active")
             self.simple_next_step.set("A local proxy is already listening on 127.0.0.1:10808. Test the browser or run Health.")
             self.connection_label.configure(fg=COLORS["green"])
+            self._set_primary_action("Run Page Check", "An external local client is active. Verify browser behavior next.", self.run_browser_diagnostics, "green")
         else:
             self.connection_state.set("Not connected")
             self.simple_next_step.set("Run Check Setup, then Start Proxy or start v2rayN before testing the browser.")
             self.connection_label.configure(fg=COLORS["amber"])
+            if not snapshot["config_exists"]:
+                self._set_primary_action("Open Config Folder", "Primary config is missing. Restore it before launching the proxy.", lambda: self.open_path(ROOT / "Xray-config"), "red")
+            elif not snapshot["xray_local"]:
+                self._set_primary_action("Download Xray", "The GUI cannot find a local Xray runtime.", self.download_xray, "amber")
+            elif not cert_ok:
+                self._set_primary_action("Generate Local CA", "Certificate files are missing. Create your local CA before browser MITM tests.", self.generate_ca, "amber")
+            else:
+                self._set_primary_action("Start Proxy", "Setup looks close. Start the local proxy, then run a page check.", self.connect_xray, "blue")
+        if self.last_command_failure:
+            self._set_primary_action("Run Health Probe", "A recent command needs attention. Collect a redacted health snapshot next.", self.run_health_probe, "amber")
         if hasattr(self, "metric_tunnel_label"):
             if self._xray_running_from_gui():
                 self.metric_tunnel_label.configure(text="ACTIVE", fg=COLORS["green"])
@@ -2110,6 +2812,11 @@ class App(tk.Tk):
             self.metric_stream_label.configure(text=f"{self.stream_count} Seen")
             next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Start Proxy"
             self.metric_next_label.configure(text=next_text, fg=COLORS["blue"] if loopback_open else COLORS["amber"])
+            self.metric_refresh_label.configure(text=f"{STATUS_REFRESH_MS // 1000}s / {self.status_refresh_count}", fg=COLORS["blue"])
+        self.auto_refresh_state.set(f"Auto refresh: every {STATUS_REFRESH_MS // 1000}s, {self.status_refresh_count} checks")
+        self._update_readiness_items(snapshot, selected_config)
+        self._update_network_telemetry(loopback_open)
+        self._update_diagnostic_guidance(snapshot, level, detail)
         self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
         self._set_label_state(self.status_chip_labels["Proxy"], "Running" if loopback_open else "Stopped", "pass" if loopback_open else "warn")
         self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
@@ -2192,6 +2899,9 @@ class App(tk.Tk):
                 if output:
                     chunks.append(output)
                 chunks.append(f"[{'OK' if code == 0 else 'Needs attention'}] {step_label} exited with code {code}")
+                if code != 0:
+                    _, advice = self._failure_advice(step_label, code, output)
+                    chunks.append(f"Suggested next step: {advice}")
                 if code != 0 and final_code == 0:
                     final_code = code
             text = "\n".join(chunks)
@@ -2202,7 +2912,19 @@ class App(tk.Tk):
 
     def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None, duration_ms: int | None = None) -> None:
         status = "OK" if code == 0 else "Needs attention"
-        self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n", stream="audit")
+        guidance = ""
+        if code != 0:
+            summary, advice = self._failure_advice(label, code, output)
+            self.last_command_failure = {
+                "label": label,
+                "summary": summary,
+                "advice": advice,
+                "exit_code": code,
+            }
+            guidance = f"\nSuggested next step: {advice}\n"
+        else:
+            self.last_command_failure = None
+        self._append_output(f"{output}\n[{status}] {label} exited with code {code}{guidance}\n", stream="audit")
         self.current_process_label.set(f"{label}: {status}")
         self.record_telemetry(
             "command_finished",
@@ -2753,7 +3475,7 @@ class App(tk.Tk):
             args.append("-Headless")
         self._append_output(f"\n$ {' '.join(args)}\n")
         try:
-            subprocess.Popen(args, cwd=str(ROOT))
+            subprocess.Popen(args, cwd=str(ROOT), **hidden_subprocess_kwargs())
             self.current_process_label.set("Launched stock Chrome (diagnostics)")
             self._append_output("Started Chrome in a separate process. Check the browser window.\n")
         except Exception as exc:  # noqa: BLE001

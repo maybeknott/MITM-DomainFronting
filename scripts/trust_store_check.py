@@ -47,6 +47,16 @@ def certificate_hashes(cert_path: Path) -> Tuple[Optional[str], Optional[str]]:
     return hashlib.sha256(primary).hexdigest().upper(), hashlib.sha1(primary).hexdigest().upper()
 
 
+def _hidden_windows_kwargs() -> dict[str, object]:
+    if platform.system().lower() != "windows":
+        return {}
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {"creationflags": flags, "startupinfo": startupinfo}
+
+
 def _run(cmd: List[str], timeout: int = 10) -> Tuple[int, str]:
     try:
         proc = subprocess.run(
@@ -56,6 +66,7 @@ def _run(cmd: List[str], timeout: int = 10) -> Tuple[int, str]:
             stderr=subprocess.STDOUT,
             timeout=timeout,
             check=False,
+            **_hidden_windows_kwargs(),
         )
         return proc.returncode, proc.stdout or ""
     except Exception as exc:  # noqa: BLE001

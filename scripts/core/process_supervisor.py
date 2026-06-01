@@ -9,6 +9,16 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
+def _hidden_windows_kwargs() -> dict[str, object]:
+    if os.name != "nt":
+        return {}
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0
+    return {"creationflags": flags, "startupinfo": startupinfo}
+
+
 class ProcessSupervisor:
     """Manage one child process with OS-level containment where available."""
 
@@ -194,6 +204,7 @@ class ProcessSupervisor:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=False,
+                **_hidden_windows_kwargs(),
             )
 
     def _close_job_handle(self) -> None:
@@ -205,4 +216,3 @@ class ProcessSupervisor:
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel32.CloseHandle(self._job_handle)
         self._job_handle = None
-
