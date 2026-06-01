@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_NAME = "MITM-DomainFronting-Control-Center"
 DIST_ROOT = ROOT / "dist"
 APP_DIR = DIST_ROOT / APP_NAME
-BUILD_DIR = ROOT / "build" / "pyinstaller"
-SPEC_DIR = ROOT / "build" / "pyinstaller-spec"
+BUILD_RUN_ROOT = ROOT / "build" / "pyinstaller-runs"
 
 EXCLUDED_TRACKED_PREFIXES = (
     ".github/",
@@ -138,11 +139,19 @@ def copy_runtime_files() -> None:
         shutil.copy2(src, dst)
 
 
+def build_run_dirs() -> tuple[Path, Path]:
+    run_id = f"{int(time.time())}-{os.getpid()}"
+    work_dir = BUILD_RUN_ROOT / run_id / "work"
+    spec_dir = BUILD_RUN_ROOT / run_id / "spec"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    return work_dir, spec_dir
+
+
 def build_exe(skip_install: bool) -> Path:
     ensure_pyinstaller(skip_install)
     shutil.rmtree(APP_DIR, ignore_errors=True)
-    BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    SPEC_DIR.mkdir(parents=True, exist_ok=True)
+    work_dir, spec_dir = build_run_dirs()
     run([
         sys.executable,
         "-m",
@@ -155,9 +164,9 @@ def build_exe(skip_install: bool) -> Path:
         "--distpath",
         str(DIST_ROOT),
         "--workpath",
-        str(BUILD_DIR),
+        str(work_dir),
         "--specpath",
-        str(SPEC_DIR),
+        str(spec_dir),
         *[item for module in BACKEND_HIDDEN_IMPORTS for item in ("--hidden-import", module)],
         str(ROOT / "scripts" / "gui.py"),
     ], timeout=900)
