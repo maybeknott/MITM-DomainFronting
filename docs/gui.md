@@ -1,106 +1,171 @@
-# Local GUI
+# راهنمای برنامه گرافیکی محلی
 
-`scripts/gui.py` is the local desktop control center for setup, repair, and support-safe diagnostics. It uses only the Python standard library. It does not upload diagnostics, keys, logs, cookies, request bodies, browser traffic, or generated reports.
+<div dir="rtl">
 
-## Start
+فایل `scripts/gui.py` مرکز کنترل محلی این پروژه است. این برنامه برای راه‌اندازی اولیه، اجرای پروکسی، تست مرورگر، بررسی سلامت، تعمیر فایل‌های تولیدی و ساخت گزارش پشتیبانی طراحی شده است. برنامه فقط روی سیستم شما اجرا می‌شود و از کتابخانه استاندارد Python استفاده می‌کند.
 
-```bash
-python scripts/gui.py
-```
+## اجرای برنامه
 
-On Windows, if `python` opens the Microsoft Store or is not available:
+در ویندوز:
 
 ```powershell
 py -3 scripts\gui.py
 ```
 
-## Recommended Flow
-
-The GUI opens on **Start Here**. Follow the visible steps in order:
-
-1. **Check Setup** - runs the small local validation set.
-2. **Generate Local CA** - creates personal `mycert.crt` and `mycert.key` files only after confirmation.
-3. **Start Proxy** - starts the GUI-managed local Xray process when a local runtime is present.
-4. **Run Page Check** - loads a target page through `127.0.0.1:10808`.
-
-Advanced setup tools are hidden by default. Open them only when a check asks for missing browser tools, a local Xray runtime, fingerprint tooling, or packaging dependencies.
-
-## Main Screens
-
-- **Start Here**: the guided first-run checklist, optional setup installers, and plain-language troubleshooting help.
-- **Run & Test**: proxy start/stop, page check, setup repair, local issue summary, activity history, and detailed status.
-- **Health Report**: redacted local health probe first, plus platform and trust-store checks, with lab evidence and decision reports hidden under advanced support reports.
-- **Repair**: safe repair sequence first, with optional installers and profile regeneration hidden under advanced repair tools.
-- **Certificates**: certificate status, cert/key matching, local CA generation, trust-store check, and manual trust instructions.
-- **Browser Check**: page check first; custom browser path, headless mode, and CloakBrowser fingerprint checks are advanced.
-- **Advanced Checks**: recommended local checks first, with deeper project checks hidden until expanded.
-- **Profiles & DNS**: standard profile regeneration and DNS sweep; alternate-port generation is advanced.
-- **Docs**: quick links to local repository guides.
-
-## Safety Boundaries
-
-- The GUI runs locally from the repository checkout.
-- It does not silently install a root CA.
-- It does not upload diagnostics or reports.
-- It does not send activity history to remote services.
-- It does not inspect browser payloads.
-- It does not commit generated files.
-- It does not stop Xray/v2rayN processes that were started outside the GUI.
-- Auto-repair and dependency buttons do not install certificate trust, change system proxy settings, or delete browser profiles.
-- Xray download writes local runtime files under `xray/`, which is ignored by git.
-
-## Local Logs And Activity
-
-The bottom pane separates local output into **System**, **Proxy**, and **Checks** streams. The activity history records only GUI events, command labels, result codes, durations, and file-presence status under `.local-state/`.
-
-Use **Copy Issue Summary** or **Copy Phase Summary** when sharing support information. Review exported files before sharing; they are designed to omit private keys, cookies, full URLs, request bodies, and decrypted payloads.
-
-## Self-Test
+در سیستم‌هایی که `python` مستقیم در دسترس است:
 
 ```bash
-python scripts/gui.py --self-test
+python scripts/gui.py
 ```
 
-Windows launcher fallback:
+اگر فقط می‌خواهید وجود فایل‌ها و اسکریپت‌های اصلی را بدون باز کردن پنجره بررسی کنید:
 
 ```powershell
 py -3 scripts\gui.py --self-test
 ```
 
-This checks that expected local scripts and the primary config are present without opening a window.
+## مسیر پیشنهادی برای شروع
 
-## Build The Windows EXE
+برنامه با صفحه **Start Here** باز می‌شود. برای استفاده معمولی همین ترتیب کافی است:
 
-Double-click:
+۱. **Check Setup**: بررسی سبک و محلی برای کانفیگ، فایل‌های لازم، ابزارهای موجود و وضعیت پایه.
 
-```text
+۲. **Generate Local CA**: ساخت گواهی و کلید شخصی در مسیر `Xray-config/`. نصب Trust Store دستی می‌ماند و برنامه آن را بی‌اجازه انجام نمی‌دهد.
+
+۳. **Start Proxy**: اجرای Xray محلی با کانفیگ انتخاب‌شده، اگر runtime محلی موجود باشد.
+
+۴. **Run Page Check**: تست یک صفحه از مسیر پروکسی محلی `127.0.0.1:10808`.
+
+## چینش برنامه
+
+- نوار چپ برای جابه‌جایی بین صفحه‌ها است.
+- فضای وسط برای کار اصلی هر صفحه است.
+- نوار راست Telemetry همیشه وضعیت زنده، شبکه و فعالیت محلی را نشان می‌دهد.
+- Log Drawer پایین برنامه به صورت پیش‌فرض مخفی است و فقط وقتی لازم باشد باز می‌شود.
+
+با **Focus Mode** می‌توانید نوار چپ را مخفی کنید. با **Telemetry Rail** می‌توانید نوار راست را هم مخفی یا دوباره نمایش دهید.
+
+## کلیدهای میانبر
+
+- `F5`: تازه‌سازی وضعیت.
+- `Ctrl+K`: باز کردن Find Action.
+- `Ctrl+F`: رفتن به جست‌وجوی checks.
+- `Ctrl+R`: اجرای Best Next Action.
+- `Ctrl+L`: نمایش یا مخفی کردن Log Drawer.
+- `Ctrl+B`: Focus Mode برای نوار چپ.
+- `Ctrl+T`: نمایش یا مخفی کردن Telemetry Rail.
+- `Escape`: مخفی کردن Log Drawer.
+
+## Find Action
+
+دکمه **Find Action** یا کلید `Ctrl+K` یک command palette باز می‌کند. در آن می‌توانید صفحه‌ها، عملیات‌های رایج، ابزارهای تعمیر، راهنماها و کنترل‌های نمایشی را جست‌وجو کنید. چند نمونه جست‌وجو:
+
+- `health`
+- `proxy`
+- `cert`
+- `browser`
+- `logs`
+- `telemetry`
+- `repair`
+
+با Enter مورد انتخاب‌شده اجرا می‌شود.
+
+## Telemetry Rail
+
+نوار سمت راست شامل این بخش‌ها است:
+
+- **Live Status**: وضعیت کلی، وضعیت اتصال و چرخه auto-refresh.
+- **Network**: سرعت دریافت، سرعت ارسال، مجموع ترافیک از زمان باز شدن برنامه و مدت اتصال پروکسی.
+- **Activity**: تاریخچه محلی خود GUI و دکمه‌های export/clear/show.
+- **View**: میانبرهای سریع برای Find Action، Logs، Focus و Refresh.
+
+داده‌های شبکه از شمارنده‌های سیستم‌عامل خوانده می‌شود. برنامه محتوای ترافیک، کوکی، بدنه درخواست، تاریخچه مرورگر یا payload رمزگشایی‌شده را بررسی نمی‌کند.
+
+## صفحه‌ها
+
+### Start Here
+
+مسیر مناسب برای کاربر جدید است. ابزارهای اضافی مثل نصب Playwright، نصب ابزار fingerprint، دانلود Xray و PyInstaller در بخش اختیاری مخفی شده‌اند تا صفحه اول شلوغ نشود.
+
+### Run & Test
+
+صفحه استفاده روزمره است. از اینجا می‌توانید پروکسی را start/stop کنید، یک Page Check بگیرید، repair سریع انجام دهید، issue summary بسازید و وضعیت کلی پروژه را ببینید.
+
+### Checks
+
+محیط بررسی محلی است. Checks اصلی اول نمایش داده می‌شوند و checks عمیق‌تر پشت بخش extra پنهان هستند. با Command Search می‌توانید بین checks جست‌وجو کنید.
+
+### Health Report
+
+برای زمانی است که تست مرورگر یا راه‌اندازی مشکل دارد. Health Probe، Platform Capability و Trust Store Check خروجی redacted و محلی تولید می‌کنند. گزارش‌های عمیق‌تر مثل Lab Evidence و Decision Report در بخش advanced قرار دارند.
+
+### Repair
+
+ابزارهای تعمیر local را نگه می‌دارد. Repair Setup فایل‌های تولیدی و metadata را بررسی و بازسازی می‌کند. ابزارهای نصب dependency و دانلود Xray در advanced قرار دارند.
+
+### Certificates
+
+برای وضعیت گواهی، بررسی تطابق cert/key، ساخت گواهی محلی و راهنمای trust استفاده می‌شود. برنامه کلید خصوصی را آپلود نمی‌کند و trust را بی‌اجازه نصب نمی‌کند.
+
+### Browser Check
+
+ابتدا Page Check با Chromium/Playwright را اجرا کنید. تنظیم مسیر Chrome، headless و تست CloakBrowser/Fingerprint برای استفاده advanced است.
+
+### Profiles & DNS
+
+برای تولید پروفایل‌های استاندارد، ساخت alternate-port profile و اجرای DNS Sweep استفاده می‌شود.
+
+### Docs
+
+لینک‌های سریع به راهنماهای محلی مخزن را نشان می‌دهد.
+
+## Log Drawer
+
+Log Drawer خروجی را به سه بخش تقسیم می‌کند:
+
+- **System**: پیام‌های عمومی برنامه.
+- **Proxy**: پیام‌های مربوط به Xray و اتصال.
+- **Checks**: خروجی validate، health، audit و ابزارهای بررسی.
+
+اگر Log Drawer بسته باشد و خروجی جدید برسد، دکمه آن به شکل `Show Logs *` تغییر می‌کند.
+
+## مرزهای امنیتی
+
+- برنامه هیچ گزارشی را خودکار آپلود نمی‌کند.
+- برنامه Trust Store را بی‌اجازه تغییر نمی‌دهد.
+- برنامه system proxy را بی‌اجازه تغییر نمی‌دهد.
+- برنامه کلید خصوصی، کوکی، توکن، request body یا محتوای مرورگر را ذخیره یا ارسال نمی‌کند.
+- برنامه فرایندهای Xray/v2rayN خارجی را نمی‌بندد؛ فقط فرایندی را متوقف می‌کند که خودش اجرا کرده باشد.
+- خروجی‌های `.local-state/` محلی هستند و قبل از ارسال برای پشتیبانی باید بازبینی شوند.
+
+## ساخت نسخه اجرایی
+
+برای ساخت فایل اجرایی ویندوز:
+
+```powershell
 build_gui_exe.bat
 ```
 
-Or run:
+یا:
 
 ```powershell
 py -3 scripts\build_gui_exe.py
 ```
 
-The builder installs PyInstaller if it is missing, compiles the GUI, and copies local backend scripts, configs, docs, providers, and runtime JSON files into:
+خروجی:
 
 ```text
 dist\MITM-DomainFronting-Control-Center\
 ```
 
-Launch:
-
-```text
-dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe
-```
-
-The generated `build/` and `dist/` folders are local packaging artifacts and must not be committed.
-
-## Packaged Backend Checks
-
-The Windows executable runs backend scripts through the same bundled GUI executable. The builder includes backend-only Python standard-library modules, and `--self-test` checks that packaged backend commands can start:
+اجرای self-test روی نسخه ساخته‌شده:
 
 ```powershell
 dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe --self-test
 ```
+
+## انتشار از طریق GitHub Actions
+
+Workflow ساخت GUI روی Windows اجرا می‌شود. برای push و pull request، خروجی به عنوان artifact ذخیره می‌شود. برای tagهایی مثل `v1.0.0`، فایل ZIP و checksum ساخته و به GitHub Release همان tag اضافه می‌شود.
+
+</div>
