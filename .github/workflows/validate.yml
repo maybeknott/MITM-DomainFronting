@@ -70,6 +70,7 @@ jobs:
         if: hashFiles('Xray-config/MITM-DomainFronting.json') != ''
         run: |
           python scripts/install_xray.py --out-dir xray --force
+          xray/xray tls cert -ca -file=xray/mycert
           xray/xray run -test -config Xray-config/MITM-DomainFronting.json
           python scripts/geodata_pin.py --verify --strict --xray-bin xray/xray --root .
 

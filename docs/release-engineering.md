@@ -58,11 +58,15 @@ For a local maintainer machine with generated CA material, also run:
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
 ```
 
-If Xray is available:
+If Xray is available, generate disposable runtime-local CA material first. Xray resolves the
+relative `mycert.crt` and `mycert.key` paths from the runtime resource directory in this
+validation layout, so the test must not depend on user-private certificate files.
 
 ```bash
-xray run -test -config Xray-config/MITM-DomainFronting.json
-python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --xray-bin xray
+python scripts/install_xray.py --out-dir xray --force
+xray/xray tls cert -ca -file=xray/mycert
+xray/xray run -test -config Xray-config/MITM-DomainFronting.json
+python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --xray-bin xray/xray
 ```
 
 ## Release checklist

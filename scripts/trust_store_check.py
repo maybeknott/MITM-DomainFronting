@@ -71,10 +71,35 @@ def _powershell_thumbprints(scope: str) -> Tuple[bool, List[str], str]:
     return True, values, ""
 
 
+def _certutil_thumbprints(scope: str) -> Tuple[bool, List[str], str]:
+    cmd = ["certutil"]
+    if scope == "CurrentUser":
+        cmd.append("-user")
+    cmd.extend(["-store", "Root"])
+    code, out = _run(cmd, timeout=20)
+    if code != 0:
+        return False, [], out.strip()
+    values = [
+        _normalize_hex(match.group(1))
+        for match in re.finditer(r"Cert Hash\(sha1\):\s*([0-9A-Fa-f ]+)", out)
+    ]
+    return True, [value for value in values if value], ""
+
+
 def _windows_store_checks(cert_sha1: str) -> List[Dict[str, object]]:
     checks: List[Dict[str, object]] = []
     for scope in ("CurrentUser", "LocalMachine"):
         ok, thumbprints, error = _powershell_thumbprints(scope)
+        source = "powershell"
+        if not ok:
+            certutil_ok, certutil_thumbprints, certutil_error = _certutil_thumbprints(scope)
+            if certutil_ok:
+                ok = True
+                thumbprints = certutil_thumbprints
+                error = ""
+                source = "certutil"
+            elif certutil_error:
+                error = f"{error}; certutil fallback failed: {certutil_error}" if error else certutil_error
         if not ok:
             checks.append({
                 "store": f"windows:{scope}:Root",
@@ -89,6 +114,7 @@ def _windows_store_checks(cert_sha1: str) -> List[Dict[str, object]]:
             "status": "pass" if matched else "mismatch",
             "matched": matched,
             "entries_seen": len(thumbprints),
+            "source": source,
         })
     return checks
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import socket
 import stat
 import subprocess
@@ -22,7 +23,7 @@ def _status_from_checks(checks: List[Dict[str, object]]) -> str:
     statuses = {str(c.get("status", "info")) for c in checks}
     if "fail" in statuses:
         return "fail"
-    if "warn" in statuses:
+    if statuses.intersection({"warn", "missing", "mismatch", "unknown"}):
         return "warn"
     return "pass"
 
@@ -43,6 +44,9 @@ def cert_checks(cert: Path, key: Path) -> List[Dict[str, object]]:
     checks.append({"id": "cert_exists", "status": "pass" if cert.exists() else "warn", "detail": str(cert)})
     checks.append({"id": "key_exists", "status": "pass" if key.exists() else "warn", "detail": str(key)})
     if key.exists():
+        if os.name == "nt":
+            checks.append({"id": "key_permissions", "status": "info", "detail": "Windows ACL not evaluated; keep key private"})
+            return checks
         if key.stat().st_mode & stat.S_IROTH:
             checks.append({"id": "key_permissions", "status": "warn", "detail": "world-readable key file"})
         else:
@@ -178,9 +182,9 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str, root: P
             rationale_parts.append("certificate material incomplete or weak permissions")
 
     trust = checks.get("trust_store", {})
-    if isinstance(trust, dict) and trust.get("status") == "warn":
+    if isinstance(trust, dict) and str(trust.get("status", "unknown")) not in {"pass", "not_supported"}:
         actions.append("Install mycert.crt into the intended OS/browser trust store or use automation-only ignore_https_errors.")
-        rationale_parts.append("trust store check reported warnings")
+        rationale_parts.append(f"trust store check reported {trust.get('status', 'unknown')}")
 
     dns_checks = checks.get("dns", [])
     if isinstance(dns_checks, list) and any(isinstance(c, dict) and c.get("status") != "pass" for c in dns_checks):
