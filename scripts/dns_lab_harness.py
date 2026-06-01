@@ -30,7 +30,11 @@ def build_dns_a_response(query_packet: bytes, ipv4: str) -> bytes:
     header = tid + struct.pack("!HHHHH", 0x8180, 1, 1, 0, 0)
     idx = 12
     while idx < len(query_packet) and query_packet[idx] != 0:
+        if idx + query_packet[idx] + 1 > len(query_packet):
+            raise ValueError("query name exceeds packet bounds")
         idx += query_packet[idx] + 1
+    if idx + 5 > len(query_packet):
+        raise ValueError("query question exceeds packet bounds")
     idx += 5
     question = query_packet[12:idx]
     rdata = socket.inet_aton(ipv4)
@@ -46,27 +50,42 @@ def extract_first_a_ipv4(response: bytes) -> Optional[str]:
         return None
     offset = 12
     for _ in range(qd):
-        while offset < len(response) and response[offset] != 0:
-            offset += response[offset] + 1
-        offset += 5
-    while offset < len(response) and an > 0:
-        if offset >= len(response):
+        offset = _skip_dns_name(response, offset)
+        if offset is None or offset + 4 > len(response):
             return None
-        if response[offset] & 0xC0 == 0xC0:
-            offset += 2
-        else:
-            while offset < len(response) and response[offset] != 0:
-                offset += response[offset] + 1
-            offset += 1
+        offset += 4
+    while offset < len(response) and an > 0:
+        offset = _skip_dns_name(response, offset)
+        if offset is None:
+            return None
         if offset + 10 > len(response):
             return None
         rtype, _, _, rdlength = struct.unpack("!HHIH", response[offset : offset + 10])
         offset += 10
+        if offset + rdlength > len(response):
+            return None
         if rtype == 1 and rdlength == 4 and offset + 4 <= len(response):
             return socket.inet_ntoa(response[offset : offset + 4])
         offset += rdlength
         an -= 1
     return None
+
+
+def _skip_dns_name(packet: bytes, offset: int) -> Optional[int]:
+    while True:
+        if offset >= len(packet):
+            return None
+        length = packet[offset]
+        if length == 0:
+            return offset + 1
+        if length & 0xC0 == 0xC0:
+            return offset + 2 if offset + 2 <= len(packet) else None
+        if length & 0xC0:
+            return None
+        offset += 1
+        if offset + length > len(packet):
+            return None
+        offset += length
 
 
 class FakeDnsServer:

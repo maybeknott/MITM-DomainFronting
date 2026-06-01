@@ -84,6 +84,20 @@ def run_openssl(args: List[str], timeout: float = 5.0) -> subprocess.CompletedPr
         return None
 
 
+def run_openssl_bytes(args: List[str], timeout: float = 5.0) -> subprocess.CompletedProcess[bytes] | None:
+    try:
+        return subprocess.run(
+            ["openssl", *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=False,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return None
+
+
 def cert_end_date(cert: Path) -> Optional[datetime]:
     if not cert.exists():
         return None
@@ -105,19 +119,19 @@ def cert_end_date(cert: Path) -> Optional[datetime]:
 def public_key_fingerprint_from_cert(cert: Path) -> Optional[str]:
     if not cert.exists():
         return None
-    proc = run_openssl(["x509", "-in", str(cert), "-pubkey", "-noout"])
+    proc = run_openssl_bytes(["x509", "-in", str(cert), "-pubkey", "-noout"])
     if proc is None or proc.returncode != 0:
         return None
-    return hashlib.sha256(proc.stdout.encode("utf-8")).hexdigest()
+    return hashlib.sha256(proc.stdout).hexdigest()
 
 
 def public_key_fingerprint_from_key(key: Path) -> Optional[str]:
     if not key.exists():
         return None
-    proc = run_openssl(["pkey", "-in", str(key), "-pubout"])
+    proc = run_openssl_bytes(["pkey", "-in", str(key), "-pubout"])
     if proc is None or proc.returncode != 0:
         return None
-    return hashlib.sha256(proc.stdout.encode("utf-8")).hexdigest()
+    return hashlib.sha256(proc.stdout).hexdigest()
 
 
 def cert_key_match(cert: Path, key: Path) -> Optional[bool]:

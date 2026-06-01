@@ -118,6 +118,30 @@ def openssl_cert_info(cert: Path) -> List[Dict[str, str]]:
         return [{"id": "cert_openssl", "status": "warn", "detail": proc.stderr.strip() or "openssl failed"}]
     one_line = "; ".join(line.strip() for line in proc.stdout.splitlines() if line.strip())
     checks.append({"id": "cert_openssl", "status": "pass", "detail": one_line})
+    try:
+        text_proc = subprocess.run(
+            [openssl, "x509", "-in", str(cert), "-noout", "-text"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        checks.append({"id": "cert_extensions", "status": "info", "detail": f"extension parse skipped: {exc}"})
+        return checks
+    if text_proc.returncode != 0:
+        checks.append({"id": "cert_extensions", "status": "info", "detail": "extension parse skipped"})
+        return checks
+    cert_text = text_proc.stdout.lower().replace(" ", "")
+    ca_ok = "ca:true" in cert_text
+    key_usage_ok = "keycertsign" in cert_text or "certificatesign" in cert_text
+    if ca_ok and key_usage_ok:
+        checks.append({"id": "cert_extensions", "status": "pass", "detail": "CA:TRUE and keyCertSign present"})
+    elif ca_ok:
+        checks.append({"id": "cert_extensions", "status": "warn", "detail": "CA:TRUE present but keyCertSign not detected"})
+    else:
+        checks.append({"id": "cert_extensions", "status": "warn", "detail": "CA:TRUE not detected; browsers may reject this CA"})
     return checks
 
 

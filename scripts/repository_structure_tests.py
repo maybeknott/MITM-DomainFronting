@@ -56,6 +56,7 @@ REQUIRED_FILES = [
     "scripts/trust_store_check.py",
     "scripts/platform_capability_check.py",
     "scripts/dns_lab_harness.py",
+    "scripts/dns_lab_harness_tests.py",
     "scripts/fakedns_recovery_check.py",
     "scripts/geodata_pin.py",
     "scripts/provider_dossier_validate.py",

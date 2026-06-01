@@ -147,6 +147,8 @@ def run_backend(script_name: str, args: list[str]) -> int:
         print(f"Backend script not found: {short_path(script)}")
         return 2
     os.chdir(ROOT)
+    original_argv = sys.argv[:]
+    original_path = sys.path[:]
     sys.path.insert(0, str(SCRIPTS))
     sys.path.insert(0, str(ROOT))
     sys.argv = [str(script), *args]
@@ -164,6 +166,9 @@ def run_backend(script_name: str, args: list[str]) -> int:
         print(f"Backend script failed: {script_name}: {exc}", file=sys.stderr)
         traceback.print_exc()
         return 1
+    finally:
+        sys.argv = original_argv
+        sys.path[:] = original_path
     return 0
 
 
@@ -190,6 +195,7 @@ class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("MITM-DomainFronting Control Center")
+        self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.geometry("1180x760")
         self.minsize(1040, 680)
         self.configure(bg=COLORS["bg"])
@@ -963,12 +969,19 @@ class App(tk.Tk):
             messagebox.showerror("Missing config", f"Primary config not found: {short_path(CONFIG)}")
             return
         try:
+            popen_kwargs: dict[str, object] = {
+                "cwd": str(ROOT),
+                "text": True,
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.STDOUT,
+            }
+            if os.name == "nt":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+            else:
+                popen_kwargs["start_new_session"] = True
             self.xray_process = subprocess.Popen(
                 [str(xray), "run", "-config", str(CONFIG)],
-                cwd=str(ROOT),
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                **popen_kwargs,
             )
         except Exception as exc:  # noqa: BLE001
             messagebox.showerror("Connect failed", str(exc))
@@ -1007,16 +1020,46 @@ class App(tk.Tk):
             self.refresh_status()
             return
         assert self.xray_process is not None
-        self.xray_process.terminate()
-        try:
-            self.xray_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.xray_process.kill()
-            self.xray_process.wait(timeout=5)
+        self._stop_gui_xray()
         self._append_output("\nStopped dashboard-launched Xray.\n")
         self.record_telemetry("xray_disconnect", "info", "Stopped dashboard-launched Xray")
         self.current_process_label.set("Xray stopped")
         self.refresh_status()
+
+    def _stop_gui_xray(self) -> None:
+        proc = self.xray_process
+        if proc is None or proc.poll() is not None:
+            self.xray_process = None
+            return
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+            self.xray_process = None
+            return
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+        self.xray_process = None
+
+    def close_app(self) -> None:
+        if self._xray_running_from_gui():
+            self.record_telemetry("app_closed", "info", "Stopping dashboard-launched Xray before close")
+            self._stop_gui_xray()
+        else:
+            self.record_telemetry("app_closed", "info", "GUI closed")
+        self.destroy()
 
     def run_beginner_setup_check(self) -> None:
         steps = [
@@ -1525,6 +1568,7 @@ def self_test() -> int:
         SCRIPTS / "repository_structure_tests.py",
         SCRIPTS / "geodata_pin.py",
         SCRIPTS / "dns_lab_harness.py",
+        SCRIPTS / "dns_lab_harness_tests.py",
         SCRIPTS / "fakedns_recovery_check.py",
         SCRIPTS / "install_xray.py",
         SCRIPTS / "route_intent_sync.py",

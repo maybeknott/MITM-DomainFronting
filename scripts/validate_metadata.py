@@ -38,6 +38,26 @@ def list_values_under(text: str, key: str) -> list[str]:
     return LIST_ITEM_RE.findall("\n".join(block_lines))
 
 
+def has_scalar_value(text: str, key: str, expected: str) -> bool:
+    for line in text.splitlines():
+        clean = line.split("#", 1)[0].strip()
+        if not clean or ":" not in clean:
+            continue
+        found_key, value = clean.split(":", 1)
+        if found_key.strip() == key and value.strip() == expected:
+            return True
+    return False
+
+
+def require_scalar_values(path: Path, values: dict[str, str]) -> list[str]:
+    text = path.read_text(encoding="utf-8")
+    return [
+        f"{path}: missing guardrail {key}: {expected}"
+        for key, expected in values.items()
+        if not has_scalar_value(text, key, expected)
+    ]
+
+
 def validate_provider(path: Path, known_route_tags: set[str]) -> list[str]:
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
@@ -81,30 +101,26 @@ def main() -> int:
             errors.append(f"{required}: missing")
     relay = Path("configs/relay-profiles.yml")
     if relay.exists():
-        text = relay.read_text(encoding="utf-8")
-        for needle in [
-            "default_enabled: false",
-            "public_open_relays_allowed: false",
-            "authentication_required: true",
-            "owner_metadata_required: true",
-            "payload_logging_allowed: false",
-        ]:
-            if needle not in text:
-                errors.append(f"{relay}: missing guardrail {needle}")
+        errors.extend(require_scalar_values(relay, {
+            "default_enabled": "false",
+            "public_open_relays_allowed": "false",
+            "authentication_required": "true",
+            "owner_metadata_required": "true",
+            "payload_logging_allowed": "false",
+        }))
     else:
         errors.append(f"{relay}: missing")
     metrics = Path("configs/metrics-profiles.yml")
     if metrics.exists():
         text = metrics.read_text(encoding="utf-8")
-        for needle in [
-            "default_enabled: false",
-            "bind: 127.0.0.1",
-            "payload_logging: false",
-            "access_log: none",
-            "decrypted_payload",
-        ]:
-            if needle not in text:
-                errors.append(f"{metrics}: missing guardrail {needle}")
+        errors.extend(require_scalar_values(metrics, {
+            "default_enabled": "false",
+            "bind": "127.0.0.1",
+            "payload_logging": "false",
+            "access_log": "none",
+        }))
+        if "decrypted_payload" not in text:
+            errors.append(f"{metrics}: missing guardrail decrypted_payload")
     else:
         errors.append(f"{metrics}: missing")
     tun = Path("configs/tun-profiles.yml")
