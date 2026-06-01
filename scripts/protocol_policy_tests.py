@@ -62,9 +62,23 @@ def main() -> int:
         "private_domain",
         "websocket_upgrade",
         "grpc",
+        "protocol_smoke.py --scenario websocket-handshake",
+        "protocol_smoke.py --scenario grpc-alpn",
+        "protocol_smoke.py --scenario ipv6-connect",
+        "dns_lab_harness.py --scenario nat64-dns64",
     ]:
         if required_fragment not in protocols_text:
             errors.append(f"{protocols_path}: missing test/edge-case {required_fragment}")
+
+    for required_doc_fragment in [
+        "scripts/protocol_smoke.py",
+        "--scenario udp443-policy",
+        "--scenario websocket-handshake",
+        "--scenario grpc-alpn",
+        "--scenario ipv6-connect",
+    ]:
+        if required_doc_fragment not in docs_text:
+            errors.append(f"{docs_path}: missing smoke-probe docs fragment {required_doc_fragment}")
 
     if errors:
         for error in errors:

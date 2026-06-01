@@ -196,6 +196,8 @@ def main() -> int:
         "repository_structure_tests": tracked_command(root, "repository_structure_tests.py"),
         "route_intent_sync": tracked_command(root, "route_intent_sync.py", str(config)),
         "transport_experiment_validate": tracked_command(root, "transport_experiment_validate.py"),
+        "transport_profile_validate": tracked_command(root, "transport_profile_validate.py"),
+        "protocol_smoke_udp443_policy": tracked_command(root, "protocol_smoke.py", "--scenario", "udp443-policy"),
         "config_src_validate": tracked_command(root, "config_src_validate.py", "--run-steps"),
         "config_src_build": tracked_command(root, "build_config.py", "--check-runtime-sync", "--generate-profiles", "--check-profile-sync"),
         "lab_evidence_bundle": tracked_command(root, "lab_evidence_run.py", "--allow-warn", "--json-out", "lab-evidence.bundle.json"),

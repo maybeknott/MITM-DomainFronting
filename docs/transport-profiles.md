@@ -11,6 +11,7 @@ This file documents transport capability without requiring multiple runtime prof
 - Add validation for TCP/UDP/DNS/IPv6 edge cases.
 - Do not add relays by default.
 - Do not add unauthenticated admin/API endpoints.
+- Keep transport profile policy in [`configs/transport-profiles.yml`](../configs/transport-profiles.yml), validated by `scripts/transport_profile_validate.py`.
 
 ## Transport handling table
 
@@ -23,8 +24,17 @@ This file documents transport capability without requiring multiple runtime prof
 | HTTP/3/QUIC | profile-defined | Strict/debug block UDP/443; balanced/compatibility direct-route with warning |
 | WebSocket | test-required | Depends on HTTP/1.1 upgrade handling |
 | gRPC | test-required | Depends on HTTP/2 stream behavior |
-| Xray transports like XHTTP/gRPC/WS/Hysteria | not added by default | Would change architecture; document separately if ever added |
+| Xray transports like XHTTP/gRPC/WS/Hysteria | external-engine review | Default-disabled in `configs/transport-profiles.yml`; requires upstream or architecture review |
 
 ## Rule
 
 Transport expansion should be tested and documented before claiming support. Unsupported transports must stay explicitly labeled rather than silently assumed.
+
+## Evidence Commands
+
+```bash
+python scripts/transport_profile_validate.py
+python scripts/protocol_smoke.py --scenario udp443-policy
+python scripts/protocol_smoke.py --scenario http2-alpn --host example.com
+python scripts/protocol_smoke.py --scenario grpc-alpn --host example.com
+```

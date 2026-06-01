@@ -1,0 +1,45 @@
+version: 1
+default_runtime_profile: base
+single_primary_config: Xray-config/MITM-DomainFronting.json
+
+profile_policies:
+  base:
+    generated: false
+    udp443_policy: documented_by_generated_profiles
+    non_private_catchall: direct
+  strict:
+    generated: true
+    udp443_policy: block
+    non_private_catchall: block
+  balanced:
+    generated: true
+    udp443_policy: direct_with_warning
+    non_private_catchall: direct
+  compatibility:
+    generated: true
+    udp443_policy: direct_with_warning
+    non_private_catchall: direct
+  debug:
+    generated: true
+    udp443_policy: block
+    non_private_catchall: direct
+    access_log: none
+
+external_engine_transports:
+  xhttp:
+    default_enabled: false
+    repository_action: upstream_or_separate_architecture_review
+  grpc:
+    default_enabled: false
+    repository_action: upstream_or_separate_architecture_review
+  websocket:
+    default_enabled: false
+    repository_action: upstream_or_separate_architecture_review
+  hysteria:
+    default_enabled: false
+    repository_action: upstream_or_separate_architecture_review
+
+evidence_commands:
+  udp443_policy: python scripts/route_policy_tests.py
+  transport_profile_sync: python scripts/transport_profile_validate.py
+  protocol_smoke: python scripts/protocol_smoke.py --scenario udp443-policy

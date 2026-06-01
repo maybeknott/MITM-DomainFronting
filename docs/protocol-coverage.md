@@ -63,3 +63,15 @@ unknown         Not tested yet.
 | Works on desktop but not Android app | Android user CA / pinning / app trust | app name, browser vs app, Android version |
 | Works on Wi-Fi but not mobile | DNS64/NAT64, IPv6, provider region | network type, IPv6 status, resolver status |
 | Fails after disabling tool | FakeDNS stale cache | run FakeDNS recovery steps |
+
+## Smoke Probe
+
+Use `scripts/protocol_smoke.py` for local, redacted protocol evidence:
+
+```bash
+python scripts/protocol_smoke.py --scenario udp443-policy
+python scripts/protocol_smoke.py --scenario websocket-handshake --host example.com --path /
+python scripts/protocol_smoke.py --scenario http2-alpn --host example.com
+python scripts/protocol_smoke.py --scenario grpc-alpn --host example.com
+python scripts/protocol_smoke.py --scenario ipv6-connect --host ipv6.google.com --port 443
+```

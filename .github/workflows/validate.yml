@@ -77,6 +77,8 @@ jobs:
       - name: Run protocol policy tests
         run: |
           python scripts/protocol_policy_tests.py
+          python scripts/transport_profile_validate.py
+          python scripts/protocol_smoke.py --scenario udp443-policy
 
       - name: Validate provider dossiers
         run: |

@@ -51,11 +51,13 @@ protocols:
 
   websocket:
     status: test_required
+    smoke_command: python scripts/protocol_smoke.py --scenario websocket-handshake
     depends_on:
       - http_1_1_tls
 
   grpc:
     status: test_required
+    smoke_command: python scripts/protocol_smoke.py --scenario grpc-alpn
     depends_on:
       - http_2_tls
 
@@ -65,9 +67,11 @@ protocols:
 
   ipv6:
     status: test_required
+    smoke_command: python scripts/protocol_smoke.py --scenario ipv6-connect
 
   nat64_dns64:
     status: test_required
+    smoke_command: python scripts/dns_lab_harness.py --scenario nat64-dns64
 
   private_lan:
     status: direct_expected
