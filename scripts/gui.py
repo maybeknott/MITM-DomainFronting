@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import runpy
+import socket
 import subprocess
 import sys
 import threading
@@ -16,7 +17,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
@@ -90,6 +91,14 @@ def find_local_xray() -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def port_accepts_loopback(port: int, timeout: float = 0.25) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def py_script(name: str, *args: str, prefer_host: bool = False) -> list[str]:
@@ -193,6 +202,9 @@ class App(tk.Tk):
         self.browser_headless = tk.BooleanVar(value=False)
         self.browser_geoip = tk.BooleanVar(value=False)
         self.browser_humanize = tk.BooleanVar(value=bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
+        self.xray_process: subprocess.Popen[str] | None = None
+        self.connection_state = tk.StringVar(value="Not connected")
+        self.simple_next_step = tk.StringVar(value="Run Check Setup, then connect Xray and test the browser.")
         self._configure_style()
         self._build_layout()
         self.refresh_status()
@@ -230,8 +242,8 @@ class App(tk.Tk):
         tk.Label(sidebar, text=str(ROOT), bg="#111827", fg="#94a3b8", font=("Segoe UI", 8), wraplength=230, justify="left", anchor="w").pack(fill="x", padx=22, pady=(10, 22))
 
         self.nav_buttons: list[tuple[str, Callable[[], None]]] = [
-            ("Start Here", lambda: self.tabs.select(self.start_tab)),
             ("Dashboard", lambda: self.tabs.select(self.dashboard_tab)),
+            ("Start Here", lambda: self.tabs.select(self.start_tab)),
             ("Validation", lambda: self.tabs.select(self.validation_tab)),
             ("Health", lambda: self.tabs.select(self.health_tab)),
             ("Fixes and Help", lambda: self.tabs.select(self.fixes_tab)),
@@ -278,8 +290,8 @@ class App(tk.Tk):
         self.certs_tab = self._tab()
         self.browser_tab = self._tab()
         self.docs_tab = self._tab()
-        self.tabs.add(self.start_tab, text="Start Here")
         self.tabs.add(self.dashboard_tab, text="Dashboard")
+        self.tabs.add(self.start_tab, text="Start Here")
         self.tabs.add(self.validation_tab, text="Validation")
         self.tabs.add(self.health_tab, text="Health")
         self.tabs.add(self.fixes_tab, text="Fixes and Help")
@@ -307,6 +319,12 @@ class App(tk.Tk):
         frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         tk.Label(frame, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 12, "bold"), anchor="w").pack(fill="x", padx=16, pady=(14, 4))
         return frame
+
+    def _form_row(self, parent: tk.Widget, label: str, variable: tk.StringVar) -> None:
+        row = tk.Frame(parent, bg=COLORS["panel"])
+        row.pack(fill="x", padx=16, pady=(4, 6))
+        tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
+        ttk.Entry(row, textvariable=variable).pack(side="left", fill="x", expand=True)
 
     def _build_start_here(self) -> None:
         intro = tk.Label(
@@ -349,26 +367,86 @@ class App(tk.Tk):
         ttk.Button(row, text="Open Troubleshooting Docs", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")).pack(side="left")
 
     def _build_dashboard(self) -> None:
-        grid = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
-        grid.pack(fill="x")
+        hero = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
+        hero.pack(fill="x", pady=(0, 12))
+        left = tk.Frame(hero, bg=COLORS["panel"])
+        left.pack(side="left", fill="both", expand=True)
+        tk.Label(left, text="Simple Dashboard", bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 18, "bold"), anchor="w").pack(fill="x")
+        tk.Label(
+            left,
+            textvariable=self.simple_next_step,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=620,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", pady=(4, 0))
+        right = tk.Frame(hero, bg=COLORS["panel"])
+        right.pack(side="right", fill="y", padx=(18, 0))
+        tk.Label(right, text="Connection", bg=COLORS["panel"], fg=COLORS["muted"], anchor="e").pack(fill="x")
+        self.connection_label = tk.Label(right, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["amber"], font=("Segoe UI", 14, "bold"), anchor="e")
+        self.connection_label.pack(fill="x")
+
+        main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
+        main.pack(fill="x", pady=(0, 12))
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=1)
+
+        connection = self._card(main, "1. Connect")
+        connection.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=(0, 12))
+        tk.Label(
+            connection,
+            text="Start or stop the local Xray process launched by this app. Existing external clients are detected but not killed.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=420,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(2, 10))
+        conn_row = tk.Frame(connection, bg=COLORS["panel"])
+        conn_row.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(conn_row, text="Connect Xray", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 10))
+        ttk.Button(conn_row, text="Disconnect", style="Danger.TButton", command=self.disconnect_xray).pack(side="left", padx=(0, 10))
+        ttk.Button(conn_row, text="Health Check", style="Soft.TButton", command=self.run_health_probe).pack(side="left")
+
+        browser = self._card(main, "2. Browser Test")
+        browser.grid(row=0, column=1, sticky="nsew", padx=(0, 0), pady=(0, 12))
+        self._form_row(browser, "URL", self.browser_url)
+        self._form_row(browser, "Proxy", self.browser_proxy)
+        path_row = tk.Frame(browser, bg=COLORS["panel"])
+        path_row.pack(fill="x", padx=16, pady=(4, 10))
+        tk.Label(path_row, text="Browser path", bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
+        ttk.Entry(path_row, textvariable=self.browser_executable).pack(side="left", fill="x", expand=True)
+        ttk.Button(path_row, text="Browse", style="Soft.TButton", command=self.choose_browser_path).pack(side="left", padx=(8, 0))
+        brow_row = tk.Frame(browser, bg=COLORS["panel"])
+        brow_row.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(brow_row, text="Test Browser", style="Accent.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
+        ttk.Button(brow_row, text="Stealth Test", style="Soft.TButton", command=self.run_browser_stealth).pack(side="left", padx=(0, 10))
+        ttk.Button(brow_row, text="Reset Fields", style="Soft.TButton", command=self.reset_gui_defaults).pack(side="left")
+
+        fixes = self._card(self.dashboard_tab, "3. One-click fixes")
+        fixes.pack(fill="x", pady=(0, 12))
+        fix_row = tk.Frame(fixes, bg=COLORS["panel"])
+        fix_row.pack(fill="x", padx=16, pady=(8, 16))
+        ttk.Button(fix_row, text="Check Setup", style="Accent.TButton", command=self.run_beginner_setup_check).pack(side="left", padx=(0, 10))
+        ttk.Button(fix_row, text="Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
+        ttk.Button(fix_row, text="Generate Local CA", style="Danger.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
+        ttk.Button(fix_row, text="Install Browser Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
+        ttk.Button(fix_row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left")
+
+        summary = self._card(self.dashboard_tab, "Status summary")
+        summary.pack(fill="x")
+        grid = tk.Frame(summary, bg=COLORS["panel"])
+        grid.pack(fill="x", padx=16, pady=(8, 16))
         self.status_labels: dict[str, tk.Label] = {}
         for index, title in enumerate(("Config", "Certificate", "Profiles", "Health", "Dependencies", "Browser", "Privacy")):
-            card = self._card(grid, title)
-            card.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 12, 0), pady=(0, 14))
-            grid.columnconfigure(index, weight=1)
-            label = tk.Label(card, text="Checking...", bg=COLORS["panel"], fg=COLORS["muted"], font=("Segoe UI", 10), justify="left", anchor="nw", wraplength=190)
-            label.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+            box = tk.Frame(grid, bg="#f8fafc", highlightbackground=COLORS["line"], highlightthickness=1)
+            box.grid(row=index // 4, column=index % 4, sticky="nsew", padx=(0 if index % 4 == 0 else 8, 0), pady=(0, 8))
+            grid.columnconfigure(index % 4, weight=1)
+            tk.Label(box, text=title, bg="#f8fafc", fg=COLORS["ink"], font=("Segoe UI", 10, "bold"), anchor="w").pack(fill="x", padx=10, pady=(8, 2))
+            label = tk.Label(box, text="Checking...", bg="#f8fafc", fg=COLORS["muted"], font=("Segoe UI", 9), justify="left", anchor="nw", wraplength=210)
+            label.pack(fill="both", expand=True, padx=10, pady=(0, 8))
             self.status_labels[title] = label
-
-        actions = self._card(self.dashboard_tab, "Recommended quick actions")
-        actions.pack(fill="x", pady=(4, 14))
-        row = tk.Frame(actions, bg=COLORS["panel"])
-        row.pack(fill="x", padx=16, pady=(8, 16))
-        for spec in self.validation_commands[:3]:
-            ttk.Button(row, text=spec.label, style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Diagnostics Browser Probe", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
-        ttk.Button(row, text="Run Lab Evidence", style="Soft.TButton", command=self.run_lab_evidence).pack(side="left")
 
     @property
     def validation_commands(self) -> list[CommandSpec]:
@@ -678,11 +756,117 @@ class App(tk.Tk):
             tk.Label(card, text=short_path(path), bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", padx=16, pady=(2, 12))
             ttk.Button(card, text="Open", style="Soft.TButton", command=lambda p=path: self.open_path(p)).pack(anchor="w", padx=16, pady=(0, 16))
 
+    def choose_browser_path(self) -> None:
+        initial = self.browser_executable.get().strip()
+        initialdir = str(Path(initial).parent) if initial and Path(initial).parent.exists() else str(ROOT)
+        path = filedialog.askopenfilename(
+            title="Choose browser executable",
+            initialdir=initialdir,
+            filetypes=[("Executables", "*.exe"), ("All files", "*.*")] if os.name == "nt" else [("All files", "*.*")],
+        )
+        if path:
+            self.browser_executable.set(path)
+            self._append_output(f"\nBrowser path set: {path}\n")
+
+    def _xray_running_from_gui(self) -> bool:
+        return self.xray_process is not None and self.xray_process.poll() is None
+
+    def connect_xray(self) -> None:
+        if self._xray_running_from_gui():
+            self._append_output("\nXray is already running from this dashboard.\n")
+            self.refresh_status()
+            return
+        if port_accepts_loopback(10808):
+            self._append_output("\nPort 10808 is already accepting loopback connections. An external Xray/v2rayN instance may already be running.\n")
+            self.refresh_status()
+            return
+        xray = find_local_xray()
+        if xray is None:
+            self._append_output("\nLocal Xray binary not found. Use Download Xray, then Connect Xray again.\n")
+            if messagebox.askyesno("Xray not found", "Download local Xray runtime now?"):
+                self.download_xray()
+            return
+        if not CONFIG.exists():
+            messagebox.showerror("Missing config", f"Primary config not found: {short_path(CONFIG)}")
+            return
+        try:
+            self.xray_process = subprocess.Popen(
+                [str(xray), "run", "-config", str(CONFIG)],
+                cwd=str(ROOT),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Connect failed", str(exc))
+            self._append_output(f"\nFailed to start Xray: {exc}\n")
+            return
+        self._append_output(f"\nStarted Xray: {short_path(xray)}\n")
+        self.current_process_label.set("Xray starting")
+        threading.Thread(target=self._read_xray_output, daemon=True).start()
+        self.after(900, self.refresh_status)
+
+    def _read_xray_output(self) -> None:
+        proc = self.xray_process
+        if proc is None or proc.stdout is None:
+            return
+        for line in proc.stdout:
+            self.after(0, lambda item=line: self._append_output("[xray] " + item))
+        code = proc.poll()
+        self.after(0, lambda: self._append_output(f"\nXray process exited with code {code}\n"))
+        self.after(0, self.refresh_status)
+
+    def disconnect_xray(self) -> None:
+        if not self._xray_running_from_gui():
+            if port_accepts_loopback(10808):
+                messagebox.showinfo(
+                    "External Xray detected",
+                    "Port 10808 is open, but this app did not launch that process. Stop it in v2rayN/Xray or your process manager.",
+                )
+                self._append_output("\nCannot stop external Xray/v2rayN from this dashboard.\n")
+            else:
+                self._append_output("\nNo dashboard-launched Xray process is running.\n")
+            self.refresh_status()
+            return
+        assert self.xray_process is not None
+        self.xray_process.terminate()
+        try:
+            self.xray_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.xray_process.kill()
+            self.xray_process.wait(timeout=5)
+        self._append_output("\nStopped dashboard-launched Xray.\n")
+        self.current_process_label.set("Xray stopped")
+        self.refresh_status()
+
+    def run_beginner_setup_check(self) -> None:
+        steps = [
+            ("Validate config", py_script("validate_config.py", str(CONFIG)), 120),
+            ("Static preflight", py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"), 120),
+            ("Transport profile policy", py_script("transport_profile_validate.py"), 120),
+            ("UDP/443 profile policy", py_script("protocol_smoke.py", "--scenario", "udp443-policy"), 120),
+            ("Secret scan", py_script("secret_scan.py"), 120),
+        ]
+        self.run_sequence("Beginner setup check", steps)
+
     def refresh_status(self) -> None:
         data = read_json_config()
         remarks = data.get("remarks", "unknown")
         min_version = data.get("version", {}).get("min") if isinstance(data.get("version"), dict) else "unknown"
         profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        loopback_open = port_accepts_loopback(10808)
+        if self._xray_running_from_gui():
+            self.connection_state.set("Connected")
+            self.simple_next_step.set("Xray is running from the dashboard. Test the browser, then review Health if anything fails.")
+            self.connection_label.configure(fg=COLORS["green"])
+        elif loopback_open:
+            self.connection_state.set("External client active")
+            self.simple_next_step.set("A local proxy is already listening on 127.0.0.1:10808. Test the browser or run Health.")
+            self.connection_label.configure(fg=COLORS["green"])
+        else:
+            self.connection_state.set("Not connected")
+            self.simple_next_step.set("Run Check Setup, then Connect Xray or start v2rayN before testing the browser.")
+            self.connection_label.configure(fg=COLORS["amber"])
         self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
@@ -706,7 +890,7 @@ class App(tk.Tk):
         diag_ok = (SCRIPTS / "browser_diagnostics.py").exists()
         stealth_ok = (SCRIPTS / "browser_stealth.py").exists()
         self.status_labels["Browser"].configure(
-            text=f"proxy: {proxy}\ndiagnostics: {'ready' if diag_ok else 'missing'}\nstealth: CloakBrowser",
+            text=f"proxy: {self.browser_proxy.get().strip() or proxy}\nbrowser: {self.browser_executable.get().strip() or 'bundled/default'}\ndiagnostics: {'ready' if diag_ok else 'missing'}",
             fg=COLORS["green"] if diag_ok and stealth_ok else COLORS["amber"],
         )
         self.status_labels["Privacy"].configure(text="No telemetry\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
@@ -1140,9 +1324,12 @@ def self_test() -> int:
         SCRIPTS / "config_src_merge_test.py",
         SCRIPTS / "lab_evidence_run.py",
         SCRIPTS / "transport_experiment_validate.py",
+        SCRIPTS / "transport_profile_validate.py",
+        SCRIPTS / "protocol_smoke.py",
         ROOT / "configs" / "health-checks.yml",
         ROOT / "configs" / "route-intent.json",
         ROOT / "configs" / "transport-experiments.json",
+        ROOT / "configs" / "transport-profiles.yml",
         ROOT / "config-src" / "manifest.json",
         ROOT / "config-src" / "fragments" / "README.md",
         ROOT / "docs" / "lab-evidence-checklist.md",

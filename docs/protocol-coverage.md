@@ -16,8 +16,8 @@ Document what the current method is expected to handle, what is expected to pass
 | DoH | Depends on configured resolver route | Resolver reachability, TLS behavior | DNS check script |
 | DoT | Not explicitly modeled unless user adds it | Port 853 behavior | Document unsupported unless tested |
 | DoQ | Not explicitly modeled | UDP/QUIC-based DNS | Document unsupported unless tested |
-| WebSocket | May work when HTTP/1.1 path works | Upgrade headers and proxy behavior | Add a WebSocket smoke test |
-| gRPC | May work when HTTP/2 path works | h2 stream handling | Add h2/gRPC smoke test |
+| WebSocket | May work when HTTP/1.1 path works | Upgrade headers and proxy behavior | Run WebSocket smoke probe |
+| gRPC | May work when HTTP/2 path works | h2 stream handling | Run h2/gRPC ALPN smoke probe |
 | WebRTC/STUN/TURN | App/browser-dependent, UDP-heavy | UDP route, IP leak risk, app pinning | Mark as degraded/experimental |
 | IPv6 | Catch-all may direct-route IPv6 | IPv6-only/NAT64 differences | IPv6 route test |
 | NAT64/DNS64 | Not guaranteed | IPv4-only assumptions | IPv6-only lab test |

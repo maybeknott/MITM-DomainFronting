@@ -16,6 +16,12 @@ py scripts\gui.py
 
 ## What It Does
 
+- Opens on a compact **Dashboard** for new users with:
+  - connection status for local `127.0.0.1:10808`;
+  - **Connect Xray** / **Disconnect** controls for the Xray process launched by the GUI;
+  - URL, proxy, and browser executable path fields;
+  - one-click **Check Setup**, **Safe Auto-Fix**, **Generate Local CA**, **Install Browser Tools**, and **Test Browser** actions;
+  - always-visible local logs with copy/clear controls.
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
 - Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.
