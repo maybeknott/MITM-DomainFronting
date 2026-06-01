@@ -127,4 +127,4 @@ python scripts/config_src_validate.py --run-steps
 python scripts/config_src_build.py
 ```
 
-Phase 2 will merge fragments under `config-src/fragments/` into `build/config/MITM-DomainFronting.json` (gitignored). Until then the compiled artifact is a validated copy.
+Phase 2 merges fragments under `config-src/fragments/` into `build/config/MITM-DomainFronting.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy.

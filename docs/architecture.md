@@ -50,7 +50,7 @@ Local validation sits beside the runtime graph. Nothing in this layer uploads te
 ```text
 Xray-config/MITM-DomainFronting.json
   -> validate_config / preflight / route_intent_sync
-  -> config-src manifest (phase 1: validated copy; phase 2: fragment merge)
+  -> config-src manifest (validated copy; optional fragment merge)
   -> health_probe / decision_report (read-only policy_recommendation)
   -> dns_lab_harness / lab_evidence_run (redacted lab scenarios)
   -> transport_experiment_validate (extension governance guardrails)

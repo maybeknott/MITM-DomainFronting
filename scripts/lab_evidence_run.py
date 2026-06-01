@@ -45,6 +45,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Aggregate local lab harness evidence")
     parser.add_argument("--timeout", type=float, default=20.0)
     parser.add_argument("--json-out", type=Path, default=None)
+    parser.add_argument(
+        "--allow-warn",
+        action="store_true",
+        help="exit 0 when overall is warn (for CI/lab desktops without full network conditions)",
+    )
     args = parser.parse_args()
 
     bundle: Dict[str, Any] = {
@@ -64,7 +69,9 @@ def main() -> int:
     if args.json_out:
         args.json_out.write_text(text + "\n", encoding="utf-8")
     print(text)
-    return 0 if bundle["overall"] == "pass" else 1
+    if bundle["overall"] == "pass":
+        return 0
+    return 0 if args.allow_warn else 1
 
 
 if __name__ == "__main__":

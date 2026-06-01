@@ -85,6 +85,8 @@ See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) and:
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 ```
 
+Use `--allow-warn` on desktops or in CI when full lab network conditions are not available (exit 0 with `overall: warn`).
+
 ### Harness output schema (redacted)
 
 ```json

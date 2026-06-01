@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from check_dns import query_udp
-from geodata_pin import build_report as geodata_report
+from geodata_pin import build_report as geodata_report, missing_geodata_errors, verify_against_lock
 from trust_store_check import build_report as trust_report
 
 EXPECTED_PORTS = [10808, 11666, 11777]
@@ -83,6 +83,29 @@ def provider_freshness(providers_dir: Path, stale_days: int) -> List[Dict[str, o
         status = "warn" if age > stale_days else "pass"
         checks.append({"id": f"provider_{path.stem}", "status": status, "detail": f"last_tested={last_tested} age_days={age}"})
     return checks
+
+
+def geodata_checks(root: Path) -> Dict[str, object]:
+    current = geodata_report(root, "xray")
+    lock_file = root / "release-geodata-lock.json"
+    if not lock_file.exists():
+        return {"status": "info", "detail": "release-geodata-lock.json not present", **current}
+    lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    missing = missing_geodata_errors(lock, current)
+    mismatches = verify_against_lock(lock, current)
+    if mismatches:
+        return {"status": "warn", "detail": "; ".join(mismatches), **current}
+    if missing:
+        return {"status": "info", "detail": "; ".join(missing), **current}
+    return {"status": "pass", "detail": "geodata hashes match release-geodata-lock.json", **current}
+
+
+def captive_portal_check(timeout: float = 3.0) -> Dict[str, object]:
+    try:
+        from preflight import captive_portal_warning_check
+    except Exception as exc:  # noqa: BLE001
+        return {"id": "captive_portal", "status": "info", "detail": f"unavailable: {exc}"}
+    return captive_portal_warning_check(timeout=timeout)
 
 
 def xray_check(config: Path, xray_bin: str | None) -> Dict[str, object]:
@@ -175,6 +198,12 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str, root: P
         actions.append("Record geosite.dat/geoip.dat hashes with scripts/geodata_pin.py for release evidence.")
         rationale_parts.append("geodata lock verification warned")
 
+    captive = checks.get("captive_portal", {})
+    if isinstance(captive, dict) and captive.get("status") == "warn":
+        actions.append("Complete captive portal login before strict profile or DNS validation.")
+        suggested_profile = "compatibility"
+        rationale_parts.append("captive portal warning active")
+
     xray_runtime = checks.get("xray_runtime", {})
     if isinstance(xray_runtime, dict) and xray_runtime.get("status") == "warn":
         actions.append("Run xray run -test locally with --xray-bin when validating config changes.")
@@ -213,6 +242,7 @@ def main() -> int:
     parser.add_argument("--dns-timeout", type=float, default=1.5)
     parser.add_argument("--provider-stale-days", type=int, default=45)
     parser.add_argument("--xray-bin", default=None)
+    parser.add_argument("--skip-captive-portal", action="store_true")
     args = parser.parse_args()
 
     report: Dict[str, object] = {
@@ -222,10 +252,12 @@ def main() -> int:
             "dns": dns_checks(args.dns_domain, args.resolver or ["1.1.1.1", "8.8.8.8"], args.dns_timeout),
             "providers": provider_freshness(args.providers_dir, args.provider_stale_days),
             "trust_store": trust_report(args.cert),
-            "geodata": geodata_report(Path("."), "xray"),
+            "geodata": geodata_checks(Path(".")),
             "xray_runtime": xray_check(args.config, args.xray_bin),
         }
     }
+    if not args.skip_captive_portal:
+        report["checks"]["captive_portal"] = captive_portal_check(args.dns_timeout + 1.5)
     all_checks: List[Dict[str, object]] = []
     for key, value in report["checks"].items():
         if isinstance(value, list):

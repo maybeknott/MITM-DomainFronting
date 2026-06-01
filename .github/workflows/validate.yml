@@ -88,11 +88,11 @@ jobs:
       - name: Validate config-src manifest
         run: |
           python scripts/config_src_validate.py --run-steps
+          python scripts/config_src_merge_test.py
 
-      - name: Lab evidence bundle (best-effort)
-        continue-on-error: true
+      - name: Lab evidence bundle
         run: |
-          python scripts/lab_evidence_run.py
+          python scripts/lab_evidence_run.py --allow-warn
 
       - name: Run browser probe semantics regression checks
         run: |

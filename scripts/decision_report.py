@@ -27,9 +27,14 @@ try:
 except Exception:  # noqa: BLE001
     captive_portal_warning_check = None
 try:
-    from health_probe import build_policy_recommendation  # noqa: E402
+    from health_probe import build_policy_recommendation, provider_freshness  # noqa: E402
 except Exception:  # noqa: BLE001
     build_policy_recommendation = None
+    provider_freshness = None
+try:
+    from geodata_pin import build_report as geodata_report, missing_geodata_errors, verify_against_lock  # noqa: E402
+except Exception:  # noqa: BLE001
+    geodata_report = None
 
 PROFILE_RULES = {
     "strict": "block_unknown_non_private_and_udp443",
@@ -113,6 +118,23 @@ def platform_capabilities() -> Dict[str, Any]:
         return {"status": "unknown", "reason": str(exc)}
 
 
+def geodata_summary(root: Path) -> Dict[str, Any]:
+    if geodata_report is None:
+        return {"status": "unknown", "reason": "geodata_pin import failed"}
+    current = geodata_report(root, "xray")
+    lock_file = root / "release-geodata-lock.json"
+    if not lock_file.exists():
+        return {"status": "info", "detail": "release-geodata-lock.json not present", **current}
+    lock = json.loads(lock_file.read_text(encoding="utf-8"))
+    mismatches = verify_against_lock(lock, current)
+    missing = missing_geodata_errors(lock, current)
+    if mismatches:
+        return {"status": "warn", "detail": "; ".join(mismatches), **current}
+    if missing:
+        return {"status": "info", "detail": "; ".join(missing), **current}
+    return {"status": "pass", "detail": "geodata hashes match release-geodata-lock.json", **current}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build a redacted MITM-DomainFronting decision report")
     parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
@@ -145,6 +167,7 @@ def main() -> int:
         "dns": dns_tags(config or {}),
         "routing": route_summary(config or {}),
         "platform_capabilities": platform_capabilities(),
+        "geodata": geodata_summary(Path(".")),
         "validation": {
             "overall": validation,
             "failures": [c for c in checks if c.get("status") == "fail"],
@@ -159,13 +182,18 @@ def main() -> int:
     if captive_portal_warning_check is not None:
         report["captive_portal"] = captive_portal_warning_check()
     if build_policy_recommendation is not None:
+        root = Path(".")
         health_checks = {
             "local_ports": [{"id": f"port_{p}", "status": "pass" if port_state(p) == "listening-loopback" else "warn", "detail": port_state(p)} for p in (10808, 11666, 11777)],
             "certificate": [{"id": "crt_exists", "status": "pass" if exists(args.cert) else "warn"}],
             "dns": [{"id": "dns_config", "status": "pass" if dns_tags(config or {}).get("primary") == "configured" else "warn"}],
             "trust_store": trust_store_status(args.cert),
+            "geodata": report.get("geodata", {}),
+            "captive_portal": report.get("captive_portal", {}),
         }
-        report["policy_recommendation"] = build_policy_recommendation(health_checks, validation, Path("."))
+        if provider_freshness is not None and (root / "providers").exists():
+            health_checks["providers"] = provider_freshness(root / "providers", 45)
+        report["policy_recommendation"] = build_policy_recommendation(health_checks, validation, root)
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 2 if validation == "fail" else 0
 

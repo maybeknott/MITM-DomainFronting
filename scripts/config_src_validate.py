@@ -11,6 +11,8 @@ from typing import Any, Dict, List
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "config-src" / "manifest.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config_src_merge import validate_fragments  # noqa: E402
 STEP_COMMANDS = {
     "validate_config": [sys.executable, "scripts/validate_config.py"],
     "route_intent_sync": [sys.executable, "scripts/route_intent_sync.py"],
@@ -43,6 +45,8 @@ def validate_manifest(manifest: Dict[str, Any], root: Path) -> List[str]:
     fragments = manifest.get("fragments")
     if fragments is None or not isinstance(fragments, list):
         errors.append("fragments must be an array")
+    elif fragments:
+        errors.extend(validate_fragments(root, [str(item) for item in fragments]))
     steps = manifest.get("validation_steps")
     if not isinstance(steps, list) or not steps:
         errors.append("validation_steps must be a non-empty array")

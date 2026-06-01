@@ -6,6 +6,8 @@ Use this when collecting **real-environment** evidence beyond static CI validati
 
 ```bash
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
+# CI / desktop without full lab network:
+python scripts/lab_evidence_run.py --allow-warn --json-out lab-evidence.bundle.json
 ```
 
 This runs DNS harness scenarios (including `fake-dns-lab` and `captive-portal`) plus `fakedns_recovery_check.py`. Review and redact before attaching to issues or release evidence.

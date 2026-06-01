@@ -79,6 +79,8 @@ MITM-DomainFronting/
   config-src/
     manifest.json
     README.md
+    fragments/
+      README.md
 
   providers/
     dns-resolvers.yml
@@ -117,6 +119,7 @@ MITM-DomainFronting/
     route_intent_sync.py
     config_src_validate.py
     config_src_build.py
+    config_src_merge.py
     lab_evidence_run.py
     transport_experiment_validate.py
     launch_browser_mitm.ps1

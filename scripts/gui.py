@@ -352,7 +352,7 @@ class App(tk.Tk):
         grid = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         grid.pack(fill="x")
         self.status_labels: dict[str, tk.Label] = {}
-        for index, title in enumerate(("Config", "Certificate", "Profiles", "Dependencies", "Browser", "Privacy")):
+        for index, title in enumerate(("Config", "Certificate", "Profiles", "Health", "Dependencies", "Browser", "Privacy")):
             card = self._card(grid, title)
             card.grid(row=0, column=index, sticky="nsew", padx=(0 if index == 0 else 12, 0), pady=(0, 14))
             grid.columnconfigure(index, weight=1)
@@ -368,6 +368,7 @@ class App(tk.Tk):
             ttk.Button(row, text=spec.label, style="Accent.TButton", command=lambda s=spec: self.run_spec(s)).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Safe Auto-Fix", style="Accent.TButton", command=self.safe_auto_fix).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Diagnostics Browser Probe", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Run Lab Evidence", style="Soft.TButton", command=self.run_lab_evidence).pack(side="left")
 
     @property
     def validation_commands(self) -> list[CommandSpec]:
@@ -383,8 +384,9 @@ class App(tk.Tk):
             CommandSpec("Health Probe", "Redacted health report for ports/cert/trust/dns/providers.", tuple(py_script("health_probe.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--providers-dir", str(ROOT / "providers")))),
             CommandSpec("Route Intent Sync", "Compare config ruleTags against configs/route-intent.json.", tuple(py_script("route_intent_sync.py", str(CONFIG)))),
             CommandSpec("Config-src Validate", "Validate config-src manifest and run build-time checks.", tuple(py_script("config_src_validate.py", "--run-steps"))),
+            CommandSpec("Config-src Build", "Validate and compile config-src output to build/config/.", tuple(py_script("config_src_build.py"))),
             CommandSpec("Transport Governance", "Validate transport experiment manifest guardrails.", tuple(py_script("transport_experiment_validate.py"))),
-            CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py"))),
+            CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py", "--allow-warn"))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
             CommandSpec("Decision Report", "Redacted local decision summary.", tuple(py_script("decision_report.py", "--config", str(CONFIG), "--profile", "balanced"))),
         ]
@@ -684,6 +686,13 @@ class App(tk.Tk):
         self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
+        lock_path = ROOT / "release-geodata-lock.json"
+        health_lines = [
+            f"geodata lock: {'present' if lock_path.exists() else 'optional'}",
+            "Health / Lab Evidence / Decision Report",
+            "on Health tab",
+        ]
+        self.status_labels["Health"].configure(text="\n".join(health_lines), fg=COLORS["green"] if lock_path.exists() else COLORS["amber"])
         host_python = find_host_python()
         local_xray = find_local_xray()
         dep_lines = [
@@ -785,6 +794,8 @@ class App(tk.Tk):
             f"Generated profiles: {len(profiles)}",
             f"Host Python: {' '.join(find_host_python() or ['missing'])}",
             f"Local Xray: {short_path(find_local_xray()) if find_local_xray() else 'missing'}",
+            f"Geodata lock: {(ROOT / 'release-geodata-lock.json').exists()}",
+            "Run Health tab -> Lab Evidence / Decision Report before filing DNS or captive portal issues.",
             "Sensitive data intentionally omitted: private keys, cookies, full URLs, request bodies.",
         ])
         self.clipboard_clear()
@@ -837,7 +848,7 @@ class App(tk.Tk):
         self.run_async("Health probe", args, timeout=180)
 
     def run_lab_evidence(self) -> None:
-        self.run_async("Lab evidence bundle", py_script("lab_evidence_run.py"), timeout=240)
+        self.run_async("Lab evidence bundle", py_script("lab_evidence_run.py", "--allow-warn"), timeout=240)
 
     def run_decision_report(self) -> None:
         self.run_async(
@@ -1125,12 +1136,15 @@ def self_test() -> int:
         SCRIPTS / "route_intent_sync.py",
         SCRIPTS / "config_src_validate.py",
         SCRIPTS / "config_src_build.py",
+        SCRIPTS / "config_src_merge.py",
+        SCRIPTS / "config_src_merge_test.py",
         SCRIPTS / "lab_evidence_run.py",
         SCRIPTS / "transport_experiment_validate.py",
         ROOT / "configs" / "health-checks.yml",
         ROOT / "configs" / "route-intent.json",
         ROOT / "configs" / "transport-experiments.json",
         ROOT / "config-src" / "manifest.json",
+        ROOT / "config-src" / "fragments" / "README.md",
         ROOT / "docs" / "lab-evidence-checklist.md",
         BROWSER_CONFIG,
         ROOT / "docs" / "chromium-integration.md",
