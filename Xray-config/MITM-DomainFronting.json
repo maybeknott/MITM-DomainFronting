@@ -1,5 +1,11 @@
 {
-  "remarks": "MITM-DomainFronting_v22_Hardened",
+  "__Credits__": {
+    "creator": "@patterniha",
+    "donate1": "USDT (BEP20): 0x76a768B53Ca77B43086946315f0BDF21156bF424",
+    "donate2": "USDT (TRC20): TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o",
+    "donate3": "TON (TON): UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i"
+  },
+  "remarks": "MITM-DomainFronting_v23_Hardened",
   "version": {
     "min": "26.2.6"
   },
@@ -13,6 +19,11 @@
       "0": {
         "uplinkOnly": 0,
         "downlinkOnly": 0
+      },
+      "1": {
+        "uplinkOnly": 0,
+        "downlinkOnly": 0,
+        "connIdle": 6
       }
     }
   },
@@ -47,7 +58,8 @@
       {
         "tag": "no-filter-dns-cloudflare",
         "address": "h2c://1.1.1.1/dns-query",
-        "timeoutMs": 4000
+        "timeoutMs": 6000,
+        "finalQuery": true
       },
       {
         "tag": "no-filter-dns-google",
@@ -223,7 +235,10 @@
     },
     {
       "tag": "dns-out",
-      "protocol": "dns"
+      "protocol": "dns",
+      "settings": {
+        "userLevel": 1
+      }
     },
     {
       "tag": "redirect-out-google-h11",
