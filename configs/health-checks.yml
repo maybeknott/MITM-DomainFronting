@@ -6,8 +6,10 @@ reporting:
 checks:
   local_ports:
     - mixed-in
-    - tls-decrypt-h11
-    - tls-decrypt-h211
+    - tls-decrypt-google-h11
+    - tls-decrypt-google-h2
+    - tls-decrypt-fastly-h2
+    - tls-decrypt-meta-h2
   certificate:
     - key_exists
     - key_permissions

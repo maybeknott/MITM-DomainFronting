@@ -5,7 +5,7 @@ summary: Meta-family route coverage for h2-targeted flows.
 last_tested: 2026-05-31
 routes:
   - r140_repack_meta_h2
-  - r210_redirect_group_tcp443_h2
+  - r230_redirect_meta_tcp443_h2
 geosite_refs:
   - geosite:meta
 geoip_refs: []
@@ -31,7 +31,7 @@ known_risks:
   - quic_udp443
 route_coverage:
   - r140_repack_meta_h2 handles Meta-family h2 decrypted domains
-  - r210_redirect_group_tcp443_h2 enters h2 decrypt path for grouped domains
+  - r230_redirect_meta_tcp443_h2 enters isolated Meta h2 decrypt path
 test_matrix:
   - route_tag_hit using route diagnostics
   - browser_diagnostics_probe using scripts/browser_smoke.py

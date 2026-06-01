@@ -15,7 +15,9 @@
     "r150_repack_fastly_ip_h2",
     "r160_block_unmatched_h2",
     "r200_redirect_googlevideo_tcp443_h11",
-    "r210_redirect_group_tcp443_h2",
+    "r210_redirect_google_tcp443_h2",
+    "r220_redirect_fastly_tcp443_h2",
+    "r230_redirect_meta_tcp443_h2",
     "r300_block_static_bad_ranges",
     "r310_direct_private_regional_ip",
     "r320_redirect_fastly_ip_tcp443_h2",
@@ -45,12 +47,18 @@
     },
     "r050_direct_quic_udp443": {
       "outbound": "direct",
-      "profiles": ["balanced", "compatibility"],
+      "profiles": [
+        "balanced",
+        "compatibility"
+      ],
       "intent": "Documented QUIC/UDP443 direct path"
     },
     "r050_block_quic_udp443": {
       "outbound": "block",
-      "profiles": ["strict", "debug"],
+      "profiles": [
+        "strict",
+        "debug"
+      ],
       "intent": "Block QUIC/UDP443 leakage"
     },
     "r100_repack_googlevideo_h11": {
@@ -82,12 +90,8 @@
       "intent": "Avoid undefined decrypted h2 handling"
     },
     "r200_redirect_googlevideo_tcp443_h11": {
-      "outbound": "redirect-out-h11",
+      "outbound": "redirect-out-google-h11",
       "intent": "Enter local h11 decrypt/repack path"
-    },
-    "r210_redirect_group_tcp443_h2": {
-      "outbound": "redirect-out-h211",
-      "intent": "Enter local h2 decrypt/repack path"
     },
     "r300_block_static_bad_ranges": {
       "outbound": "block",
@@ -98,22 +102,41 @@
       "intent": "Preserve LAN/regional reachability"
     },
     "r320_redirect_fastly_ip_tcp443_h2": {
-      "outbound": "redirect-out-h211",
+      "outbound": "redirect-out-fastly-h2",
       "intent": "Cover Fastly IP TCP/443 path"
     },
     "r900_direct_global_catchall": {
       "outbound": "direct",
-      "profiles": ["base", "balanced", "compatibility", "debug"],
+      "profiles": [
+        "base",
+        "balanced",
+        "compatibility",
+        "debug"
+      ],
       "intent": "Global catch-all direct fallback"
     },
     "r900_block_global_catchall": {
       "outbound": "block",
-      "profiles": ["strict"],
+      "profiles": [
+        "strict"
+      ],
       "intent": "Strict global catch-all block"
     },
     "r999_block_final": {
       "outbound": "block",
       "intent": "Explicit final fallback"
+    },
+    "r210_redirect_google_tcp443_h2": {
+      "outbound": "redirect-out-google-h2",
+      "intent": "Enter isolated Google h2 decrypt/repack path"
+    },
+    "r220_redirect_fastly_tcp443_h2": {
+      "outbound": "redirect-out-fastly-h2",
+      "intent": "Enter isolated Fastly h2 decrypt/repack path"
+    },
+    "r230_redirect_meta_tcp443_h2": {
+      "outbound": "redirect-out-meta-h2",
+      "intent": "Enter isolated Meta h2 decrypt/repack path"
     }
   }
 }

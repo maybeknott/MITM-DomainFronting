@@ -213,6 +213,7 @@ class App(tk.Tk):
         self.browser_geoip = tk.BooleanVar(value=False)
         self.browser_humanize = tk.BooleanVar(value=bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
         self.xray_process: subprocess.Popen[str] | None = None
+        self.active_config = tk.StringVar(value=str(CONFIG))
         self.connection_state = tk.StringVar(value="Not connected")
         self.simple_next_step = tk.StringVar(value="Run Check Setup, then connect Xray and test the browser.")
         self.overall_status = tk.StringVar(value="Checking")
@@ -443,6 +444,12 @@ class App(tk.Tk):
             justify="left",
             anchor="w",
         ).pack(fill="x", padx=16, pady=(2, 10))
+        profile_row = tk.Frame(connection, bg=COLORS["panel"])
+        profile_row.pack(fill="x", padx=16, pady=(0, 10))
+        tk.Label(profile_row, text="Active profile", bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
+        profile_box = ttk.Combobox(profile_row, textvariable=self.active_config, values=self._profile_choices(), state="readonly")
+        profile_box.pack(side="left", fill="x", expand=True)
+        profile_box.bind("<<ComboboxSelected>>", lambda _event: self.refresh_status())
         conn_row = tk.Frame(connection, bg=COLORS["panel"])
         conn_row.pack(fill="x", padx=16, pady=(0, 16))
         ttk.Button(conn_row, text="Connect Xray", style="Accent.TButton", command=self.connect_xray).pack(side="left", padx=(0, 10))
@@ -944,6 +951,18 @@ class App(tk.Tk):
             self.record_telemetry("browser_path_selected", "info", "Browser executable path set", {"path_set": True})
             self._append_output(f"\nBrowser path set: {path}\n")
 
+    def _profile_choices(self) -> list[str]:
+        choices = [str(CONFIG)]
+        choices.extend(str(path) for path in sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json")))
+        return choices
+
+    def active_config_path(self) -> Path:
+        raw = self.active_config.get().strip()
+        path = Path(raw) if raw else CONFIG
+        if not path.is_absolute():
+            path = ROOT / path
+        return path
+
     def _xray_running_from_gui(self) -> bool:
         return self.xray_process is not None and self.xray_process.poll() is None
 
@@ -965,8 +984,9 @@ class App(tk.Tk):
             if messagebox.askyesno("Xray not found", "Download local Xray runtime now?"):
                 self.download_xray()
             return
-        if not CONFIG.exists():
-            messagebox.showerror("Missing config", f"Primary config not found: {short_path(CONFIG)}")
+        config_path = self.active_config_path()
+        if not config_path.exists():
+            messagebox.showerror("Missing config", f"Selected config not found: {short_path(config_path)}")
             return
         try:
             popen_kwargs: dict[str, object] = {
@@ -980,7 +1000,7 @@ class App(tk.Tk):
             else:
                 popen_kwargs["start_new_session"] = True
             self.xray_process = subprocess.Popen(
-                [str(xray), "run", "-config", str(CONFIG)],
+                [str(xray), "run", "-config", str(config_path)],
                 **popen_kwargs,
             )
         except Exception as exc:  # noqa: BLE001
@@ -988,8 +1008,8 @@ class App(tk.Tk):
             self._append_output(f"\nFailed to start Xray: {exc}\n")
             self.record_telemetry("xray_connect", "fail", "Failed to start Xray")
             return
-        self._append_output(f"\nStarted Xray: {short_path(xray)}\n")
-        self.record_telemetry("xray_connect", "info", "Started dashboard-launched Xray", {"xray_path": short_path(xray)})
+        self._append_output(f"\nStarted Xray: {short_path(xray)}\nConfig: {short_path(config_path)}\n")
+        self.record_telemetry("xray_connect", "info", "Started dashboard-launched Xray", {"xray_path": short_path(xray), "config": short_path(config_path)})
         self.current_process_label.set("Xray starting")
         threading.Thread(target=self._read_xray_output, daemon=True).start()
         self.after(900, self.refresh_status)
@@ -1072,7 +1092,11 @@ class App(tk.Tk):
         self.run_sequence("Beginner setup check", steps)
 
     def refresh_status(self) -> None:
-        data = read_json_config()
+        selected_config = self.active_config_path()
+        try:
+            data = read_json_config() if selected_config == CONFIG else json.loads(selected_config.read_text(encoding="utf-8")) if selected_config.exists() else {}
+        except Exception:
+            data = {}
         remarks = data.get("remarks", "unknown")
         min_version = data.get("version", {}).get("min") if isinstance(data.get("version"), dict) else "unknown"
         profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
@@ -1108,7 +1132,7 @@ class App(tk.Tk):
         browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
         self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
         self._set_label_state(self.status_chip_labels["Telemetry"], "Local only", "info")
-        self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
+        self.status_labels["Config"].configure(text=f"{short_path(selected_config)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if selected_config.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
         lock_path = ROOT / "release-geodata-lock.json"

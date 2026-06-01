@@ -128,7 +128,7 @@ Scripts print a single JSON object (stdout) with `mode`, `runtime_environment`, 
 
 ## Loopback routing deadlock
 
-Traffic leaving `tls-decrypt-h11` / `tls-decrypt-h211` must not be routed back into `mixed-in`. Shipped configs use `inboundTag`-scoped repack rules and `redirect-out-h*` → loopback ports — see [`routing-correctness.md`](routing-correctness.md).
+Traffic leaving `tls-decrypt-google-h11`, `tls-decrypt-google-h2`, `tls-decrypt-fastly-h2`, or `tls-decrypt-meta-h2` must not be routed back into `mixed-in`. Shipped configs use `inboundTag`-scoped repack rules and isolated `redirect-out-*` loopback ports — see [`routing-correctness.md`](routing-correctness.md).
 
 ## Profile directories
 

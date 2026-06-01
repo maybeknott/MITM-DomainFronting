@@ -15,6 +15,8 @@ MITM-DomainFronting/
   SUPPORT_MATRIX.md
   KNOWN_ISSUES.md
   build_gui_exe.bat
+  bootstrap.py
+  main.py
   .gitignore
 
   Xray-config/
@@ -105,6 +107,7 @@ MITM-DomainFronting/
     generate_profiles.py
     gui.py
     protocol_policy_tests.py
+    route_graph_verify.py
     route_policy_tests.py
     secret_scan.py
     validate_metadata.py

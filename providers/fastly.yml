@@ -6,7 +6,7 @@ last_tested: 2026-05-31
 routes:
   - r130_repack_fastly_h2
   - r150_repack_fastly_ip_h2
-  - r210_redirect_group_tcp443_h2
+  - r220_redirect_fastly_tcp443_h2
   - r320_redirect_fastly_ip_tcp443_h2
 geosite_refs:
   - geosite:fastly
@@ -38,7 +38,7 @@ known_risks:
 route_coverage:
   - r130_repack_fastly_h2 handles Fastly-family h2 decrypted domains
   - r150_repack_fastly_ip_h2 handles Fastly geoip h2 decrypted traffic
-  - r210_redirect_group_tcp443_h2 enters h2 decrypt path for grouped domains
+  - r220_redirect_fastly_tcp443_h2 enters isolated Fastly h2 decrypt path
   - r320_redirect_fastly_ip_tcp443_h2 enters h2 decrypt path for Fastly IPs
 test_matrix:
   - route_tag_hit using route diagnostics

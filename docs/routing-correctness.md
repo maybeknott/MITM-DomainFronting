@@ -43,7 +43,9 @@ r140_repack_meta_h2
 r150_repack_fastly_ip_h2
 r160_block_unmatched_h2
 r200_redirect_googlevideo_tcp443_h11
-r210_redirect_group_tcp443_h2
+r210_redirect_google_tcp443_h2
+r220_redirect_fastly_tcp443_h2
+r230_redirect_meta_tcp443_h2
 r300_block_static_bad_ranges
 r310_direct_private_regional_ip
 r320_redirect_fastly_ip_tcp443_h2
@@ -74,7 +76,9 @@ python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 | `r150_repack_fastly_ip_h2` | Fastly IPs through h2 | fastly repack | Cover IP-based Fastly classification | GeoIP drift risk |
 | `r160_block_unmatched_h2` | unmatched h2 decrypted traffic | `block` | Avoid undefined decrypted handling | Unsupported site failure |
 | `r200_redirect_googlevideo_tcp443_h11` | TCP/443 googlevideo | local h11 tunnel | Enter local decrypt/repack path | Port conflict breaks flow |
-| `r210_redirect_group_tcp443_h2` | TCP/443 service groups | local h2 tunnel | Enter local decrypt/repack path | Port conflict breaks flow |
+| `r210_redirect_google_tcp443_h2` | TCP/443 Google-family domains | isolated Google h2 tunnel | Enter local Google decrypt/repack path | Port conflict breaks flow |
+| `r220_redirect_fastly_tcp443_h2` | TCP/443 Fastly-backed domains | isolated Fastly h2 tunnel | Enter local Fastly decrypt/repack path | Port conflict breaks flow |
+| `r230_redirect_meta_tcp443_h2` | TCP/443 Meta-family domains | isolated Meta h2 tunnel | Enter local Meta decrypt/repack path | Port conflict breaks flow |
 | `r300_block_static_bad_ranges` | documented static IP ranges | `block` | Preserve known bad-range behavior | Must have rationale |
 | `r310_direct_private_regional_ip` | private/regional IPs | `direct` | Preserve LAN/regional reachability | GeoIP drift risk |
 | `r320_redirect_fastly_ip_tcp443_h2` | Fastly IP TCP/443 | local h2 tunnel | Cover Fastly IP path | GeoIP drift risk |

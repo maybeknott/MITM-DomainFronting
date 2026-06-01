@@ -1,5 +1,5 @@
 {
-  "remarks": "MITM-DomainFronting_v22_compatibility",
+  "remarks": "MITM-DomainFronting_v22_Hardened_compatibility",
   "version": {
     "min": "26.2.6"
   },
@@ -37,35 +37,34 @@
       {
         "address": "fakedns",
         "domains": [
-          "domain:ir",
-          "geosite:private",
-          "geosite:category-ir",
+          "geosite:google",
+          "geosite:meta",
+          "geosite:fastly",
+          "geosite:reddit",
           "full:github.githubassets.com"
         ]
       },
       {
         "tag": "no-filter-dns-cloudflare",
         "address": "h2c://1.1.1.1/dns-query",
-        "timeoutMs": 6000
+        "timeoutMs": 4000
       },
       {
         "tag": "no-filter-dns-google",
         "address": "h2c://8.8.8.8/dns-query",
-        "timeoutMs": 6000
+        "timeoutMs": 4000
       },
       {
         "address": "localhost",
         "domains": [
           "domain:ir",
           "geosite:private",
-          "geosite:category-ir",
-          "full:github.githubassets.com"
+          "geosite:category-ir"
         ],
-        "finalQuery": true,
-        "timeoutMs": 4000
+        "timeoutMs": 3000
       }
     ],
-    "queryStrategy": "UseSystem",
+    "queryStrategy": "UseIPv4",
     "useSystemHosts": true,
     "serveStale": true
   },
@@ -96,7 +95,7 @@
     },
     {
       "port": 11666,
-      "tag": "tls-decrypt-h11",
+      "tag": "tls-decrypt-google-h11",
       "protocol": "tunnel",
       "settings": {
         "network": "tcp",
@@ -122,7 +121,61 @@
     },
     {
       "port": 11777,
-      "tag": "tls-decrypt-h211",
+      "tag": "tls-decrypt-google-h2",
+      "protocol": "tunnel",
+      "settings": {
+        "network": "tcp",
+        "port": 443,
+        "followRedirect": true
+      },
+      "streamSettings": {
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "certificates": [
+            {
+              "usage": "issue",
+              "certificateFile": "mycert.crt",
+              "keyFile": "mycert.key"
+            }
+          ]
+        }
+      },
+      "listen": "127.0.0.1"
+    },
+    {
+      "port": 11888,
+      "tag": "tls-decrypt-fastly-h2",
+      "protocol": "tunnel",
+      "settings": {
+        "network": "tcp",
+        "port": 443,
+        "followRedirect": true
+      },
+      "streamSettings": {
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "certificates": [
+            {
+              "usage": "issue",
+              "certificateFile": "mycert.crt",
+              "keyFile": "mycert.key"
+            }
+          ]
+        }
+      },
+      "listen": "127.0.0.1"
+    },
+    {
+      "port": 11999,
+      "tag": "tls-decrypt-meta-h2",
       "protocol": "tunnel",
       "settings": {
         "network": "tcp",
@@ -160,10 +213,10 @@
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -173,41 +226,31 @@
       "protocol": "dns"
     },
     {
-      "tag": "redirect-out-h11",
+      "tag": "redirect-out-google-h11",
       "protocol": "direct",
       "settings": {
         "redirect": "127.0.0.1:11666"
       }
     },
     {
-      "tag": "redirect-out-h211",
+      "tag": "redirect-out-google-h2",
       "protocol": "direct",
       "settings": {
         "redirect": "127.0.0.1:11777"
       }
     },
     {
-      "tag": "tls-repack-frommitm",
+      "tag": "redirect-out-fastly-h2",
       "protocol": "direct",
-      "streamSettings": {
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "fromMitM",
-          "verifyPeerCertByName": "fromMitM",
-          "alpn": [
-            "fromMitM"
-          ],
-          "fingerprint": "chrome"
-        },
-        "sockopt": {
-          "domainStrategy": "ForceIP",
-          "happyEyeballs": {
-            "tryDelayMs": 300,
-            "prioritizeIPv6": false,
-            "interleave": 2,
-            "maxConcurrentTry": 20
-          }
-        }
+      "settings": {
+        "redirect": "127.0.0.1:11888"
+      }
+    },
+    {
+      "tag": "redirect-out-meta-h2",
+      "protocol": "direct",
+      "settings": {
+        "redirect": "127.0.0.1:11999"
       }
     },
     {
@@ -220,19 +263,19 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "www.microsoft.com",
-          "verifyPeerCertByName": "fromMitM,www.microsoft.com,www.google.com,dns.google,cloudflare-dns.com,one.one.one.one",
           "alpn": [
-            "fromMitM"
+            "h2",
+            "http/1.1"
           ],
           "fingerprint": "chrome"
         },
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -247,19 +290,19 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "www.google.com",
-          "verifyPeerCertByName": "fromMitM,www.google.com,dns.google,dns.google.com",
           "alpn": [
-            "fromMitM"
+            "h2",
+            "http/1.1"
           ],
           "fingerprint": "chrome"
         },
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -271,19 +314,19 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "www.google.com",
-          "verifyPeerCertByName": "fromMitM,www.google.com,dns.google,www.googlevideo.com,www.youtube.com",
           "alpn": [
-            "fromMitM"
+            "h2",
+            "http/1.1"
           ],
           "fingerprint": "chrome"
         },
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -298,19 +341,19 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "github.githubassets.com",
-          "verifyPeerCertByName": "fromMitM,www.python.org,pypi.org,fastly.com,www.fastly.com,developer.fastly.com,reddit.com,githubassets.com,github.com,github.io,githubusercontent.com,github.githubassets.com",
           "alpn": [
-            "fromMitM"
+            "h2",
+            "http/1.1"
           ],
           "fingerprint": "chrome"
         },
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -322,19 +365,19 @@
         "security": "tls",
         "tlsSettings": {
           "serverName": "www.microsoft.com",
-          "verifyPeerCertByName": "fromMitM,www.google.com,www.microsoft.com,www.whatsapp.com,www.facebook.com,www.ar.meta.com,www.fb.com,www.whatsapp.net,www.atlassolutions.com,www.secure.facebook.com,www.extern.facebook.com,www.internet.org,www.oculus.com,www.wit.ai,www.facebook-dns.com,www.instagram.com,www.meta.com,www.external-disputes.meta.com,www.fbe2e.com,www.cloud.x2p.facebook.net,www.secure.latest.facebook.com",
           "alpn": [
-            "fromMitM"
+            "h2",
+            "http/1.1"
           ],
           "fingerprint": "chrome"
         },
         "sockopt": {
           "domainStrategy": "ForceIP",
           "happyEyeballs": {
-            "tryDelayMs": 300,
+            "tryDelayMs": 250,
             "prioritizeIPv6": false,
             "interleave": 2,
-            "maxConcurrentTry": 20
+            "maxConcurrentTry": 4
           }
         }
       }
@@ -391,14 +434,14 @@
           "domain:googlevideo.com"
         ],
         "inboundTag": [
-          "tls-decrypt-h11"
+          "tls-decrypt-google-h11"
         ],
         "ruleTag": "r100_repack_googlevideo_h11"
       },
       {
         "outboundTag": "block",
         "inboundTag": [
-          "tls-decrypt-h11"
+          "tls-decrypt-google-h11"
         ],
         "ruleTag": "r110_block_unmatched_h11"
       },
@@ -408,7 +451,7 @@
           "geosite:google"
         ],
         "inboundTag": [
-          "tls-decrypt-h211"
+          "tls-decrypt-google-h2"
         ],
         "ruleTag": "r120_repack_google_h2"
       },
@@ -421,7 +464,7 @@
           "domain:buzzfeed.com"
         ],
         "inboundTag": [
-          "tls-decrypt-h211"
+          "tls-decrypt-fastly-h2"
         ],
         "ruleTag": "r130_repack_fastly_h2"
       },
@@ -431,7 +474,7 @@
           "geosite:meta"
         ],
         "inboundTag": [
-          "tls-decrypt-h211"
+          "tls-decrypt-meta-h2"
         ],
         "ruleTag": "r140_repack_meta_h2"
       },
@@ -441,19 +484,21 @@
           "geoip:fastly"
         ],
         "inboundTag": [
-          "tls-decrypt-h211"
+          "tls-decrypt-fastly-h2"
         ],
         "ruleTag": "r150_repack_fastly_ip_h2"
       },
       {
         "outboundTag": "block",
         "inboundTag": [
-          "tls-decrypt-h211"
+          "tls-decrypt-google-h2",
+          "tls-decrypt-fastly-h2",
+          "tls-decrypt-meta-h2"
         ],
         "ruleTag": "r160_block_unmatched_h2"
       },
       {
-        "outboundTag": "redirect-out-h11",
+        "outboundTag": "redirect-out-google-h11",
         "network": "tcp",
         "port": 443,
         "domain": [
@@ -462,18 +507,34 @@
         "ruleTag": "r200_redirect_googlevideo_tcp443_h11"
       },
       {
-        "outboundTag": "redirect-out-h211",
+        "outboundTag": "redirect-out-google-h2",
         "network": "tcp",
         "port": 443,
         "domain": [
-          "geosite:google",
-          "geosite:meta",
+          "geosite:google"
+        ],
+        "ruleTag": "r210_redirect_google_tcp443_h2"
+      },
+      {
+        "outboundTag": "redirect-out-fastly-h2",
+        "network": "tcp",
+        "port": 443,
+        "domain": [
           "geosite:fastly",
           "geosite:reddit",
           "geosite:cnn",
           "domain:buzzfeed.com"
         ],
-        "ruleTag": "r210_redirect_group_tcp443_h2"
+        "ruleTag": "r220_redirect_fastly_tcp443_h2"
+      },
+      {
+        "outboundTag": "redirect-out-meta-h2",
+        "network": "tcp",
+        "port": 443,
+        "domain": [
+          "geosite:meta"
+        ],
+        "ruleTag": "r230_redirect_meta_tcp443_h2"
       },
       {
         "outboundTag": "block",
@@ -492,7 +553,7 @@
         "ruleTag": "r310_direct_private_regional_ip"
       },
       {
-        "outboundTag": "redirect-out-h211",
+        "outboundTag": "redirect-out-fastly-h2",
         "network": "tcp",
         "port": 443,
         "ip": [

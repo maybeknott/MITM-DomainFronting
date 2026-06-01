@@ -6,8 +6,8 @@ Use this checklist before merging config, DNS, certificate, documentation, or re
 
 - [ ] JSON parses.
 - [ ] `remarks` version updated if behavior changed.
-- [ ] Required inbounds exist: `mixed-in`, `tls-decrypt-h11`, `tls-decrypt-h211`.
-- [ ] Required ports are present: 10808, 11666, 11777.
+- [ ] Required inbounds exist: `mixed-in`, `tls-decrypt-google-h11`, `tls-decrypt-google-h2`, `tls-decrypt-fastly-h2`, `tls-decrypt-meta-h2`.
+- [ ] Required ports are present: 10808, 11666, 11777, 11888, 11999.
 - [ ] Local inbounds explicitly bind to loopback or the absence is documented as a warning.
 - [ ] Required outbounds exist.
 - [ ] Every route `outboundTag` points to an existing outbound.

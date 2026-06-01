@@ -11,7 +11,7 @@ The config uses a mix of:
 - FakeDNS for selected domains.
 - Tagged Cloudflare and Google external resolver paths.
 - Localhost fallback for private, regional, captive, or enterprise cases.
-- `UseSystem` query strategy.
+- Explicit Xray DNS query strategy (`UseIPv4` in the shipped baseline) rather than recursive OS resolver handoff.
 - `serveStale`.
 - Routing rules for port 53.
 

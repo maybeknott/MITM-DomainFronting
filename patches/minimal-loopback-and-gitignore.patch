@@ -32,12 +32,24 @@ diff --git a/Xray-config/MITM-DomainFronting.json b/Xray-config/MITM-DomainFront
 @@
      {
        "port": 11666,
-       "tag": "tls-decrypt-h11",
+       "tag": "tls-decrypt-google-h11",
 +      "listen": "127.0.0.1",
        "protocol": "tunnel",
 @@
      {
        "port": 11777,
-       "tag": "tls-decrypt-h211",
+       "tag": "tls-decrypt-google-h2",
++      "listen": "127.0.0.1",
+       "protocol": "tunnel",
+@@
+     {
+       "port": 11888,
+       "tag": "tls-decrypt-fastly-h2",
++      "listen": "127.0.0.1",
+       "protocol": "tunnel",
+@@
+     {
+       "port": 11999,
+       "tag": "tls-decrypt-meta-h2",
 +      "listen": "127.0.0.1",
        "protocol": "tunnel",

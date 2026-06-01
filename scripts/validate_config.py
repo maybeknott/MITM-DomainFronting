@@ -15,8 +15,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 LOOPBACK_NAMES = {"127.0.0.1", "::1", "localhost"}
-REQUIRED_INBOUND_TAGS = {"mixed-in", "tls-decrypt-h11", "tls-decrypt-h211"}
-REQUIRED_PORTS = {10808, 11666, 11777}
+REQUIRED_INBOUND_TAGS = {
+    "mixed-in",
+    "tls-decrypt-google-h11",
+    "tls-decrypt-google-h2",
+    "tls-decrypt-fastly-h2",
+    "tls-decrypt-meta-h2",
+}
+REQUIRED_PORTS = {10808, 11666, 11777, 11888, 11999}
 EXPECTED_RULE_ORDER_BASE = [
     "r010_block_ads",
     "r020_repack_dns_cloudflare",
@@ -31,7 +37,9 @@ EXPECTED_RULE_ORDER_BASE = [
     "r150_repack_fastly_ip_h2",
     "r160_block_unmatched_h2",
     "r200_redirect_googlevideo_tcp443_h11",
-    "r210_redirect_group_tcp443_h2",
+    "r210_redirect_google_tcp443_h2",
+    "r220_redirect_fastly_tcp443_h2",
+    "r230_redirect_meta_tcp443_h2",
     "r300_block_static_bad_ranges",
     "r310_direct_private_regional_ip",
     "r320_redirect_fastly_ip_tcp443_h2",
@@ -58,6 +66,12 @@ EXPECTED_RULE_ORDER_STRICT = [
 KNOWN_STATIC_CIDRS = {"10.10.34.0/24", "2001:4188:2:600::/64"}
 GLOBAL_CATCHALL_CIDRS = {"0.0.0.0/0", "::/0"}
 RULE_TAG_RE = re.compile(r"^r\d{3}_[a-z0-9_]+$")
+REDIRECT_TO_INBOUND = {
+    "redirect-out-google-h11": "tls-decrypt-google-h11",
+    "redirect-out-google-h2": "tls-decrypt-google-h2",
+    "redirect-out-fastly-h2": "tls-decrypt-fastly-h2",
+    "redirect-out-meta-h2": "tls-decrypt-meta-h2",
+}
 
 
 def load_json(path: Path) -> Tuple[Dict[str, Any] | None, List[Dict[str, str]]]:
@@ -207,7 +221,7 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
     checks.append({
         "id": "required_ports",
         "status": "pass" if default_ports_present else "warn" if required_tags_have_ports else "fail",
-        "detail": "10808, 11666, 11777 present"
+        "detail": "10808, 11666, 11777, 11888, 11999 present"
         if default_ports_present
         else "required local inbounds use non-default ports: " + ", ".join(f"{tag}={port}" for tag, port in sorted(required_tag_ports.items()))
         if required_tags_have_ports
@@ -264,7 +278,7 @@ def validate_config(config: Dict[str, Any]) -> List[Dict[str, str]]:
             dns_port_rule = True
         if str(rule.get("port")) == "443" and rule.get("network") == "tcp" and isinstance(out_tag, str) and out_tag.startswith("redirect-out"):
             tcp443_redirect_rule = True
-            expected_inbound = "tls-decrypt-h11" if out_tag == "redirect-out-h11" else "tls-decrypt-h211"
+            expected_inbound = REDIRECT_TO_INBOUND.get(out_tag)
             expected_port = inbound_ports_by_tag.get(expected_inbound)
             redirect_port = redirect_targets.get(out_tag)
             if expected_port is not None and redirect_port != expected_port:

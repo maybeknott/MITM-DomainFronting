@@ -16,7 +16,7 @@ from check_dns import query_udp
 from geodata_pin import build_report as geodata_report, missing_geodata_errors, verify_against_lock
 from trust_store_check import build_report as trust_report
 
-EXPECTED_PORTS = [10808, 11666, 11777]
+EXPECTED_PORTS = [10808, 11666, 11777, 11888, 11999]
 
 
 def _status_from_checks(checks: List[Dict[str, object]]) -> str:
@@ -57,7 +57,24 @@ def cert_checks(cert: Path, key: Path) -> List[Dict[str, object]]:
     checks.append({"id": "key_exists", "status": "pass" if key.exists() else "warn", "detail": str(key)})
     if key.exists():
         if os.name == "nt":
-            checks.append({"id": "key_permissions", "status": "info", "detail": "Windows ACL not evaluated; keep key private"})
+            try:
+                proc = subprocess.run(
+                    ["icacls", str(key)],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+                acl_text = (proc.stdout or "").lower()
+            except Exception:
+                acl_text = ""
+            if not acl_text:
+                checks.append({"id": "key_permissions", "status": "info", "detail": "Windows ACL unavailable; keep key private"})
+            elif any(marker in acl_text for marker in ("everyone", "builtin\\users", "authenticated users")):
+                checks.append({"id": "key_permissions", "status": "warn", "detail": "Windows ACL appears broad; restrict mycert.key to the current user"})
+            else:
+                checks.append({"id": "key_permissions", "status": "pass", "detail": "Windows ACL did not show broad local user access"})
             return checks
         if key.stat().st_mode & stat.S_IROTH:
             checks.append({"id": "key_permissions", "status": "warn", "detail": "world-readable key file"})
@@ -257,6 +274,24 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str, root: P
     }
 
 
+def emit_report(report: Dict[str, object]) -> str:
+    if not os.isatty(1):
+        return json.dumps(report, indent=2, ensure_ascii=False)
+    lines = ["", "=" * 72, " MITM-DomainFronting Health Probe", "=" * 72]
+    grouped = report.get("checks", {})
+    if isinstance(grouped, dict):
+        for group, value in grouped.items():
+            lines.append(f"\n{group}:")
+            items = value if isinstance(value, list) else [value] if isinstance(value, dict) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                status = str(item.get("status", "info")).upper()
+                lines.append(f"  [{status:^6}] {item.get('id', group)} - {item.get('detail', '')}")
+    lines.extend(["", "=" * 72, f"Overall: {report.get('overall', 'unknown')}", "=" * 72, ""])
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run local health probe and emit redacted JSON")
     parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
@@ -295,7 +330,7 @@ def main() -> int:
                 all_checks.append({"id": key, "status": status, "detail": value.get("detail", "")})
     report["overall"] = _status_from_checks(all_checks)
     report["policy_recommendation"] = build_policy_recommendation(report["checks"], str(report["overall"]), Path("."))
-    print(json.dumps(report, indent=2, ensure_ascii=False))
+    print(emit_report(report))
     return 0 if report["overall"] == "pass" else 1
 
 

@@ -16,6 +16,7 @@ from config_src_merge import compile_config, validate_fragments  # noqa: E402
 STEP_COMMANDS = {
     "validate_config": [sys.executable, "scripts/validate_config.py"],
     "route_intent_sync": [sys.executable, "scripts/route_intent_sync.py"],
+    "route_graph_verify": [sys.executable, "scripts/route_graph_verify.py"],
     "route_policy_tests": [sys.executable, "scripts/route_policy_tests.py"],
     "transport_experiment_validate": [sys.executable, "scripts/transport_experiment_validate.py"],
 }
@@ -97,7 +98,7 @@ def run_steps(manifest: Dict[str, Any], root: Path) -> List[str]:
             continue
         if step == "validate_config":
             cmd.append(str(primary))
-        elif step == "route_intent_sync":
+        elif step in {"route_intent_sync", "route_graph_verify"}:
             cmd.append(str(primary))
         proc = subprocess.run(cmd, cwd=str(root), text=True, capture_output=True, check=False)
         if proc.returncode != 0:

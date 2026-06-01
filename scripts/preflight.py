@@ -35,7 +35,7 @@ try:
 except Exception:  # noqa: BLE001
     build_platform_report = None
 
-EXPECTED_PORTS = [10808, 11666, 11777]
+EXPECTED_PORTS = [10808, 11666, 11777, 11888, 11999]
 BAD_LISTEN_ADDRS = {"0.0.0.0", "::", "[::]", "*"}
 LOOPBACK_ADDRS = {"127.0.0.1", "::1", "localhost"}
 PROXY_ENV_VARS = {
@@ -87,7 +87,18 @@ def check_key_permissions(key_path: Path) -> Dict[str, str]:
     if not key_path.exists():
         return {"id": "key_permissions", "status": "fail", "detail": "key missing"}
     if os.name == "nt":
-        return {"id": "key_permissions", "status": "info", "detail": "Windows ACL not evaluated; keep key private"}
+        output = run_cmd(["icacls", str(key_path)], timeout=5)
+        if not output:
+            return {"id": "key_permissions", "status": "info", "detail": "Windows ACL unavailable; keep key private"}
+        lowered = output.lower()
+        broad_acl_markers = ["everyone", "builtin\\users", "authenticated users"]
+        if any(marker in lowered for marker in broad_acl_markers):
+            return {
+                "id": "key_permissions",
+                "status": "warn",
+                "detail": "Windows ACL appears to include broad local users; restrict mycert.key to the current user",
+            }
+        return {"id": "key_permissions", "status": "pass", "detail": "Windows ACL did not show broad local user access"}
     mode = stat.S_IMODE(key_path.stat().st_mode)
     world_readable = bool(mode & stat.S_IROTH)
     group_readable = bool(mode & stat.S_IRGRP)
@@ -386,6 +397,39 @@ def xray_config_test(config: Path, xray_bin: str) -> Dict[str, str]:
     return {"id": "xray_run_test", "status": "pass" if proc.returncode == 0 else "fail", "detail": detail or f"exit={proc.returncode}"}
 
 
+def emit_report(report: Dict[str, Any]) -> str:
+    """Emit JSON for automation and a compact table for interactive terminals."""
+    if not sys.stdout.isatty():
+        return json.dumps(report, indent=2, ensure_ascii=False)
+
+    colors = {
+        "pass": "\033[92m",
+        "warn": "\033[93m",
+        "fail": "\033[91m",
+        "info": "\033[94m",
+        "reset": "\033[0m",
+    }
+    lines = [
+        "",
+        "=" * 72,
+        " MITM-DomainFronting Preflight",
+        "=" * 72,
+    ]
+    for check in report.get("checks", []):
+        if not isinstance(check, dict):
+            continue
+        status = str(check.get("status", "info")).lower()
+        color = colors.get(status, colors["info"])
+        lines.append(f"[{color}{status.upper():^6}{colors['reset']}] {str(check.get('id', 'check')):<34} {check.get('detail', '')}")
+    lines.extend([
+        "=" * 72,
+        f"Overall: {report.get('overall', 'unknown')}",
+        "=" * 72,
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run local MITM-DomainFronting preflight checks")
     parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
@@ -465,9 +509,9 @@ def main() -> int:
         "note": "Review before sharing. Do not share private keys, cookies, request bodies, or full URLs with tokens.",
         "checks": checks,
     }
-    text = json.dumps(report, indent=2, ensure_ascii=False)
     if args.json_out:
-        args.json_out.write_text(text + "\n", encoding="utf-8")
+        args.json_out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    text = emit_report(report)
     print(text)
     return 2 if overall == "fail" else 0
 

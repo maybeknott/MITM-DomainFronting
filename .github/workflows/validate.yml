@@ -58,6 +58,7 @@ jobs:
       - name: Run route policy tests
         run: |
           python scripts/route_policy_tests.py
+          python scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json
 
       - name: Sync route intent manifest against primary config
         run: |

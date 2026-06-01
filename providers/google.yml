@@ -7,7 +7,7 @@ routes:
   - r100_repack_googlevideo_h11
   - r120_repack_google_h2
   - r200_redirect_googlevideo_tcp443_h11
-  - r210_redirect_group_tcp443_h2
+  - r210_redirect_google_tcp443_h2
 geosite_refs:
   - geosite:google
 geoip_refs: []
@@ -36,7 +36,7 @@ route_coverage:
   - r100_repack_googlevideo_h11 handles googlevideo on h11 decrypt path
   - r120_repack_google_h2 handles Google-family h2 decrypt path
   - r200_redirect_googlevideo_tcp443_h11 enters h11 decrypt path
-  - r210_redirect_group_tcp443_h2 enters h2 decrypt path for grouped domains
+  - r210_redirect_google_tcp443_h2 enters isolated Google h2 decrypt path
 test_matrix:
   - route_tag_hit using route diagnostics
   - browser_diagnostics_probe using scripts/browser_smoke.py

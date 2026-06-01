@@ -146,7 +146,11 @@ def key_permissions_ok(key: Path) -> Optional[bool]:
     if not key.exists():
         return False
     if os.name == "nt":
-        return None
+        text = windows_acl_text(key)
+        if not text:
+            return None
+        lowered = text.lower()
+        return not any(marker in lowered for marker in ("everyone", "builtin\\users", "authenticated users"))
     mode = stat.S_IMODE(key.stat().st_mode)
     return (mode & 0o077) == 0
 
@@ -155,7 +159,13 @@ def key_permission_text(key: Path) -> str:
     if not key.exists():
         return "missing"
     if os.name == "nt":
-        return "Windows ACL not evaluated; keep file private"
+        text = windows_acl_text(key)
+        if not text:
+            return "Windows ACL unavailable; keep file private"
+        lowered = text.lower()
+        if any(marker in lowered for marker in ("everyone", "builtin\\users", "authenticated users")):
+            return "Windows ACL appears broad; restrict file to the current user"
+        return "Windows ACL did not show broad local user access"
     mode = stat.S_IMODE(key.stat().st_mode)
     advice = []
     if mode & stat.S_IROTH:
@@ -163,6 +173,21 @@ def key_permission_text(key: Path) -> str:
     if mode & stat.S_IRGRP:
         advice.append("group-readable; chmod 600 is stricter")
     return f"{oct(mode)}" + (" (" + "; ".join(advice) + ")" if advice else "")
+
+
+def windows_acl_text(path: Path) -> str:
+    try:
+        proc = subprocess.run(
+            ["icacls", str(path)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            check=False,
+        )
+    except Exception:
+        return ""
+    return proc.stdout or ""
 
 
 def status_report(cert: Path, key: Path, warn_expiry_days: int) -> Dict[str, Any]:

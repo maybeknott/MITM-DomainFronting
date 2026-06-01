@@ -10,8 +10,10 @@ from typing import Any, Dict, List
 
 DEFAULT_LOCAL_PORTS = {
     "mixed-in": 10808,
-    "tls-decrypt-h11": 11666,
-    "tls-decrypt-h211": 11777,
+    "tls-decrypt-google-h11": 11666,
+    "tls-decrypt-google-h2": 11777,
+    "tls-decrypt-fastly-h2": 11888,
+    "tls-decrypt-meta-h2": 11999,
 }
 
 PROFILE_POLICIES = {

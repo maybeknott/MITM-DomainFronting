@@ -21,7 +21,9 @@ route_groups:
     - r160_block_unmatched_h2
   redirect_tcp443:
     - r200_redirect_googlevideo_tcp443_h11
-    - r210_redirect_group_tcp443_h2
+    - r210_redirect_google_tcp443_h2
+    - r220_redirect_fastly_tcp443_h2
+    - r230_redirect_meta_tcp443_h2
     - r320_redirect_fastly_ip_tcp443_h2
   direct_or_block:
     - r010_block_ads

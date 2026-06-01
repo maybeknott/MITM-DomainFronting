@@ -20,6 +20,7 @@ py scripts\gui.py
   - connection status for local `127.0.0.1:10808`;
   - at-a-glance setup, connection, certificate, browser, and local telemetry status;
   - **Connect Xray** / **Disconnect** controls for the Xray process launched by the GUI;
+  - an **Active profile** selector for the base, strict, balanced, compatibility, and debug config files;
   - URL, proxy, and browser executable path fields;
   - one-click **Check Setup**, **Safe Auto-Fix**, **Generate Local CA**, **Install Browser Tools**, and **Test Browser** actions;
   - local-only telemetry controls for status snapshots, recent events, export, and clear;

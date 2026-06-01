@@ -15,9 +15,13 @@ mixed-in :10808
         |
         +--> direct/block/DNS rules
         |
-        +--> redirect-out-h11  --> 127.0.0.1:11666 --> tls-decrypt-h11  --> tls-repack-* --> remote provider/service
+        +--> redirect-out-google-h11 --> 127.0.0.1:11666 --> tls-decrypt-google-h11 --> tls-repack-google
         |
-        +--> redirect-out-h211 --> 127.0.0.1:11777 --> tls-decrypt-h211 --> tls-repack-* --> remote provider/service
+        +--> redirect-out-google-h2  --> 127.0.0.1:11777 --> tls-decrypt-google-h2  --> tls-repack-google
+        |
+        +--> redirect-out-fastly-h2  --> 127.0.0.1:11888 --> tls-decrypt-fastly-h2  --> tls-repack-fastly
+        |
+        +--> redirect-out-meta-h2    --> 127.0.0.1:11999 --> tls-decrypt-meta-h2    --> tls-repack-meta
 ```
 
 ## Components
@@ -25,8 +29,10 @@ mixed-in :10808
 | Component | Purpose | Risk if broken | Validation |
 |---|---|---|---|
 | `mixed-in` | Main local proxy/TUN ingress | Client cannot enter config | Required inbound/port check |
-| `tls-decrypt-h11` | Local HTTP/1.1 TLS handling path | h11-targeted flows fail | Port/listener/cert check |
-| `tls-decrypt-h211` | Local HTTP/2 + HTTP/1.1 TLS handling path | h2-targeted flows fail | Port/listener/cert check |
+| `tls-decrypt-google-h11` | Local HTTP/1.1 TLS handling path for googlevideo | h11-targeted media flows fail | Port/listener/cert check |
+| `tls-decrypt-google-h2` | Isolated Google-family HTTP/2 + HTTP/1.1 TLS handling path | Google-family h2 flows fail | Port/listener/cert check |
+| `tls-decrypt-fastly-h2` | Isolated Fastly-family HTTP/2 + HTTP/1.1 TLS handling path | Fastly-family h2 flows fail | Port/listener/cert check |
+| `tls-decrypt-meta-h2` | Isolated Meta-family HTTP/2 + HTTP/1.1 TLS handling path | Meta-family h2 flows fail | Port/listener/cert check |
 | `mycert.crt` | Trusted local CA certificate | Browser trust errors if missing/wrong | Fingerprint verification |
 | `mycert.key` | Local CA private key | Critical if exposed; broken if missing | Existence and permission check |
 | DNS block | Domain resolution and FakeDNS behavior | Routing failures and stale cache | DNS resilience checks |

@@ -4,9 +4,9 @@ This document maps repository evidence to engineering conclusions.
 
 | Evidence | Conclusion | Required action |
 |---|---|---|
-| Config defines `mixed-in`, `tls-decrypt-h11`, and `tls-decrypt-h211` | Local ingress/decrypt graph exists | Validate local ports and listener binding |
+| Config defines `mixed-in` plus isolated Google/Fastly/Meta decrypt inbounds | Local ingress/decrypt graph exists | Validate local ports and listener binding |
 | Config uses certificate `usage: issue` with `mycert.crt` and `mycert.key` | Local certificate lifecycle is central | Add lifecycle docs and status script |
-| Config uses DNS, FakeDNS, resolver alias, localhost fallback, `serveStale`, and `UseSystem` | DNS is a major runtime dependency | Add DNS resilience docs and tests |
+| Config uses DNS, FakeDNS, resolver aliases, localhost fallback, `serveStale`, and explicit Xray query strategy | DNS is a major runtime dependency | Add DNS resilience docs and tests |
 | Config uses service/provider routing groups | Route drift and provider drift are core risks | Add route tags, provider status, release validation |
 | `.gitignore` only ignoring IDE files is insufficient | Generated keys can be accidentally committed | Add cert/key/log/geodata ignore rules |
 | PR proposing DNS fallback and cert-generation improvements exists | Some hardening needs are already recognized | Preserve easy cert generation while improving reliability |

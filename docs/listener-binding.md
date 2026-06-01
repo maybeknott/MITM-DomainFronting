@@ -9,8 +9,10 @@ The local inbounds should only accept connections from the user's own machine. T
 | Port | Expected tag | Expected exposure |
 |---|---|---|
 | 10808 | `mixed-in` | loopback-only |
-| 11666 | `tls-decrypt-h11` | loopback-only |
-| 11777 | `tls-decrypt-h211` | loopback-only |
+| 11666 | `tls-decrypt-google-h11` | loopback-only |
+| 11777 | `tls-decrypt-google-h2` | loopback-only |
+| 11888 | `tls-decrypt-fastly-h2` | loopback-only |
+| 11999 | `tls-decrypt-meta-h2` | loopback-only |
 | metrics/debug ports if ever added | metrics/debug | loopback-only |
 
 ## Recommended config pattern
@@ -30,7 +32,7 @@ For the tunnel inbounds:
 
 ```json
 {
-  "tag": "tls-decrypt-h11",
+  "tag": "tls-decrypt-google-h11",
   "listen": "127.0.0.1",
   "port": 11666,
   "protocol": "tunnel"
@@ -39,7 +41,7 @@ For the tunnel inbounds:
 
 ```json
 {
-  "tag": "tls-decrypt-h211",
+  "tag": "tls-decrypt-google-h2",
   "listen": "127.0.0.1",
   "port": 11777,
   "protocol": "tunnel"
@@ -59,13 +61,13 @@ Manual checks:
 Windows:
 
 ```powershell
-netstat -ano -p tcp | findstr ":10808 :11666 :11777"
+netstat -ano -p tcp | findstr ":10808 :11666 :11777 :11888 :11999"
 ```
 
 Linux:
 
 ```bash
-ss -ltnp | grep -E ':10808|:11666|:11777'
+ss -ltnp | grep -E ':10808|:11666|:11777|:11888|:11999'
 ```
 
 macOS:
@@ -74,6 +76,8 @@ macOS:
 lsof -nP -iTCP:10808 -sTCP:LISTEN
 lsof -nP -iTCP:11666 -sTCP:LISTEN
 lsof -nP -iTCP:11777 -sTCP:LISTEN
+lsof -nP -iTCP:11888 -sTCP:LISTEN
+lsof -nP -iTCP:11999 -sTCP:LISTEN
 ```
 
 Pass condition:
@@ -82,6 +86,8 @@ Pass condition:
 127.0.0.1:10808
 127.0.0.1:11666
 127.0.0.1:11777
+127.0.0.1:11888
+127.0.0.1:11999
 ```
 
 Warning condition:

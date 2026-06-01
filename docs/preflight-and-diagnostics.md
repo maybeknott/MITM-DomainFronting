@@ -73,8 +73,8 @@ The decision report includes captive portal warnings and the same read-only `pol
 |---|---|---|
 | Config exists | User imported correct file | File readable |
 | JSON parses | Xray can parse config | Valid JSON |
-| Required inbound tags | Local graph exists | `mixed-in`, `tls-decrypt-h11`, `tls-decrypt-h211` present |
-| Required ports | Expected local ports exist in config | 10808, 11666, 11777 present |
+| Required inbound tags | Local graph exists | `mixed-in` plus isolated Google/Fastly/Meta decrypt inbounds present |
+| Required ports | Expected local ports exist in config | 10808, 11666, 11777, 11888, 11999 present |
 | Loopback binding | Avoid LAN exposure | Inbounds use `listen: 127.0.0.1` or equivalent |
 | Cert exists | Local CA exists | `mycert.crt` found |
 | Key exists | Issuing key exists | `mycert.key` found |
