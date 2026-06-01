@@ -42,26 +42,29 @@ HOST_PYTHON_CACHE_SECONDS = 45.0
 _HOST_PYTHON_CACHE: tuple[float, list[str] | None] = (0.0, None)
 
 COLORS = {
-    "bg": "#f8fafc",
+    "bg": "#f6f8fb",
     "panel": "#ffffff",
     "panel_alt": "#f8fafc",
-    "panel_soft": "#f1f5f9",
-    "ink": "#0f172a",
+    "panel_soft": "#eef2f7",
+    "ink": "#111827",
     "muted": "#64748b",
     "muted_soft": "#94a3b8",
-    "line": "#e2e8f0",
+    "line": "#dbe3ee",
     "blue": "#2563eb",
     "blue_dark": "#1d4ed8",
-    "blue_soft": "#eff6ff",
-    "green": "#16a34a",
-    "green_soft": "#f0fdf4",
-    "amber": "#d97706",
+    "blue_soft": "#eef5ff",
+    "violet": "#7c3aed",
+    "violet_soft": "#f5f3ff",
+    "green": "#059669",
+    "green_soft": "#ecfdf5",
+    "amber": "#b7791f",
     "amber_soft": "#fffbeb",
     "red": "#dc2626",
     "red_soft": "#fee2e2",
-    "sidebar": "#0f172a",
-    "sidebar_active": "#1e293b",
-    "sidebar_line": "#334155",
+    "sidebar": "#111827",
+    "sidebar_active": "#1f2937",
+    "sidebar_line": "#374151",
+    "rail": "#f9fbff",
 }
 
 
@@ -434,8 +437,8 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.scaling_factor = self._query_hardware_dpi_scale()
         self.fonts = self._build_fonts()
-        self.geometry(f"{self._scaled(1180)}x{self._scaled(780)}")
-        self.minsize(self._scaled(920), self._scaled(620))
+        self.geometry(f"{self._scaled(1260)}x{self._scaled(790)}")
+        self.minsize(self._scaled(980), self._scaled(620))
         self.configure(bg=COLORS["bg"])
         self.current_process_label = tk.StringVar(value="Ready")
         self.profile_offset = tk.StringVar(value="100")
@@ -457,6 +460,7 @@ class App(tk.Tk):
         self.command_search = tk.StringVar(value="")
         self.palette_query = tk.StringVar(value="")
         self.focus_mode_text = tk.StringVar(value="Focus")
+        self.telemetry_rail_text = tk.StringVar(value="Hide Telemetry")
         self.show_start_advanced = tk.BooleanVar(value=False)
         self.show_dashboard_profile = tk.BooleanVar(value=False)
         self.show_dashboard_browser_advanced = tk.BooleanVar(value=False)
@@ -500,6 +504,7 @@ class App(tk.Tk):
         self.output_visible = tk.BooleanVar(value=False)
         self.logs_have_unread = False
         self.sidebar_visible = True
+        self.telemetry_rail_visible = True
         self.status_chip_labels: dict[str, tk.Label] = {}
         self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.nav_button_widgets: dict[str, tk.Button] = {}
@@ -702,7 +707,7 @@ class App(tk.Tk):
             ),
             "live_network": (
                 "Live Network\n\n"
-                "Shows local system network counters sampled during the GUI auto-refresh loop: download rate, upload rate, total traffic since the GUI opened, and how long the local proxy has been active.\n\n"
+                "Shown in the right telemetry rail. It samples local system network counters during the GUI auto-refresh loop: download rate, upload rate, total traffic since the GUI opened, and how long the local proxy has been active.\n\n"
                 "Privacy boundary:\n"
                 "These are byte counters from the operating system. The GUI does not inspect payloads, request bodies, cookies, or browser history."
             ),
@@ -739,6 +744,7 @@ class App(tk.Tk):
                 "Ctrl+F jumps to Command Search.\n"
                 "Ctrl+L shows or hides the Log Drawer.\n"
                 "Ctrl+B toggles Focus mode.\n"
+                "Ctrl+T toggles the Telemetry rail.\n"
                 "Escape hides the Log Drawer."
             ),
             "1_check_setup": (
@@ -904,8 +910,9 @@ class App(tk.Tk):
         root = tk.Frame(self, bg=COLORS["bg"])
         self.root_container = root
         root.pack(fill="both", expand=True)
-        root.columnconfigure(0, minsize=self._scaled(205), weight=0)
+        root.columnconfigure(0, minsize=self._scaled(190), weight=0)
         root.columnconfigure(1, weight=1)
+        root.columnconfigure(2, minsize=self._scaled(255), weight=0)
         root.rowconfigure(0, weight=1)
 
         sidebar = tk.Frame(root, bg=COLORS["sidebar"])
@@ -951,6 +958,7 @@ class App(tk.Tk):
         content = tk.Frame(root, bg=COLORS["bg"])
         content.grid(row=0, column=1, sticky="nsew")
         content.columnconfigure(0, weight=1)
+        self._build_telemetry_rail(root)
 
         header = tk.Frame(content, bg=COLORS["bg"])
         header.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(12), self._scaled(8)))
@@ -1006,6 +1014,7 @@ class App(tk.Tk):
         self.bind_all("<Control-k>", lambda _event: self.show_command_palette(), add="+")
         self.bind_all("<Control-f>", lambda _event: self.focus_command_search(), add="+")
         self.bind_all("<Control-b>", lambda _event: self.toggle_focus_mode(), add="+")
+        self.bind_all("<Control-t>", lambda _event: self.toggle_telemetry_rail(), add="+")
         self.bind_all("<Escape>", lambda _event: self.hide_output_drawer(), add="+")
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
@@ -1039,6 +1048,78 @@ class App(tk.Tk):
         self._append_output("Ready. All actions run locally in this repository.\n")
         self.tabs.select(self._tab_page(self.start_tab))
         self._highlight_active_nav()
+
+    def _build_telemetry_rail(self, root: tk.Widget) -> None:
+        rail = tk.Frame(root, bg=COLORS["rail"], highlightbackground=COLORS["line"], highlightthickness=1)
+        self.telemetry_rail = rail
+        rail.grid(row=0, column=2, sticky="nsew")
+        rail.grid_propagate(False)
+
+        header = tk.Frame(rail, bg=COLORS["rail"])
+        header.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(14), self._scaled(8)))
+        tk.Label(header, text="Telemetry", bg=COLORS["rail"], fg=COLORS["ink"], font=self.fonts["h2"], anchor="w").pack(side="left", fill="x", expand=True)
+        ttk.Button(header, textvariable=self.telemetry_rail_text, style="Soft.TButton", command=self.toggle_telemetry_rail).pack(side="right")
+        tk.Label(
+            rail,
+            text="Local counters and GUI activity. No payload inspection or uploads.",
+            bg=COLORS["rail"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption"],
+            justify="left",
+            wraplength=self._scaled(220),
+            anchor="w",
+        ).pack(fill="x", padx=self._scaled(12), pady=(0, self._scaled(10)))
+
+        status = self._rail_panel(rail, "Live Status")
+        tk.Label(status, textvariable=self.overall_status, bg=COLORS["panel"], fg=COLORS["blue"], font=self.fonts["h1"], anchor="w").pack(fill="x", pady=(0, 2))
+        tk.Label(status, textvariable=self.auto_refresh_state, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x")
+        tk.Label(status, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["green"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(8, 0))
+
+        network = self._rail_panel(rail, "Network")
+        for variable, color in (
+            (self.network_down_rate, COLORS["blue"]),
+            (self.network_up_rate, COLORS["green"]),
+            (self.network_total, COLORS["ink"]),
+            (self.network_duration, COLORS["amber"]),
+        ):
+            tk.Label(network, textvariable=variable, bg=COLORS["panel"], fg=color, font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(0, 5))
+        tk.Label(network, textvariable=self.network_source, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(4, 0))
+
+        activity = self._rail_panel(rail, "Activity")
+        tk.Label(activity, textvariable=self.telemetry_summary, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x")
+        tk.Label(activity, textvariable=self.telemetry_last, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(4, 10))
+        self._stacked_buttons(
+            activity,
+            [
+                ("Run Full Status", "Accent.TButton", self.run_status_snapshot),
+                ("Show Activity", "Soft.TButton", self.show_telemetry_summary),
+                ("Export Activity", "Soft.TButton", self.export_telemetry),
+                ("Clear Activity", "Danger.TButton", self.clear_telemetry),
+            ],
+        )
+
+        view = self._rail_panel(rail, "View")
+        self._stacked_buttons(
+            view,
+            [
+                ("Find Action", "Accent.TButton", self.show_command_palette),
+                ("Toggle Logs", "Soft.TButton", self.toggle_output_drawer),
+                ("Focus Mode", "Soft.TButton", self.toggle_focus_mode),
+                ("Refresh", "Soft.TButton", self.refresh_status),
+            ],
+        )
+
+    def _rail_panel(self, parent: tk.Widget, title: str) -> tk.Frame:
+        outer = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        outer.pack(fill="x", padx=self._scaled(12), pady=(0, self._scaled(10)))
+        tk.Label(outer, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x", padx=self._scaled(10), pady=(self._scaled(9), self._scaled(4)))
+        body = tk.Frame(outer, bg=COLORS["panel"])
+        body.pack(fill="x", padx=self._scaled(10), pady=(0, self._scaled(10)))
+        return body
+
+    def _stacked_buttons(self, parent: tk.Widget, specs: Iterable[tuple[str, str, Callable[[], None]]]) -> None:
+        for text, style, command in specs:
+            ttk.Button(parent, text=text, style=style, command=command).pack(fill="x", pady=(0, self._scaled(6)))
 
     def _build_menu(self) -> None:
         menu = tk.Menu(self)
@@ -1076,6 +1157,7 @@ class App(tk.Tk):
         view.add_command(label="Find Action", command=self.show_command_palette, accelerator="Ctrl+K")
         view.add_command(label="Checks Search", command=self.focus_command_search, accelerator="Ctrl+F")
         view.add_command(label="Toggle Focus Mode", command=self.toggle_focus_mode, accelerator="Ctrl+B")
+        view.add_command(label="Toggle Telemetry Rail", command=self.toggle_telemetry_rail, accelerator="Ctrl+T")
         view.add_command(label="Toggle Log Drawer", command=self.toggle_output_drawer, accelerator="Ctrl+L")
         view.add_command(label="Refresh Status", command=self.refresh_status, accelerator="F5")
         menu.add_cascade(label="View", menu=view)
@@ -1105,7 +1187,8 @@ class App(tk.Tk):
             return True
         always_available = {
             "Help", "Refresh Status", "Clear", "Copy All", "Copy Output", "Close", "Copy",
-            "Find Action", "Shortcuts", "Focus", "Nav", "Hide Logs", "Show Logs", "Show Logs *",
+            "Find Action", "Shortcuts", "Focus", "Nav", "Hide Telemetry", "Show Telemetry",
+            "Toggle Logs", "Refresh", "Hide Logs", "Show Logs", "Show Logs *",
             "Start Here", "Run & Test", "Checks", "Health Report", "Repair", "Profiles & DNS",
             "Certificates", "Browser Check", "Docs",
         }
@@ -1139,12 +1222,25 @@ class App(tk.Tk):
         self.sidebar_visible = not self.sidebar_visible
         if self.sidebar_visible:
             self.sidebar.grid()
-            self.root_container.columnconfigure(0, minsize=self._scaled(205), weight=0)
+            self.root_container.columnconfigure(0, minsize=self._scaled(190), weight=0)
             self.focus_mode_text.set("Focus")
         else:
             self.sidebar.grid_remove()
             self.root_container.columnconfigure(0, minsize=0, weight=0)
             self.focus_mode_text.set("Nav")
+
+    def toggle_telemetry_rail(self) -> None:
+        if not hasattr(self, "telemetry_rail"):
+            return
+        self.telemetry_rail_visible = not self.telemetry_rail_visible
+        if self.telemetry_rail_visible:
+            self.telemetry_rail.grid()
+            self.root_container.columnconfigure(2, minsize=self._scaled(255), weight=0)
+            self.telemetry_rail_text.set("Hide Telemetry")
+        else:
+            self.telemetry_rail.grid_remove()
+            self.root_container.columnconfigure(2, minsize=0, weight=0)
+            self.telemetry_rail_text.set("Show Telemetry")
 
     def focus_command_search(self) -> None:
         if hasattr(self, "validation_tab"):
@@ -1180,6 +1276,7 @@ class App(tk.Tk):
             PaletteItem("Copy Issue Summary", "Support", "Copy a redacted local issue summary", self.copy_issue_summary),
             PaletteItem("Show Logs", "View", "Open or close the log drawer", self.toggle_output_drawer),
             PaletteItem("Focus Mode", "View", "Hide or show the left navigation rail", self.toggle_focus_mode),
+            PaletteItem("Telemetry Rail", "View", "Hide or show the right telemetry rail", self.toggle_telemetry_rail),
             PaletteItem("Checks Search", "View", "Jump to validation command filtering", self.focus_command_search),
             PaletteItem("Keyboard Shortcuts", "Help", "Open shortcut reference", lambda: self.show_help_topic("keyboard_shortcuts")),
             PaletteItem("Open GUI Guide", "Docs", "Open docs/gui.md", lambda: self.open_path(ROOT / "docs" / "gui.md")),
@@ -1909,6 +2006,7 @@ class App(tk.Tk):
         overview.pack(fill="x", pady=(0, 12))
 
         readiness = self._card(overview, "Can I Use It Now?")
+        readiness.pack(fill="x")
         readiness_grid = tk.Frame(readiness, bg=COLORS["panel"])
         readiness_grid.pack(fill="x", padx=12, pady=(4, 12))
         readiness_items = [
@@ -1922,28 +2020,6 @@ class App(tk.Tk):
             item = self._readiness_item(readiness_grid, key, title, item_detail)
             readiness_widgets.append(item)
         self._responsive_grid(readiness_grid, readiness_widgets, preferred_columns=2, min_cell_width=230)
-
-        network = self._card(overview, "Live Network")
-        network_body = tk.Frame(network, bg=COLORS["panel"])
-        network_body.pack(fill="both", expand=True, padx=12, pady=(4, 12))
-        for variable, color in (
-            (self.network_down_rate, COLORS["blue"]),
-            (self.network_up_rate, COLORS["green"]),
-            (self.network_total, COLORS["ink"]),
-            (self.network_duration, COLORS["amber"]),
-        ):
-            tk.Label(network_body, textvariable=variable, bg=COLORS["panel"], fg=color, font=self.fonts["body_bold"], anchor="w").pack(fill="x", pady=(0, 5))
-        tk.Label(
-            network_body,
-            textvariable=self.network_source,
-            bg=COLORS["panel"],
-            fg=COLORS["muted"],
-            font=self.fonts["caption"],
-            wraplength=self._scaled(330),
-            justify="left",
-            anchor="w",
-        ).pack(fill="x", pady=(4, 0))
-        self._responsive_grid(overview, [readiness, network], preferred_columns=2, min_cell_width=380, gap=10)
 
         diagnostic = self._card(self.dashboard_tab, "Live diagnostic guidance")
         diagnostic.pack(fill="x", pady=(0, 12))
@@ -2042,31 +2118,6 @@ class App(tk.Tk):
             ],
             preferred_columns=4,
             min_cell_width=170,
-        )
-
-        telemetry, telemetry_body = self._collapsible_panel(
-            self.dashboard_tab,
-            "4. Activity History",
-            "Local event history for this GUI only. It records command labels, result codes, durations, and status snapshots; it never uploads data or stores payloads/private keys.",
-            self.show_dashboard_activity,
-            hidden_text="Show activity tools",
-            shown_text="Hide activity tools",
-        )
-        telemetry.pack(fill="x", pady=(0, 12))
-        tk.Label(telemetry_body, textvariable=self.telemetry_summary, bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 10, "bold"), anchor="w").pack(fill="x")
-        tk.Label(telemetry_body, textvariable=self.telemetry_last, bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 8))
-        telemetry_row = tk.Frame(telemetry_body, bg=COLORS["panel"])
-        telemetry_row.pack(fill="x")
-        self._button_grid(
-            telemetry_row,
-            [
-                ("Run Full Status", "Accent.TButton", self.run_status_snapshot),
-                ("Show Activity", "Soft.TButton", self.show_telemetry_summary),
-                ("Export Activity", "Soft.TButton", self.export_telemetry),
-                ("Clear Activity", "Danger.TButton", self.clear_telemetry),
-            ],
-            preferred_columns=4,
-            min_cell_width=150,
         )
 
         summary = self._card(self.dashboard_tab, "Status summary")

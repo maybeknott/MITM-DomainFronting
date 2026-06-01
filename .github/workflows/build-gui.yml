@@ -4,11 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ main ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-gui:
@@ -31,10 +33,42 @@ jobs:
       - name: Run GUI build script
         run: python scripts/build_gui_exe.py --skip-install
 
+      - name: Package GUI build
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag) { $tag = "dev" }
+          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "dist/MITM-DomainFronting-Control-Center" -DestinationPath $zip -CompressionLevel Optimal
+          $hash = Get-FileHash -Algorithm SHA256 $zip
+          "$($hash.Hash)  $(Split-Path $zip -Leaf)" | Set-Content -Encoding ascii "$zip.sha256"
+          Get-ChildItem dist -Filter "MITM-DomainFronting-Control-Center-*.zip*" | Format-Table -AutoSize
+
       - name: Upload GUI build artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gui-dist
-          path: dist/MITM-DomainFronting-Control-Center/**
+          path: |
+            dist/MITM-DomainFronting-Control-Center/**
+            dist/MITM-DomainFronting-Control-Center-*.zip
+            dist/MITM-DomainFronting-Control-Center-*.zip.sha256
           if-no-files-found: error
+
+      - name: Publish GUI build to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
+          $checksum = "$zip.sha256"
+          if (-not (Test-Path $zip)) { throw "Missing release zip: $zip" }
+          if (-not (Test-Path $checksum)) { throw "Missing release checksum: $checksum" }
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "MITM-DomainFronting $tag" --generate-notes
+          }
+          gh release upload $tag $zip $checksum --clobber
