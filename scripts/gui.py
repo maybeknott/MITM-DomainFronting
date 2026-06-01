@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import runpy
@@ -10,6 +11,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import traceback
 import webbrowser
 from dataclasses import dataclass
@@ -26,6 +28,8 @@ CONFIG = ROOT / "Xray-config" / "MITM-DomainFronting.json"
 CERT = ROOT / "Xray-config" / "mycert.crt"
 KEY = ROOT / "Xray-config" / "mycert.key"
 BROWSER_CONFIG = ROOT / "configs" / "browser-integration.json"
+LOCAL_STATE = ROOT / ".local-state"
+GUI_TELEMETRY = LOCAL_STATE / "gui-telemetry.jsonl"
 CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
 XRAY_RELEASES_URL = "https://github.com/XTLS/Xray-core/releases"
 
@@ -205,8 +209,15 @@ class App(tk.Tk):
         self.xray_process: subprocess.Popen[str] | None = None
         self.connection_state = tk.StringVar(value="Not connected")
         self.simple_next_step = tk.StringVar(value="Run Check Setup, then connect Xray and test the browser.")
+        self.overall_status = tk.StringVar(value="Checking")
+        self.overall_detail = tk.StringVar(value="Reading local config, certificates, ports, and tools.")
+        self.telemetry_summary = tk.StringVar(value="Telemetry: local only, 0 events")
+        self.telemetry_last = tk.StringVar(value="Last event: none")
+        self.last_status_level = "unknown"
+        self.status_chip_labels: dict[str, tk.Label] = {}
         self._configure_style()
         self._build_layout()
+        self.record_telemetry("app_started", "info", "GUI started")
         self.refresh_status()
 
     def _configure_style(self) -> None:
@@ -275,8 +286,15 @@ class App(tk.Tk):
 
         header = tk.Frame(content, bg=COLORS["bg"])
         header.pack(fill="x", padx=24, pady=(20, 10))
-        tk.Label(header, text="Control Center", bg=COLORS["bg"], fg=COLORS["ink"], font=("Segoe UI", 22, "bold")).pack(side="left")
-        ttk.Button(header, text="Refresh", style="Soft.TButton", command=self.refresh_status).pack(side="right")
+        title_block = tk.Frame(header, bg=COLORS["bg"])
+        title_block.pack(side="left", fill="x", expand=True)
+        tk.Label(title_block, text="Control Center", bg=COLORS["bg"], fg=COLORS["ink"], font=("Segoe UI", 22, "bold"), anchor="w").pack(fill="x")
+        tk.Label(title_block, textvariable=self.overall_detail, bg=COLORS["bg"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 0))
+        status_block = tk.Frame(header, bg=COLORS["bg"])
+        status_block.pack(side="right")
+        self.header_status_label = tk.Label(status_block, textvariable=self.overall_status, bg="#fef3c7", fg=COLORS["amber"], font=("Segoe UI", 11, "bold"), padx=12, pady=6)
+        self.header_status_label.pack(side="left", padx=(0, 8))
+        ttk.Button(status_block, text="Refresh Status", style="Soft.TButton", command=self.refresh_status).pack(side="left")
 
         self.tabs = ttk.Notebook(content)
         self.tabs.pack(fill="both", expand=True, padx=24, pady=(0, 10))
@@ -325,6 +343,15 @@ class App(tk.Tk):
         row.pack(fill="x", padx=16, pady=(4, 6))
         tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
         ttk.Entry(row, textvariable=variable).pack(side="left", fill="x", expand=True)
+
+    def _status_chip(self, parent: tk.Widget, name: str) -> tk.Label:
+        box = tk.Frame(parent, bg="#f8fafc", highlightbackground=COLORS["line"], highlightthickness=1)
+        box.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        tk.Label(box, text=name, bg="#f8fafc", fg=COLORS["muted"], font=("Segoe UI", 9), anchor="w").pack(fill="x", padx=10, pady=(8, 1))
+        label = tk.Label(box, text="Checking", bg="#f8fafc", fg=COLORS["amber"], font=("Segoe UI", 11, "bold"), anchor="w")
+        label.pack(fill="x", padx=10, pady=(0, 8))
+        self.status_chip_labels[name] = label
+        return label
 
     def _build_start_here(self) -> None:
         intro = tk.Label(
@@ -387,6 +414,13 @@ class App(tk.Tk):
         self.connection_label = tk.Label(right, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["amber"], font=("Segoe UI", 14, "bold"), anchor="e")
         self.connection_label.pack(fill="x")
 
+        glance = self._card(self.dashboard_tab, "At a glance")
+        glance.pack(fill="x", pady=(0, 12))
+        chip_row = tk.Frame(glance, bg=COLORS["panel"])
+        chip_row.pack(fill="x", padx=16, pady=(8, 16))
+        for name in ("Setup", "Connection", "Certificate", "Browser", "Telemetry"):
+            self._status_chip(chip_row, name)
+
         main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         main.pack(fill="x", pady=(0, 12))
         main.columnconfigure(0, weight=1)
@@ -433,6 +467,26 @@ class App(tk.Tk):
         ttk.Button(fix_row, text="Generate Local CA", style="Danger.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
         ttk.Button(fix_row, text="Install Browser Tools", style="Soft.TButton", command=self.install_diagnostics_dependencies).pack(side="left", padx=(0, 10))
         ttk.Button(fix_row, text="Copy Issue Summary", style="Soft.TButton", command=self.copy_issue_summary).pack(side="left")
+
+        telemetry = self._card(self.dashboard_tab, "4. Status and local telemetry")
+        telemetry.pack(fill="x", pady=(0, 12))
+        tk.Label(
+            telemetry,
+            text="Local event history for this GUI only. It records command labels, result codes, durations, and status snapshots; it never uploads data or stores payloads/private keys.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=900,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(2, 8))
+        tk.Label(telemetry, textvariable=self.telemetry_summary, bg=COLORS["panel"], fg=COLORS["ink"], font=("Segoe UI", 10, "bold"), anchor="w").pack(fill="x", padx=16)
+        tk.Label(telemetry, textvariable=self.telemetry_last, bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", padx=16, pady=(2, 8))
+        telemetry_row = tk.Frame(telemetry, bg=COLORS["panel"])
+        telemetry_row.pack(fill="x", padx=16, pady=(0, 16))
+        ttk.Button(telemetry_row, text="Run Full Status", style="Accent.TButton", command=self.run_status_snapshot).pack(side="left", padx=(0, 10))
+        ttk.Button(telemetry_row, text="Show Telemetry", style="Soft.TButton", command=self.show_telemetry_summary).pack(side="left", padx=(0, 10))
+        ttk.Button(telemetry_row, text="Export Telemetry", style="Soft.TButton", command=self.export_telemetry).pack(side="left", padx=(0, 10))
+        ttk.Button(telemetry_row, text="Clear Telemetry", style="Danger.TButton", command=self.clear_telemetry).pack(side="left")
 
         summary = self._card(self.dashboard_tab, "Status summary")
         summary.pack(fill="x")
@@ -745,6 +799,7 @@ class App(tk.Tk):
             ("Platform compatibility", ROOT / "docs" / "platform-compatibility.md"),
             ("FakeDNS recovery", ROOT / "docs" / "fakedns-recovery.md"),
             ("Provider status", ROOT / "docs" / "provider-status.md"),
+            ("Local telemetry", ROOT / "docs" / "local-telemetry.md"),
         ]
         tk.Label(self.docs_tab, text="Open the focused guide you need. These files are local repository docs.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(0, 12))
         grid = tk.Frame(self.docs_tab, bg=COLORS["panel"])
@@ -756,6 +811,120 @@ class App(tk.Tk):
             tk.Label(card, text=short_path(path), bg=COLORS["panel"], fg=COLORS["muted"], anchor="w").pack(fill="x", padx=16, pady=(2, 12))
             ttk.Button(card, text="Open", style="Soft.TButton", command=lambda p=path: self.open_path(p)).pack(anchor="w", padx=16, pady=(0, 16))
 
+    def record_telemetry(self, event: str, status: str, detail: str = "", fields: dict[str, object] | None = None) -> None:
+        LOCAL_STATE.mkdir(exist_ok=True)
+        payload: dict[str, object] = {
+            "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            "event": event,
+            "status": status,
+            "detail": detail[:240],
+            "fields": fields or {},
+        }
+        try:
+            with GUI_TELEMETRY.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload, sort_keys=True) + "\n")
+        except OSError:
+            return
+        self._update_telemetry_labels(payload)
+
+    def _telemetry_events(self, limit: int | None = None) -> list[dict[str, object]]:
+        if not GUI_TELEMETRY.exists():
+            return []
+        try:
+            lines = GUI_TELEMETRY.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        selected = lines[-limit:] if limit else lines
+        events: list[dict[str, object]] = []
+        for line in selected:
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(item, dict):
+                events.append(item)
+        return events
+
+    def _update_telemetry_labels(self, latest: dict[str, object] | None = None) -> None:
+        events = self._telemetry_events()
+        if latest is None and events:
+            latest = events[-1]
+        self.telemetry_summary.set(f"Telemetry: local only, {len(events)} event{'s' if len(events) != 1 else ''}")
+        if latest:
+            self.telemetry_last.set(f"Last event: {latest.get('event', 'unknown')} / {latest.get('status', 'info')} / {latest.get('detail', '')}")
+        else:
+            self.telemetry_last.set("Last event: none")
+
+    def _status_snapshot(self) -> dict[str, object]:
+        profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        host_python = find_host_python()
+        local_xray = find_local_xray()
+        loopback_open = port_accepts_loopback(10808)
+        browser_cfg = read_browser_integration()
+        return {
+            "config_exists": CONFIG.exists(),
+            "cert_exists": CERT.exists(),
+            "key_exists": KEY.exists(),
+            "profile_count": len(profiles),
+            "loopback_10808_open": loopback_open,
+            "xray_started_by_gui": self._xray_running_from_gui(),
+            "xray_local": bool(local_xray),
+            "xray_path": short_path(local_xray) if local_xray else "",
+            "host_python": " ".join(host_python or []),
+            "browser_proxy": self.browser_proxy.get().strip() or browser_cfg.get("default_proxy", "socks5://127.0.0.1:10808"),
+            "browser_path_set": bool(self.browser_executable.get().strip()),
+            "diagnostics_script": (SCRIPTS / "browser_diagnostics.py").exists(),
+            "stealth_script": (SCRIPTS / "browser_stealth.py").exists(),
+            "geodata_lock": (ROOT / "release-geodata-lock.json").exists(),
+        }
+
+    def _status_level(self, snapshot: dict[str, object]) -> tuple[str, str]:
+        if not snapshot["config_exists"]:
+            return "fail", "Primary config is missing."
+        if not snapshot["cert_exists"] or not snapshot["key_exists"]:
+            return "warn", "Generate local CA files before browser MITM testing."
+        if not snapshot["loopback_10808_open"]:
+            return "warn", "Local proxy is not listening yet. Connect Xray or start v2rayN."
+        if not snapshot["diagnostics_script"] or not snapshot["stealth_script"]:
+            return "warn", "Browser diagnostics scripts are missing."
+        return "pass", "Ready for browser testing through the local proxy."
+
+    def _set_label_state(self, label: tk.Label, text: str, level: str) -> None:
+        color = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
+        label.configure(text=text, fg=color)
+
+    def run_status_snapshot(self) -> None:
+        snapshot = self._status_snapshot()
+        level, detail = self._status_level(snapshot)
+        self.record_telemetry("status_snapshot", level, detail, snapshot)
+        self.refresh_status()
+        self._append_output("\nStatus snapshot:\n" + json.dumps({"status": level, "detail": detail, "snapshot": snapshot}, indent=2) + "\n")
+
+    def show_telemetry_summary(self) -> None:
+        events = self._telemetry_events(limit=25)
+        if not events:
+            self._append_output("\nNo local GUI telemetry events recorded yet.\n")
+            return
+        self._append_output("\nRecent local GUI telemetry:\n" + json.dumps(events, indent=2) + "\n")
+
+    def export_telemetry(self) -> None:
+        events = self._telemetry_events()
+        target = LOCAL_STATE / "gui-telemetry-export.diagnostic.json"
+        LOCAL_STATE.mkdir(exist_ok=True)
+        target.write_text(json.dumps({"events": events}, indent=2), encoding="utf-8")
+        self.record_telemetry("telemetry_exported", "info", short_path(target), {"event_count": len(events)})
+        self._append_output(f"\nExported local telemetry: {short_path(target)}\n")
+
+    def clear_telemetry(self) -> None:
+        if GUI_TELEMETRY.exists():
+            try:
+                GUI_TELEMETRY.unlink()
+            except OSError as exc:
+                messagebox.showerror("Clear telemetry failed", str(exc))
+                return
+        self._update_telemetry_labels(None)
+        self._append_output("\nCleared local GUI telemetry.\n")
+
     def choose_browser_path(self) -> None:
         initial = self.browser_executable.get().strip()
         initialdir = str(Path(initial).parent) if initial and Path(initial).parent.exists() else str(ROOT)
@@ -766,6 +935,7 @@ class App(tk.Tk):
         )
         if path:
             self.browser_executable.set(path)
+            self.record_telemetry("browser_path_selected", "info", "Browser executable path set", {"path_set": True})
             self._append_output(f"\nBrowser path set: {path}\n")
 
     def _xray_running_from_gui(self) -> bool:
@@ -774,15 +944,18 @@ class App(tk.Tk):
     def connect_xray(self) -> None:
         if self._xray_running_from_gui():
             self._append_output("\nXray is already running from this dashboard.\n")
+            self.record_telemetry("xray_connect", "info", "Already running from GUI")
             self.refresh_status()
             return
         if port_accepts_loopback(10808):
             self._append_output("\nPort 10808 is already accepting loopback connections. An external Xray/v2rayN instance may already be running.\n")
+            self.record_telemetry("xray_connect", "info", "External listener already active", {"port": 10808})
             self.refresh_status()
             return
         xray = find_local_xray()
         if xray is None:
             self._append_output("\nLocal Xray binary not found. Use Download Xray, then Connect Xray again.\n")
+            self.record_telemetry("xray_connect", "warn", "Local Xray binary not found")
             if messagebox.askyesno("Xray not found", "Download local Xray runtime now?"):
                 self.download_xray()
             return
@@ -800,8 +973,10 @@ class App(tk.Tk):
         except Exception as exc:  # noqa: BLE001
             messagebox.showerror("Connect failed", str(exc))
             self._append_output(f"\nFailed to start Xray: {exc}\n")
+            self.record_telemetry("xray_connect", "fail", "Failed to start Xray")
             return
         self._append_output(f"\nStarted Xray: {short_path(xray)}\n")
+        self.record_telemetry("xray_connect", "info", "Started dashboard-launched Xray", {"xray_path": short_path(xray)})
         self.current_process_label.set("Xray starting")
         threading.Thread(target=self._read_xray_output, daemon=True).start()
         self.after(900, self.refresh_status)
@@ -813,6 +988,7 @@ class App(tk.Tk):
         for line in proc.stdout:
             self.after(0, lambda item=line: self._append_output("[xray] " + item))
         code = proc.poll()
+        self.after(0, lambda: self.record_telemetry("xray_exit", "info" if code == 0 else "warn", "Xray process exited", {"exit_code": code}))
         self.after(0, lambda: self._append_output(f"\nXray process exited with code {code}\n"))
         self.after(0, self.refresh_status)
 
@@ -824,8 +1000,10 @@ class App(tk.Tk):
                     "Port 10808 is open, but this app did not launch that process. Stop it in v2rayN/Xray or your process manager.",
                 )
                 self._append_output("\nCannot stop external Xray/v2rayN from this dashboard.\n")
+                self.record_telemetry("xray_disconnect", "info", "External listener left untouched")
             else:
                 self._append_output("\nNo dashboard-launched Xray process is running.\n")
+                self.record_telemetry("xray_disconnect", "info", "No GUI-launched process running")
             self.refresh_status()
             return
         assert self.xray_process is not None
@@ -836,6 +1014,7 @@ class App(tk.Tk):
             self.xray_process.kill()
             self.xray_process.wait(timeout=5)
         self._append_output("\nStopped dashboard-launched Xray.\n")
+        self.record_telemetry("xray_disconnect", "info", "Stopped dashboard-launched Xray")
         self.current_process_label.set("Xray stopped")
         self.refresh_status()
 
@@ -854,7 +1033,19 @@ class App(tk.Tk):
         remarks = data.get("remarks", "unknown")
         min_version = data.get("version", {}).get("min") if isinstance(data.get("version"), dict) else "unknown"
         profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
-        loopback_open = port_accepts_loopback(10808)
+        snapshot = self._status_snapshot()
+        level, detail = self._status_level(snapshot)
+        loopback_open = bool(snapshot["loopback_10808_open"])
+        self._update_telemetry_labels()
+        status_text = {"pass": "Ready", "warn": "Needs Attention", "fail": "Blocked"}.get(level, "Checking")
+        self.overall_status.set(status_text)
+        self.overall_detail.set(detail)
+        status_bg = {"pass": "#dcfce7", "warn": "#fef3c7", "fail": "#fee2e2"}.get(level, "#dbeafe")
+        status_fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"]}.get(level, COLORS["blue"])
+        self.header_status_label.configure(bg=status_bg, fg=status_fg)
+        if level != self.last_status_level:
+            self.record_telemetry("status_changed", level, detail, {"previous": self.last_status_level})
+            self.last_status_level = level
         if self._xray_running_from_gui():
             self.connection_state.set("Connected")
             self.simple_next_step.set("Xray is running from the dashboard. Test the browser, then review Health if anything fails.")
@@ -867,6 +1058,13 @@ class App(tk.Tk):
             self.connection_state.set("Not connected")
             self.simple_next_step.set("Run Check Setup, then Connect Xray or start v2rayN before testing the browser.")
             self.connection_label.configure(fg=COLORS["amber"])
+        self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
+        self._set_label_state(self.status_chip_labels["Connection"], "Open" if loopback_open else "Closed", "pass" if loopback_open else "warn")
+        cert_ok = bool(snapshot["cert_exists"] and snapshot["key_exists"])
+        self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
+        browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
+        self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
+        self._set_label_state(self.status_chip_labels["Telemetry"], "Local only", "info")
         self.status_labels["Config"].configure(text=f"{short_path(CONFIG)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if CONFIG.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
@@ -893,7 +1091,7 @@ class App(tk.Tk):
             text=f"proxy: {self.browser_proxy.get().strip() or proxy}\nbrowser: {self.browser_executable.get().strip() or 'bundled/default'}\ndiagnostics: {'ready' if diag_ok else 'missing'}",
             fg=COLORS["green"] if diag_ok and stealth_ok else COLORS["amber"],
         )
-        self.status_labels["Privacy"].configure(text="No telemetry\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
+        self.status_labels["Privacy"].configure(text="Local telemetry only\nNo automatic uploads\nNo silent trust install", fg=COLORS["green"])
 
     def run_spec(self, spec: CommandSpec) -> None:
         self.run_async(spec.label, list(spec.args))
@@ -901,23 +1099,28 @@ class App(tk.Tk):
     def run_async(self, label: str, args: list[str], timeout: int = 120, after: Callable[[int, str], None] | None = None) -> None:
         self.current_process_label.set(f"Running: {label}")
         self._append_output(f"\n$ {' '.join(args)}\n")
+        self.record_telemetry("command_started", "info", label)
 
         def worker() -> None:
+            started = time.perf_counter()
             try:
                 code, output = run_command(args, timeout=timeout)
             except subprocess.TimeoutExpired as exc:
                 code, output = 124, f"Timed out after {exc.timeout} seconds"
             except Exception as exc:  # noqa: BLE001
                 code, output = 1, str(exc)
-            self.after(0, lambda: self._finish_command(label, code, output, after))
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            self.after(0, lambda: self._finish_command(label, code, output, after, duration_ms))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def run_sequence(self, label: str, steps: list[tuple[str, list[str], int]]) -> None:
         self.current_process_label.set(f"Running: {label}")
         self._append_output(f"\n== {label} ==\n")
+        self.record_telemetry("sequence_started", "info", label, {"steps": len(steps)})
 
         def worker() -> None:
+            started = time.perf_counter()
             chunks: list[str] = []
             final_code = 0
             for step_label, args, timeout in steps:
@@ -934,14 +1137,21 @@ class App(tk.Tk):
                 if code != 0 and final_code == 0:
                     final_code = code
             text = "\n".join(chunks)
-            self.after(0, lambda: self._finish_command(label, final_code, text, None))
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            self.after(0, lambda: self._finish_command(label, final_code, text, None, duration_ms))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None) -> None:
+    def _finish_command(self, label: str, code: int, output: str, after: Callable[[int, str], None] | None, duration_ms: int | None = None) -> None:
         status = "PASS" if code == 0 else "WARN/FAIL"
         self._append_output(f"{output}\n[{status}] {label} exited with code {code}\n")
         self.current_process_label.set(f"{label}: {status}")
+        self.record_telemetry(
+            "command_finished",
+            "pass" if code == 0 else "warn",
+            label,
+            {"exit_code": code, "duration_ms": duration_ms},
+        )
         if after:
             after(code, output)
         self.refresh_status()
@@ -1333,6 +1543,7 @@ def self_test() -> int:
         ROOT / "config-src" / "manifest.json",
         ROOT / "config-src" / "fragments" / "README.md",
         ROOT / "docs" / "lab-evidence-checklist.md",
+        ROOT / "docs" / "local-telemetry.md",
         BROWSER_CONFIG,
         ROOT / "docs" / "chromium-integration.md",
     ]

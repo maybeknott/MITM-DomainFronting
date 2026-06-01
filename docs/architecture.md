@@ -45,7 +45,7 @@ Add maintainability around that path through docs and scripts, not through a com
 
 ## Diagnostic and governance layer
 
-Local validation sits beside the runtime graph. Nothing in this layer uploads telemetry or changes runtime config automatically.
+Local validation sits beside the runtime graph. Nothing in this layer uploads telemetry or changes runtime config automatically. The GUI may write local-only operational telemetry under `.local-state/` for status history, command durations, and redacted troubleshooting evidence.
 
 ```text
 Xray-config/MITM-DomainFronting.json

@@ -8,6 +8,7 @@ mycert.key
 *.pem
 
 # Local logs, diagnostics, and release evidence
+.local-state/
 *.log
 *.tmp
 *.bak

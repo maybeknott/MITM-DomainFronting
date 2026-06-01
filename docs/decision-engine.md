@@ -15,7 +15,7 @@ preflight facts
 
 `scripts/decision_report.py` produces that kind of local, redacted report. It does not inspect payloads, cookies, authorization headers, request bodies, or private-key contents.
 
-The expected local health checks and profile failure policies are defined in [health-checks.yml](../configs/health-checks.yml). This metadata is intentionally local-only and redacted-by-default; it must not become telemetry.
+The expected local health checks and profile failure policies are defined in [health-checks.yml](../configs/health-checks.yml). This metadata is intentionally local-only and redacted-by-default; it must not become remote telemetry. The GUI's local status log is limited to redacted operational events described in [local-telemetry.md](local-telemetry.md).
 
 ## Command
 

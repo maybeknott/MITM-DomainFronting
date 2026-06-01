@@ -159,12 +159,12 @@ This structure intentionally does not require:
 
 - a database;
 - a server;
-- telemetry;
+- remote telemetry;
 - account login;
 - automatic upload of diagnostics;
 - automatic OS-wide certificate installation.
 
-Generated operating profiles and the local GUI are optional repository tools. They must preserve the single primary config workflow and must not introduce telemetry, remote services, or automatic trust-store changes.
+Generated operating profiles and the local GUI are optional repository tools. They must preserve the single primary config workflow and must not introduce remote telemetry, remote services, or automatic trust-store changes. Local GUI telemetry is permitted only as ignored, redacted troubleshooting state under `.local-state/`.
 
 ## Minimum adoption checklist
 

@@ -29,6 +29,7 @@ REQUIRED_FILES = [
     "docs/preflight-and-diagnostics.md",
     "docs/release-engineering.md",
     "docs/chromium-integration.md",
+    "docs/local-telemetry.md",
     "configs/profiles.yml",
     "configs/dns-profiles.yml",
     "configs/compatibility.yml",
@@ -102,6 +103,7 @@ SHOULD_BE_IGNORED = [
     "dist/_tmp",
     "build/config",
     "lab-evidence.bundle.json",
+    ".local-state/gui-telemetry.jsonl",
 ]
 
 

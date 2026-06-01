@@ -18,9 +18,11 @@ py scripts\gui.py
 
 - Opens on a compact **Dashboard** for new users with:
   - connection status for local `127.0.0.1:10808`;
+  - at-a-glance setup, connection, certificate, browser, and local telemetry status;
   - **Connect Xray** / **Disconnect** controls for the Xray process launched by the GUI;
   - URL, proxy, and browser executable path fields;
   - one-click **Check Setup**, **Safe Auto-Fix**, **Generate Local CA**, **Install Browser Tools**, and **Test Browser** actions;
+  - local-only telemetry controls for status snapshots, recent events, export, and clear;
   - always-visible local logs with copy/clear controls.
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
@@ -37,6 +39,7 @@ py scripts\gui.py
 - Provides one-click installers for optional diagnostics dependencies, Playwright Chromium, CloakBrowser, PyInstaller, and a local Xray runtime download.
 - Runs DNS query-type sweeps for `A`, `AAAA`, `HTTPS`, and `SVCB`.
 - Shows certificate status and certificate/key pair checks.
+- Records local GUI telemetry under `.local-state/` only. It never uploads diagnostics or payloads.
 - Runs the **two-part browser model** from the **Browser** tab:
   - **Diagnostics** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).
   - **Stealth** — [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) via `browser_stealth.py` (fingerprint and anti-bot path; default stealth engine).
@@ -50,6 +53,7 @@ py scripts\gui.py
 - The GUI runs locally from the repository checkout.
 - It does not silently install a root CA.
 - It does not upload diagnostics or reports.
+- It does not send telemetry to remote services.
 - It does not inspect browser payloads.
 - It does not commit generated files.
 - Local CA files and alternate-port outputs remain subject to `.gitignore` and normal review.
