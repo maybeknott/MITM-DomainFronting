@@ -24,8 +24,8 @@ protocols:
       - stream_reset
 
   http_3_quic_udp_443:
-    status: limited_or_unknown
-    expected_behavior: document_per_browser
+    status: profile_defined
+    expected_behavior: strict_debug_block_balanced_compatibility_direct
     tests:
       - udp_443_route
       - browser_http3_enabled_disabled

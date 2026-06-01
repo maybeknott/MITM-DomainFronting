@@ -34,7 +34,7 @@ fi
 mkdir -p "$out_dir"
 (
   cd "$out_dir"
-  "$xray_bin" tls cert -ca -file=mycert
+  "$xray_bin" tls cert -ca -file=mycert >/dev/null
 )
 
 chmod 644 "$out_dir/mycert.crt" 2>/dev/null || true

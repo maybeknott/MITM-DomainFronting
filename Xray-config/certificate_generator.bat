@@ -25,7 +25,7 @@ if not defined XRAY_BIN (
 )
 
 echo Generating local CA files using Xray...
-"%XRAY_BIN%" tls cert -ca -file=mycert
+"%XRAY_BIN%" tls cert -ca -file=mycert >nul
 if errorlevel 1 (
   echo Xray failed to generate certificate files.
   pause

@@ -11,7 +11,7 @@ Document what the current method is expected to handle, what is expected to pass
 | TCP/443 HTTPS | Core supported path for targeted browser flows | Certificate trust, ALPN, SNI/ECH, provider drift | Browser test plus route-tag check |
 | HTTP/1.1 over TLS | Supported through h11 local tunnel | WebSocket upgrades, keepalive, redirects | Test normal page + WebSocket endpoint |
 | HTTP/2 over TLS | Supported through h2/h1 local tunnel | gRPC, stream resets, multiplexing | Test HTTP/2 page + gRPC-like h2 endpoint |
-| HTTP/3 / QUIC / UDP/443 | Not fully modeled in the base config | May bypass TCP path, fail, or downgrade | Test UDP/443 behavior explicitly |
+| HTTP/3 / QUIC / UDP/443 | Profile-defined UDP/443 policy | Strict/debug block QUIC; balanced/compatibility direct-route with warning | Test UDP/443 behavior explicitly |
 | DNS UDP/TCP/53 | Routed through DNS handling | Resolver timeout, hijack, private domains | Resolver tests |
 | DoH | Depends on configured resolver route | Resolver reachability, TLS behavior | DNS check script |
 | DoT | Not explicitly modeled unless user adds it | Port 853 behavior | Document unsupported unless tested |

@@ -66,11 +66,11 @@ jobs:
             python scripts/route_intent_sync.py "$config"
           done
 
-      - name: Optional Xray runtime config test
+      - name: Xray runtime config test
         if: hashFiles('Xray-config/MITM-DomainFronting.json') != ''
         run: |
           python scripts/install_xray.py --out-dir xray --force
-          xray/xray tls cert -ca -file=xray/mycert
+          xray/xray tls cert -ca -file=Xray-config/mycert >/dev/null
           xray/xray run -test -config Xray-config/MITM-DomainFronting.json
           python scripts/geodata_pin.py --verify --strict --xray-bin xray/xray --root .
 

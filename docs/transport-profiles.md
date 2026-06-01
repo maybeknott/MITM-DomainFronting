@@ -20,11 +20,11 @@ This file documents transport capability without requiring multiple runtime prof
 | UDP | explicit testing required | QUIC/WebRTC/DNS edge cases |
 | HTTP/1.1 | supported/tested | h11 local tunnel path |
 | HTTP/2 | supported/tested | h2/h1 local tunnel path |
-| HTTP/3/QUIC | limited/unknown | UDP/443 behavior differs by browser |
+| HTTP/3/QUIC | profile-defined | Strict/debug block UDP/443; balanced/compatibility direct-route with warning |
 | WebSocket | test-required | Depends on HTTP/1.1 upgrade handling |
 | gRPC | test-required | Depends on HTTP/2 stream behavior |
 | Xray transports like XHTTP/gRPC/WS/Hysteria | not added by default | Would change architecture; document separately if ever added |
 
 ## Rule
 
-Transport expansion should be tested and documented before claiming support. Keep unsupported transports marked as `unknown` or `limited`, not silently assumed.
+Transport expansion should be tested and documented before claiming support. Unsupported transports must stay explicitly labeled rather than silently assumed.
