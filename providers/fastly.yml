@@ -2,6 +2,21 @@ id: fastly
 status: experimental
 owner: maintainers
 summary: Fastly-backed route coverage for domain and IP classified traffic.
+front_sni:
+  - global.prod.fastly.net
+  - www.fastly.com
+alpn_policy:
+  allowed:
+    - h2
+    - http/1.1
+  preferred: h2
+cidr_hints:
+  - value: geoip:fastly
+    action: allow
+    rationale: Route Fastly-tagged traffic through validated Fastly edge space.
+  - value: geoip:private
+    action: block
+    rationale: Avoid private-network CIDR leakage on fronted routes.
 last_tested: 2026-05-31
 routes:
   - r130_repack_fastly_h2

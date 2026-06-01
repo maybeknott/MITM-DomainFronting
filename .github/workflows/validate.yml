@@ -73,6 +73,8 @@ jobs:
         run: |
           python scripts/install_xray.py --out-dir xray --force
           xray/xray tls cert -ca -file=Xray-config/mycert >/dev/null
+          cp Xray-config/mycert.crt xray/mycert.crt
+          cp Xray-config/mycert.key xray/mycert.key
           xray/xray run -test -config Xray-config/MITM-DomainFronting.json
           python scripts/geodata_pin.py --verify --strict --xray-bin xray/xray --root .
 

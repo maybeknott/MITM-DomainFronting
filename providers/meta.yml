@@ -2,6 +2,21 @@ id: meta
 status: experimental
 owner: maintainers
 summary: Meta-family route coverage for h2-targeted flows.
+front_sni:
+  - www.instagram.com
+  - www.facebook.com
+alpn_policy:
+  allowed:
+    - h2
+    - http/1.1
+  preferred: h2
+cidr_hints:
+  - value: geoip:meta
+    action: allow
+    rationale: Prefer Meta-owned address space for policy-matched routing.
+  - value: geoip:private
+    action: block
+    rationale: Avoid private-network destinations for fronted route candidates.
 last_tested: 2026-05-31
 routes:
   - r140_repack_meta_h2

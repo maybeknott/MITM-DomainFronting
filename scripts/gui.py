@@ -870,7 +870,29 @@ class App(tk.Tk):
             CommandSpec("Transport Governance", "Validate transport experiment manifest guardrails.", tuple(py_script("transport_experiment_validate.py"))),
             CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py", "--allow-warn"))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
-            CommandSpec("Decision Report", "Redacted local decision summary.", tuple(py_script("decision_report.py", "--config", str(CONFIG), "--profile", "balanced"))),
+            CommandSpec(
+                "Decision Report",
+                "Redacted local decision summary with phase diagnostics.",
+                tuple(
+                    py_script(
+                        "decision_report.py",
+                        "--config",
+                        str(CONFIG),
+                        "--cert",
+                        str(CERT),
+                        "--key",
+                        str(KEY),
+                        "--profile",
+                        "balanced",
+                        "--target",
+                        self.dns_domain.get().strip() or "www.google.com",
+                        "--provider-family",
+                        "unknown",
+                        "--json-out",
+                        str(LOCAL_STATE / "decision-report.latest.json"),
+                    )
+                ),
+            ),
         ]
 
     def _build_validation(self) -> None:
@@ -923,6 +945,7 @@ class App(tk.Tk):
         ttk.Button(row, text="Run Health Probe", style="Accent.TButton", command=self.run_health_probe).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Run Lab Evidence", style="Soft.TButton", command=self.run_lab_evidence).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Run Decision Report", style="Soft.TButton", command=self.run_decision_report).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Copy Phase Summary", style="Soft.TButton", command=self.copy_phase_summary).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Health Policy", style="Soft.TButton", command=lambda: self.open_path(ROOT / "configs" / "health-checks.yml")).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Decision Engine Doc", style="Soft.TButton", command=lambda: self.open_path(ROOT / "docs" / "decision-engine.md")).pack(side="left")
 
@@ -1794,14 +1817,179 @@ class App(tk.Tk):
         self.run_async("Health probe", args, timeout=180)
 
     def run_lab_evidence(self) -> None:
-        self.run_async("Lab evidence bundle", py_script("lab_evidence_run.py", "--allow-warn"), timeout=240)
+        LOCAL_STATE.mkdir(parents=True, exist_ok=True)
+        report_path = LOCAL_STATE / "lab-evidence.latest.json"
+        self.run_async(
+            "Lab evidence bundle",
+            py_script("lab_evidence_run.py", "--allow-warn", "--json-out", str(report_path)),
+            timeout=240,
+            after=lambda code, output: self._after_lab_evidence(code, output, report_path),
+        )
 
     def run_decision_report(self) -> None:
+        LOCAL_STATE.mkdir(parents=True, exist_ok=True)
+        report_path = LOCAL_STATE / "decision-report.latest.json"
+        target = self.dns_domain.get().strip() or "www.google.com"
         self.run_async(
             "Decision report",
-            py_script("decision_report.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--profile", "balanced"),
+            py_script(
+                "decision_report.py",
+                "--config",
+                str(CONFIG),
+                "--cert",
+                str(CERT),
+                "--key",
+                str(KEY),
+                "--profile",
+                "balanced",
+                "--target",
+                target,
+                "--provider-family",
+                "unknown",
+                "--json-out",
+                str(report_path),
+            ),
             timeout=120,
+            after=lambda code, output: self._after_decision_report(code, output, report_path),
         )
+
+    def _after_decision_report(self, code: int, output: str, report_path: Path) -> None:
+        if code != 0:
+            return
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            try:
+                data = json.loads(report_path.read_text(encoding="utf-8"))
+            except Exception:
+                return
+        if not isinstance(data, dict):
+            return
+        phase_diag = data.get("phase_diagnostics")
+        if not isinstance(phase_diag, dict):
+            return
+        phase = str(phase_diag.get("phase_classification", "unknown"))
+        confidence = phase_diag.get("confidence_score", 0.0)
+        recommendation = phase_diag.get("actionable_recommendation", {})
+        action = recommendation.get("action", "manual_review_required") if isinstance(recommendation, dict) else "manual_review_required"
+        reason = recommendation.get("reason", "") if isinstance(recommendation, dict) else ""
+        self._append_output(
+            "\nPhase diagnostics summary:\n"
+            f"  phase: {phase}\n"
+            f"  confidence: {confidence}\n"
+            f"  action: {action}\n"
+            f"  reason: {reason}\n"
+            f"  report file: {short_path(report_path)}\n",
+            stream="audit",
+        )
+
+    def _after_lab_evidence(self, code: int, output: str, report_path: Path) -> None:
+        if code != 0:
+            return
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            try:
+                data = json.loads(report_path.read_text(encoding="utf-8"))
+            except Exception:
+                return
+        if not isinstance(data, dict):
+            return
+        overall = str(data.get("overall", "unknown"))
+        scenarios = data.get("scenarios", {})
+        pass_count = 0
+        warn_count = 0
+        if isinstance(scenarios, dict):
+            for value in scenarios.values():
+                if not isinstance(value, dict):
+                    continue
+                status = str(value.get("status", "")).lower()
+                if status == "pass":
+                    pass_count += 1
+                elif status == "warn":
+                    warn_count += 1
+        self._append_output(
+            "\nLab evidence summary:\n"
+            f"  overall: {overall}\n"
+            f"  scenarios: pass={pass_count} warn={warn_count}\n"
+            f"  report file: {short_path(report_path)}\n",
+            stream="audit",
+        )
+
+    def copy_phase_summary(self) -> None:
+        decision_path = LOCAL_STATE / "decision-report.latest.json"
+        evidence_path = LOCAL_STATE / "lab-evidence.latest.json"
+        if not decision_path.exists():
+            messagebox.showwarning(
+                "Missing decision report",
+                "Run Decision Report first, then copy the phase summary.",
+            )
+            return
+        try:
+            decision = json.loads(decision_path.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Copy failed", f"Could not read decision report: {exc}")
+            return
+        if not isinstance(decision, dict):
+            messagebox.showerror("Copy failed", "Decision report JSON is not an object.")
+            return
+
+        phase_diag = decision.get("phase_diagnostics", {})
+        if not isinstance(phase_diag, dict):
+            messagebox.showwarning(
+                "Missing phase diagnostics",
+                "Decision report is present but does not include phase diagnostics.",
+            )
+            return
+
+        recommendation = phase_diag.get("actionable_recommendation", {})
+        if not isinstance(recommendation, dict):
+            recommendation = {}
+
+        evidence_overall = "not-run"
+        evidence_pass = 0
+        evidence_warn = 0
+        if evidence_path.exists():
+            try:
+                evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+                if isinstance(evidence, dict):
+                    evidence_overall = str(evidence.get("overall", "unknown"))
+                    scenarios = evidence.get("scenarios", {})
+                    if isinstance(scenarios, dict):
+                        for value in scenarios.values():
+                            if not isinstance(value, dict):
+                                continue
+                            status = str(value.get("status", "")).lower()
+                            if status == "pass":
+                                evidence_pass += 1
+                            elif status == "warn":
+                                evidence_warn += 1
+            except Exception:
+                evidence_overall = "read-error"
+
+        summary = "\n".join(
+            [
+                "MITM-DomainFronting phase summary (redacted)",
+                f"Target: {phase_diag.get('target', 'unknown')}",
+                f"Provider family: {phase_diag.get('provider_family', 'unknown')}",
+                f"Phase: {phase_diag.get('phase_classification', 'unknown')}",
+                f"Confidence: {phase_diag.get('confidence_score', 0.0)}",
+                f"Recommended action: {recommendation.get('action', 'manual_review_required')}",
+                f"Reason: {recommendation.get('reason', '')}",
+                f"Decision report: {short_path(decision_path)}",
+                (
+                    f"Lab evidence: {short_path(evidence_path)} "
+                    f"(overall={evidence_overall}, pass={evidence_pass}, warn={evidence_warn})"
+                    if evidence_path.exists()
+                    else "Lab evidence: not-run"
+                ),
+                "Sensitive data intentionally omitted: private keys, cookies, request bodies, full browsing history.",
+            ]
+        )
+        self.clipboard_clear()
+        self.clipboard_append(summary)
+        self._append_output("\nCopied redacted phase summary to clipboard.\n" + summary + "\n", stream="audit")
+        self.current_process_label.set("Phase summary copied")
 
     def run_browser_smoke(self) -> None:
         try:
@@ -2069,6 +2257,8 @@ def self_test() -> int:
         SCRIPTS / "mitm_trust.py",
         SCRIPTS / "check_dns.py",
         SCRIPTS / "decision_report.py",
+        SCRIPTS / "path_scorer.py",
+        SCRIPTS / "path_scorer_tests.py",
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
         SCRIPTS / "browser_stealth.py",
@@ -2096,6 +2286,8 @@ def self_test() -> int:
         SCRIPTS / "transport_profile_validate.py",
         SCRIPTS / "protocol_smoke.py",
         SCRIPTS / "core" / "__init__.py",
+        SCRIPTS / "core" / "failure_classifier.py",
+        SCRIPTS / "core" / "provider_policy.py",
         SCRIPTS / "core" / "process_supervisor.py",
         SCRIPTS / "core" / "route_rule_linter.py",
         SCRIPTS / "core" / "trust_assistant.py",

@@ -2,6 +2,21 @@ id: google
 status: experimental
 owner: maintainers
 summary: Google-family and googlevideo route coverage for h11/h2 paths.
+front_sni:
+  - www.google.com
+  - www.gstatic.com
+alpn_policy:
+  allowed:
+    - h2
+    - http/1.1
+  preferred: h2
+cidr_hints:
+  - value: geoip:google
+    action: allow
+    rationale: Prefer provider-owned Google address space when available.
+  - value: geoip:private
+    action: block
+    rationale: Prevent private-network leakage in fronted egress selection.
 last_tested: 2026-05-31
 routes:
   - r100_repack_googlevideo_h11

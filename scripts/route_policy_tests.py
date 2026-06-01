@@ -24,6 +24,14 @@ def rule_by_tag(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return {rule.get("ruleTag"): rule for rule in rules(config) if isinstance(rule.get("ruleTag"), str)}
 
 
+def inbound_by_tag(config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    result: Dict[str, Dict[str, Any]] = {}
+    for item in config.get("inbounds", []):
+        if isinstance(item, dict) and isinstance(item.get("tag"), str):
+            result[item["tag"]] = item
+    return result
+
+
 def profile_name(config: Dict[str, Any], path: Path) -> str:
     remarks = config.get("remarks")
     if isinstance(remarks, str):
@@ -37,6 +45,85 @@ def profile_name(config: Dict[str, Any], path: Path) -> str:
     return ""
 
 
+def _alpn_list(inbound: Dict[str, Any]) -> List[str]:
+    stream_settings = inbound.get("streamSettings", {})
+    if not isinstance(stream_settings, dict):
+        return []
+    tls_settings = stream_settings.get("tlsSettings", {})
+    if not isinstance(tls_settings, dict):
+        return []
+    alpn = tls_settings.get("alpn", [])
+    if isinstance(alpn, list):
+        return [str(item) for item in alpn]
+    return []
+
+
+def _as_tag_set(value: Any) -> set[str]:
+    if isinstance(value, list):
+        return {str(item) for item in value}
+    if isinstance(value, str):
+        return {value}
+    return set()
+
+
+def check_protocol_silos(config: Dict[str, Any], path: Path) -> List[str]:
+    errors: List[str] = []
+    inbounds = inbound_by_tag(config)
+    by_tag = rule_by_tag(config)
+
+    required_inbounds = {
+        "tls-decrypt-google-h11",
+        "tls-decrypt-google-h2",
+        "tls-decrypt-fastly-h2",
+        "tls-decrypt-meta-h2",
+    }
+    missing = sorted(required_inbounds - set(inbounds))
+    if missing:
+        errors.append(f"{path}: missing required decrypted inbounds: {', '.join(missing)}")
+        return errors
+
+    google_h11_alpn = _alpn_list(inbounds["tls-decrypt-google-h11"])
+    if google_h11_alpn != ["http/1.1"]:
+        errors.append(
+            f"{path}: tls-decrypt-google-h11 must keep ALPN exactly ['http/1.1'], got {google_h11_alpn}"
+        )
+
+    for inbound_tag in ("tls-decrypt-google-h2", "tls-decrypt-fastly-h2", "tls-decrypt-meta-h2"):
+        alpn = _alpn_list(inbounds[inbound_tag])
+        if "h2" not in alpn:
+            errors.append(f"{path}: {inbound_tag} must include h2 in ALPN list")
+
+    expected_rule_inbound = {
+        "r100_repack_googlevideo_h11": {"tls-decrypt-google-h11"},
+        "r120_repack_google_h2": {"tls-decrypt-google-h2"},
+        "r130_repack_fastly_h2": {"tls-decrypt-fastly-h2"},
+        "r140_repack_meta_h2": {"tls-decrypt-meta-h2"},
+        "r150_repack_fastly_ip_h2": {"tls-decrypt-fastly-h2"},
+    }
+
+    for rule_tag, expected_inbound in expected_rule_inbound.items():
+        rule = by_tag.get(rule_tag)
+        if not isinstance(rule, dict):
+            errors.append(f"{path}: missing rule {rule_tag}")
+            continue
+        actual = _as_tag_set(rule.get("inboundTag"))
+        if actual != expected_inbound:
+            errors.append(f"{path}: {rule_tag} inboundTag must be {sorted(expected_inbound)}, got {sorted(actual)}")
+
+    h2_block = by_tag.get("r160_block_unmatched_h2")
+    if not isinstance(h2_block, dict):
+        errors.append(f"{path}: missing rule r160_block_unmatched_h2")
+    else:
+        actual = _as_tag_set(h2_block.get("inboundTag"))
+        expected = {"tls-decrypt-google-h2", "tls-decrypt-fastly-h2", "tls-decrypt-meta-h2"}
+        if actual != expected:
+            errors.append(
+                f"{path}: r160_block_unmatched_h2 inboundTag must be {sorted(expected)}, got {sorted(actual)}"
+            )
+
+    return errors
+
+
 def check_base(config: Dict[str, Any], path: Path) -> List[str]:
     errors: List[str] = []
     by_tag = rule_by_tag(config)
@@ -44,6 +131,7 @@ def check_base(config: Dict[str, Any], path: Path) -> List[str]:
         errors.append(f"{path}: base config must keep direct global catch-all")
     if any(rule.get("network") == "udp" and str(rule.get("port")) == "443" for rule in rules(config)):
         errors.append(f"{path}: base config should not add profile-specific UDP/443 policy")
+    errors.extend(check_protocol_silos(config, path))
     return errors
 
 
@@ -70,6 +158,7 @@ def check_profile(config: Dict[str, Any], path: Path) -> List[str]:
             errors.append(f"{path}: {name} profile must keep direct global catch-all")
         if not udp_rules or udp_rules[0].get("outboundTag") != "direct":
             errors.append(f"{path}: {name} profile must direct UDP/443 with documented warning")
+    errors.extend(check_protocol_silos(config, path))
     return errors
 
 

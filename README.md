@@ -159,6 +159,8 @@ python scripts/build_config.py --check-runtime-sync --generate-profiles --check-
 python scripts/health_policy_tests.py
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 python scripts/lab_evidence_validate.py lab-evidence.bundle.json
+python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --profile balanced --target www.google.com --provider-family google --json-out .local-state/decision-report.latest.json
+python scripts/path_scorer.py --input .local-state/decision-report.latest.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
 ```
 
