@@ -5,14 +5,19 @@ This repository now includes a tested Rust stream-core baseline at the repo root
 - `Cargo.toml`
 - `src/main.rs`
 - `src/alpn_policy.rs`
+- `src/backend_runtime.rs`
 - `src/h2_coalescing.rs`
 - `src/ingress.rs`
+- `src/ingress_android_tun.rs`
 - `src/ingress_loopback.rs`
+- `src/ingress_xdp_gateway.rs`
 - `src/parser.rs`
 - `src/cert_cache.rs`
 - `src/cooperative_overlay.rs`
 - `src/regression_harness.rs`
 - `src/scheduler.rs`
+- `src/tls_orchestrator.rs`
+- `src/tls_orchestrator_backend.rs`
 
 Current scope:
 
@@ -58,11 +63,21 @@ Current scope:
    - `:authority` values are normalized before tracking
    - Cross-provider reuse fails closed
 
+9. **TLS orchestration baseline**
+   - Upstream ALPN negotiation and local ALPN commit are split behind explicit traits
+   - Fallback policy is explicit (`FailClosed`, `ForceHttp11IfPossible`, `BypassWithoutMitm`)
+   - Upstream negotiation errors can degrade to bypass mode when policy allows
+
+10. **Backend runtime fallback baseline**
+    - Runtime backend selection supports `auto`, `loopback`, `android_tun`, `gateway_xdp`
+    - Android TUN and XDP packet backends are capability-gated and bounded
+    - Unsupported or misconfigured packet backends automatically fall back to loopback with visible runtime notes
+
 Important limits:
 
 - This is **not** a production TLS MITM engine yet.
 - No handcrafted TLS `ServerHello` forging is implemented.
-- Android TUN and AF_XDP are represented as backend boundaries, not enabled runtime backends.
+- Android TUN and AF_XDP paths are bounded packet backends with explicit fallback to loopback.
 - No runtime auto-switching is introduced by this Rust baseline.
 
 Validation:

@@ -27,9 +27,14 @@ MITM-DomainFronting/
     cert_cache.rs
     scheduler.rs
     alpn_policy.rs
+    tls_orchestrator.rs
+    tls_orchestrator_backend.rs
     h2_coalescing.rs
+    backend_runtime.rs
     ingress.rs
+    ingress_android_tun.rs
     ingress_loopback.rs
+    ingress_xdp_gateway.rs
     cooperative_overlay.rs
     regression_harness.rs
 

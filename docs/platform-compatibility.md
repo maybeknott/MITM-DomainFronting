@@ -62,6 +62,17 @@ For each release, maintain this table:
 | QUIC behavior documented |  |  |  |  |
 | Known unsupported app classes documented |  |  |  |  |
 
+## Rust backend fallback contract
+
+The Rust stream-core runtime accepts a backend preference but must not fail hard when packet backends are unavailable.
+
+- `MITM_STREAM_BACKEND=loopback`: always available baseline path.
+- `MITM_STREAM_BACKEND=android_tun`: requires Android runtime and a valid `MITM_STREAM_ANDROID_TUN_FD`; otherwise fallback to loopback.
+- `MITM_STREAM_BACKEND=gateway_xdp`: requires Linux runtime and `MITM_STREAM_XDP_IFACE`; otherwise fallback to loopback.
+- `MITM_STREAM_BACKEND=auto`: attempts packet backends opportunistically, then falls back to loopback.
+
+This keeps desktop diagnostics and local orchestration usable even when Android/XDP capability is absent.
+
 ## Public Wi-Fi, LAN, and hostile local network assumptions
 
 The method should be treated as a local-only tool. All local listeners should bind to `127.0.0.1` or `::1`. On public Wi-Fi or hostile LANs, a listener bound to `0.0.0.0` or a LAN IP may be reachable by other devices.
