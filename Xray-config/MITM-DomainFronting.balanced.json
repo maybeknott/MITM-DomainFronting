@@ -1,5 +1,5 @@
 {
-  "remarks": "MITM-DomainFronting_v22_Hardened_balanced",
+  "remarks": "MITM-DomainFronting_v23_Hardened_balanced",
   "version": {
     "min": "26.2.6"
   },
@@ -13,6 +13,11 @@
       "0": {
         "uplinkOnly": 0,
         "downlinkOnly": 0
+      },
+      "1": {
+        "uplinkOnly": 0,
+        "downlinkOnly": 0,
+        "connIdle": 6
       }
     }
   },
@@ -47,7 +52,8 @@
       {
         "tag": "no-filter-dns-cloudflare",
         "address": "h2c://1.1.1.1/dns-query",
-        "timeoutMs": 4000
+        "timeoutMs": 6000,
+        "finalQuery": true
       },
       {
         "tag": "no-filter-dns-google",
@@ -223,7 +229,10 @@
     },
     {
       "tag": "dns-out",
-      "protocol": "dns"
+      "protocol": "dns",
+      "settings": {
+        "userLevel": 1
+      }
     },
     {
       "tag": "redirect-out-google-h11",
