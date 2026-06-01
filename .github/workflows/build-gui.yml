@@ -30,10 +30,13 @@ jobs:
       - name: Install PyInstaller
         run: python -m pip install pyinstaller
 
+      - name: Download bundled Xray Core
+        run: python scripts/install_xray.py --out-dir xray --force
+
       - name: Run GUI build script
         run: python scripts/build_gui_exe.py --skip-install
 
-      - name: Package GUI build
+      - name: Package final Windows app bundle
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
@@ -69,6 +72,7 @@ jobs:
           if (-not (Test-Path $checksum)) { throw "Missing release checksum: $checksum" }
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "MITM-DomainFronting $tag" --generate-notes
+            gh release create $tag --title "MITM-DomainFronting $tag" --notes "Download the Windows app bundle asset below. GitHub also shows automatic source-code archives for every tag; those are not the final product package."
           }
+          gh release edit $tag --title "MITM-DomainFronting $tag" --notes "Download the Windows app bundle asset below. GitHub also shows automatic source-code archives for every tag; those are not the final product package."
           gh release upload $tag $zip $checksum --clobber
