@@ -39,6 +39,10 @@ Use this checklist before merging config, DNS, certificate, documentation, or re
 - [ ] WebRTC/STUN/TURN behavior documented or marked degraded/unsupported.
 - [ ] IPv6 behavior documented.
 - [ ] Android app limitations documented.
+- [ ] No handcrafted TLS `ServerHello`/`Finished` byte-forging is introduced without transcript-level tests.
+- [ ] ALPN local/upstream lock behavior is explicit and fail-closed on mismatch.
+- [ ] HTTP/2 provider coalescing isolation is preserved (`:authority` normalization + provider-family pinning).
+- [ ] No async mutex is held across `.await` in stream/overlay paths.
 
 ## Certificate review
 
@@ -62,3 +66,6 @@ Use this checklist before merging config, DNS, certificate, documentation, or re
 - [ ] Support matrix updated.
 - [ ] Known issues updated.
 - [ ] Final verdict written.
+- [ ] Any new dependency is reflected in requirements/CI and validated on clean checkout.
+- [ ] Existing script CLI contracts remain backward-compatible or are versioned/documented.
+- [ ] `auto_switch_safe` remains false unless explicit governance approval exists.

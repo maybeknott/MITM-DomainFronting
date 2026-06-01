@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import ipaddress
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -52,6 +53,8 @@ def validate_policy_dict(data: Dict[str, Any], *, source: str, stale_days: int =
         errors.append("last_tested: must be an ISO date string (YYYY-MM-DD)")
 
     if tested_date is not None:
+        if tested_date > dt.date.today():
+            errors.append("last_tested: cannot be in the future")
         age_days = (dt.date.today() - tested_date).days
         if age_days > stale_days:
             warnings.append(f"last_tested is stale ({age_days} days)")
@@ -122,6 +125,21 @@ def validate_policy_dict(data: Dict[str, Any], *, source: str, stale_days: int =
                 errors.append(f"cidr_hints[{index}].value: required non-empty string")
             elif not CIDR_HINT_VALUE_RE.fullmatch(value):
                 errors.append(f"cidr_hints[{index}].value: invalid format '{value}'")
+            else:
+                hint_value = value.strip()
+                if hint_value.startswith(("geoip:", "geosite:", "domain:")):
+                    suffix = hint_value.split(":", 1)[1] if ":" in hint_value else ""
+                    if not suffix:
+                        errors.append(
+                            f"cidr_hints[{index}].value: classifier value '{hint_value}' is missing suffix"
+                        )
+                else:
+                    try:
+                        ipaddress.ip_network(hint_value, strict=False)
+                    except ValueError:
+                        errors.append(
+                            f"cidr_hints[{index}].value: expected CIDR or classifier token (geoip:/geosite:/domain:), got '{hint_value}'"
+                        )
             if not isinstance(action, str) or action not in ALLOWED_CIDR_ACTIONS:
                 errors.append(
                     f"cidr_hints[{index}].action: must be one of {sorted(ALLOWED_CIDR_ACTIONS)}"

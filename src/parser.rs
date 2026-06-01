@@ -388,4 +388,17 @@ mod tests {
         let err = parse_client_hello_handshake(&hello).expect_err("must reject truncated");
         assert!(matches!(err, ParserError::Invalid(_)));
     }
+
+    #[test]
+    fn parser_does_not_panic_on_deterministic_random_inputs() {
+        let mut seed: u64 = 0x9e3779b97f4a7c15;
+        for len in 0..512 {
+            let mut payload = Vec::with_capacity(len);
+            for _ in 0..len {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                payload.push((seed >> 24) as u8);
+            }
+            let _ = parse_client_hello_handshake(&payload);
+        }
+    }
 }

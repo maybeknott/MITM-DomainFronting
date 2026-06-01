@@ -53,9 +53,9 @@ PHASE_DIAGNOSTICS_SCHEMA_VERSION = 1
 VALID_PHASES = {
     "healthy",
     "dns_poisoned_or_failed",
+    "dns_resolution_failed",
     "dns_poisoned",
     "dns_timeout",
-    "dns_resolution_failed",
     "tcp_timeout_blackhole",
     "tcp_timeout",
     "tcp_refused",
@@ -76,7 +76,9 @@ VALID_PHASES = {
 
 PHASE_ACTION_MAP = {
     "healthy": ("maintain_current_profile", "All staged phases completed successfully."),
+    "dns_resolution_failed": ("switch_dns_resolver_profile", "Target failed at DNS resolution stage."),
     "dns_poisoned_or_failed": ("switch_dns_resolver_profile", "Target failed at DNS resolution stage."),
+    "dns_timeout": ("switch_dns_resolver_profile", "DNS queries timed out before address resolution."),
     "tcp_timeout_blackhole": ("swap_cdn_edge_ip", "Edge IP path timed out during TCP connect."),
     "tcp_refused": ("swap_cdn_edge_ip", "Edge path actively refused the connection."),
     "tcp_failed": ("swap_cdn_edge_ip", "TCP connect failed before TLS state could begin."),
@@ -190,6 +192,7 @@ def phase_recommendation(phase: str) -> Dict[str, Any]:
 def normalize_phase(phase: str) -> str:
     aliases = {
         "dns_failed": "dns_resolution_failed",
+        "dns_poisoned_or_failed": "dns_resolution_failed",
         "tcp_connect_timeout": "tcp_timeout",
         "tls_timeout": "tls_silent_drop",
         "tls_eof": "tls_alert_or_rst",

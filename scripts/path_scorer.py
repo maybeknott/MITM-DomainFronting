@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Tuple
 
 PHASE_STATUS = {
     "healthy": ("HEALTHY", 92.0, "NO_CHANGE", "keep_current_profile"),
+    "dns_resolution_failed": ("SUSPECT", 24.0, "ROTATE_PROFILE", "run_dns_resolver_probe"),
+    "dns_timeout": ("SUSPECT", 20.0, "ROTATE_PROFILE", "run_dns_resolver_probe"),
     "dns_poisoned_or_failed": ("SUSPECT", 24.0, "ROTATE_PROFILE", "run_dns_resolver_probe"),
     "tcp_timeout_blackhole": ("CIRCUIT_OPEN", 4.0, "ROTATE_PROFILE", "swap_edge_ip_or_provider"),
     "tcp_refused": ("CIRCUIT_OPEN", 0.0, "ROTATE_PROFILE", "swap_edge_ip_or_provider"),
@@ -17,6 +19,8 @@ PHASE_STATUS = {
     "tls_alert_or_rst": ("QUARANTINED", 10.0, "ROTATE_PROFILE", "rotate_fronted_sni"),
     "tls_silent_drop": ("QUARANTINED", 8.0, "ROTATE_PROFILE", "rotate_fronted_sni"),
     "alpn_mismatch": ("QUARANTINED", 16.0, "ROTATE_PROFILE", "validate_alpn_policy"),
+    "http_status_bad": ("SUSPECT", 35.0, "ROTATE_PROFILE", "inspect_http_status_and_route_policy"),
+    "first_byte_timeout": ("SUSPECT", 28.0, "ROTATE_PROFILE", "run_first_byte_and_throughput_probe"),
     "throughput_stall": ("SUSPECT", 26.0, "ROTATE_PROFILE", "run_first_byte_and_throughput_probe"),
 }
 

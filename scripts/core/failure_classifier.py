@@ -66,12 +66,19 @@ def run_staged_probe(host: str, port: int = 443, timeout: float = 5.0) -> ProbeR
         addr_infos = list(_iter_addrinfo(host, port))
         result.dns_ms = _elapsed_ms(dns_start)
     except socket.gaierror as exc:
-        result.phase_classification = "dns_poisoned_or_failed"
-        result.confidence_score = 0.96
+        result.phase_classification = (
+            "dns_timeout" if exc.errno == socket.EAI_AGAIN else "dns_resolution_failed"
+        )
+        result.confidence_score = 0.92 if exc.errno == socket.EAI_AGAIN else 0.96
+        result.error_detail = f"{exc.__class__.__name__}: {exc}"
+        return result
+    except TimeoutError as exc:
+        result.phase_classification = "dns_timeout"
+        result.confidence_score = 0.92
         result.error_detail = f"{exc.__class__.__name__}: {exc}"
         return result
     except Exception as exc:  # noqa: BLE001
-        result.phase_classification = "dns_poisoned_or_failed"
+        result.phase_classification = "dns_resolution_failed"
         result.confidence_score = 0.9
         result.error_detail = f"{exc.__class__.__name__}: {exc}"
         return result
@@ -170,7 +177,13 @@ def run_staged_probe(host: str, port: int = 443, timeout: float = 5.0) -> ProbeR
             if response.startswith(b"HTTP/1.1 "):
                 parts = response.split(b" ", 2)
                 if len(parts) > 1 and parts[1].isdigit():
-                    result.http_status = int(parts[1].decode("ascii"))
+                    status_code = int(parts[1].decode("ascii"))
+                    result.http_status = status_code
+                    if status_code >= 400:
+                        result.phase_classification = "http_status_bad"
+                        result.confidence_score = 0.9
+                        result.error_detail = f"HTTP status {status_code} during viability check"
+                        return result
                 else:
                     result.http_status = "http1_response"
             else:
@@ -184,9 +197,17 @@ def run_staged_probe(host: str, port: int = 443, timeout: float = 5.0) -> ProbeR
             if len(frame_header) >= 9:
                 result.http_status = "h2_frame_received"
             else:
+                result.phase_classification = "first_byte_timeout"
+                result.confidence_score = 0.86
                 result.http_status = "h2_no_frame"
+                result.error_detail = "H2 negotiated but no frame header received in probe window"
+                return result
         else:
+            result.phase_classification = "alpn_mismatch"
+            result.confidence_score = 0.88
             result.http_status = f"unsupported_alpn:{result.alpn_negotiated}"
+            result.error_detail = f"Unsupported ALPN negotiated: {result.alpn_negotiated}"
+            return result
 
         result.phase_classification = "healthy"
         result.confidence_score = 1.0
@@ -202,4 +223,3 @@ def run_staged_probe(host: str, port: int = 443, timeout: float = 5.0) -> ProbeR
         tls_sock.close()
 
     return result
-

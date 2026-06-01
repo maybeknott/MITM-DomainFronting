@@ -53,11 +53,27 @@ def test_alpn_preferred_must_be_in_allowed() -> None:
     assert any("alpn_policy.preferred" in error for error in errors)
 
 
+def test_future_last_tested_fails() -> None:
+    policy = valid_policy()
+    policy["last_tested"] = "2999-01-01"
+    errors, _ = validate_policy_dict(policy, source="providers/google.yml", stale_days=90)
+    assert any("last_tested: cannot be in the future" in error for error in errors)
+
+
+def test_cidr_hint_requires_token_or_cidr() -> None:
+    policy = valid_policy()
+    policy["cidr_hints"][0]["value"] = "not-a-cidr-or-token"
+    errors, _ = validate_policy_dict(policy, source="providers/google.yml", stale_days=90)
+    assert any("expected CIDR or classifier token" in error for error in errors)
+
+
 def main() -> int:
     tests = [
         test_valid_policy_passes,
         test_missing_front_sni_fails,
         test_alpn_preferred_must_be_in_allowed,
+        test_future_last_tested_fails,
+        test_cidr_hint_requires_token_or_cidr,
     ]
     for test in tests:
         test()
@@ -67,4 +83,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

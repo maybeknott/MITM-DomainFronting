@@ -17,7 +17,7 @@ def test_probe_result_to_dict_shape() -> None:
 
 def test_invalid_tld_returns_dns_failure() -> None:
     result = run_staged_probe("definitely-not-real-probe-target.invalid", timeout=1.0)
-    assert result.phase_classification == "dns_poisoned_or_failed"
+    assert result.phase_classification in {"dns_resolution_failed", "dns_timeout"}
     assert result.confidence_score >= 0.9
 
 
@@ -34,4 +34,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
