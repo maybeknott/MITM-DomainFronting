@@ -59,6 +59,7 @@ jobs:
         run: |
           python scripts/route_policy_tests.py
           python scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json
+          python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json --quiet
 
       - name: Sync route intent manifest against primary config
         run: |

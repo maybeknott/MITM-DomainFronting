@@ -27,6 +27,7 @@ def main() -> int:
     audit_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json", help="config to validate")
     sub.add_parser("probe", help="run the local redacted health probe")
     sub.add_parser("preflight", help="run local preflight checks")
+    sub.add_parser("trust", help="print advisory trust-store setup instructions")
     args, unknown = parser.parse_known_args()
 
     if args.command == "init":
@@ -37,12 +38,15 @@ def main() -> int:
         return run_script(SCRIPTS / "health_probe.py", unknown)
     if args.command == "preflight":
         return run_script(SCRIPTS / "preflight.py", unknown)
+    if args.command == "trust":
+        return run_script(SCRIPTS / "trust_assistant.py", unknown)
     if args.command == "audit":
         config_arg = str(Path(args.config))
         checks = [
             (SCRIPTS / "validate_config.py", [config_arg]),
             (SCRIPTS / "route_intent_sync.py", [config_arg]),
             (SCRIPTS / "route_graph_verify.py", [config_arg]),
+            (SCRIPTS / "route_rule_linter.py", [config_arg, "--quiet"]),
             (SCRIPTS / "route_policy_tests.py", []),
             (SCRIPTS / "validate_metadata.py", []),
             (SCRIPTS / "provider_dossier_validate.py", []),

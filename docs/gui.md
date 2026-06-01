@@ -27,6 +27,7 @@ py scripts\gui.py
   - always-visible local logs with copy/clear controls.
 - Shows the primary config, local certificate presence, generated profile status, and privacy boundaries.
 - Runs config validation, static preflight, metadata checks, route policy tests, protocol policy tests, secret scan, route intent sync, config-src validation, transport governance validation, lab evidence bundle, and decision report.
+- Runs route graph verification and first-match route rule linting for decrypted-inbound isolation.
 - Runs repository-structure checks, provider dossier validation, geodata lock verification (when present), and local health probe checks.
 - Provides a **Fixes and Help** tab with safe local repair actions.
 - Provides a **Health** tab for redacted local health probes, lab evidence bundles, decision reports, and browser smoke summaries:
@@ -39,7 +40,7 @@ py scripts\gui.py
 - Runs a safe auto-fix sequence that regenerates profiles, creates alternate-port variants, validates routes/protocols/metadata, runs static preflight, and optionally generates local CA files after confirmation.
 - Provides one-click installers for optional diagnostics dependencies, Playwright Chromium, CloakBrowser, PyInstaller, and a local Xray runtime download.
 - Runs DNS query-type sweeps for `A`, `AAAA`, `HTTPS`, and `SVCB`.
-- Shows certificate status and certificate/key pair checks.
+- Shows certificate status, certificate/key pair checks, and advisory trust-store command instructions without installing trust automatically.
 - Records local GUI telemetry under `.local-state/` only. It never uploads diagnostics or payloads.
 - Runs the **two-part browser model** from the **Browser** tab:
   - **Diagnostics** — stock Chromium via `browser_diagnostics.py` (proxy/CA/page-load checks).

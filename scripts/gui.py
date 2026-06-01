@@ -21,6 +21,8 @@ from typing import Callable, Iterable
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from core.process_supervisor import ProcessSupervisor
+
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -212,6 +214,7 @@ class App(tk.Tk):
         self.browser_headless = tk.BooleanVar(value=False)
         self.browser_geoip = tk.BooleanVar(value=False)
         self.browser_humanize = tk.BooleanVar(value=bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
+        self.xray_supervisor: ProcessSupervisor | None = None
         self.xray_process: subprocess.Popen[str] | None = None
         self.active_config = tk.StringVar(value=str(CONFIG))
         self.connection_state = tk.StringVar(value="Not connected")
@@ -522,6 +525,7 @@ class App(tk.Tk):
             CommandSpec("Static Preflight", "Local preflight without cert/runtime/DNS requirements.", tuple(py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"))),
             CommandSpec("Metadata", "Provider/profile/health metadata checks.", tuple(py_script("validate_metadata.py"))),
             CommandSpec("Route Tests", "Route order, references, and policy tests.", tuple(py_script("route_policy_tests.py"))),
+            CommandSpec("Route Rule Linter", "First-match shadow and decrypted-inbound isolation lint.", tuple(py_script("route_rule_linter.py", str(CONFIG)))),
             CommandSpec("Protocol Tests", "Protocol metadata and docs coverage tests.", tuple(py_script("protocol_policy_tests.py"))),
             CommandSpec("Repository Structure", "Required files and gitignore hygiene checks.", tuple(py_script("repository_structure_tests.py"))),
             CommandSpec("Provider Dossiers", "Provider metadata, route-tag linkage, and rollback/evidence checks.", tuple(py_script("provider_dossier_validate.py"))),
@@ -706,6 +710,7 @@ class App(tk.Tk):
         ttk.Button(row, text="Certificate Status", style="Accent.TButton", command=self.cert_status).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Check Cert/Key Pair", style="Soft.TButton", command=self.cert_pair).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Generate Local CA", style="Danger.TButton", command=self.generate_ca).pack(side="left", padx=(0, 10))
+        ttk.Button(row, text="Trust Instructions", style="Soft.TButton", command=self.trust_instructions).pack(side="left", padx=(0, 10))
         ttk.Button(row, text="Open Xray-config Folder", style="Soft.TButton", command=lambda: self.open_path(ROOT / "Xray-config")).pack(side="left")
 
     def _build_browser(self) -> None:
@@ -989,21 +994,11 @@ class App(tk.Tk):
             messagebox.showerror("Missing config", f"Selected config not found: {short_path(config_path)}")
             return
         try:
-            popen_kwargs: dict[str, object] = {
-                "cwd": str(ROOT),
-                "text": True,
-                "stdout": subprocess.PIPE,
-                "stderr": subprocess.STDOUT,
-            }
-            if os.name == "nt":
-                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-            else:
-                popen_kwargs["start_new_session"] = True
-            self.xray_process = subprocess.Popen(
-                [str(xray), "run", "-config", str(config_path)],
-                **popen_kwargs,
-            )
+            self.xray_supervisor = ProcessSupervisor(xray, ["run", "-config", str(config_path)], ROOT)
+            self.xray_process = self.xray_supervisor.spawn()
         except Exception as exc:  # noqa: BLE001
+            self.xray_supervisor = None
+            self.xray_process = None
             messagebox.showerror("Connect failed", str(exc))
             self._append_output(f"\nFailed to start Xray: {exc}\n")
             self.record_telemetry("xray_connect", "fail", "Failed to start Xray")
@@ -1021,6 +1016,9 @@ class App(tk.Tk):
         for line in proc.stdout:
             self.after(0, lambda item=line: self._append_output("[xray] " + item))
         code = proc.poll()
+        if self.xray_process is proc:
+            self.xray_process = None
+            self.xray_supervisor = None
         self.after(0, lambda: self.record_telemetry("xray_exit", "info" if code == 0 else "warn", "Xray process exited", {"exit_code": code}))
         self.after(0, lambda: self._append_output(f"\nXray process exited with code {code}\n"))
         self.after(0, self.refresh_status)
@@ -1050,8 +1048,11 @@ class App(tk.Tk):
         proc = self.xray_process
         if proc is None or proc.poll() is not None:
             self.xray_process = None
+            self.xray_supervisor = None
             return
-        if os.name == "nt":
+        if self.xray_supervisor:
+            self.xray_supervisor.terminate()
+        elif os.name == "nt":
             subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
                 stdout=subprocess.DEVNULL,
@@ -1063,15 +1064,15 @@ class App(tk.Tk):
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait(timeout=5)
-            self.xray_process = None
-            return
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=5)
+        else:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
         self.xray_process = None
+        self.xray_supervisor = None
 
     def close_app(self) -> None:
         if self._xray_running_from_gui():
@@ -1469,6 +1470,9 @@ class App(tk.Tk):
     def cert_pair(self) -> None:
         self.run_async("Certificate pair check", py_script("mitm_trust.py", "check-pair", "--cert", str(CERT), "--key", str(KEY)))
 
+    def trust_instructions(self) -> None:
+        self.run_async("Trust instructions", py_script("trust_assistant.py", "--cert", str(CERT)))
+
     def generate_ca(self) -> None:
         if not messagebox.askyesno("Generate local CA", "This creates or replaces local CA files in Xray-config. Continue?"):
             return
@@ -1587,6 +1591,7 @@ def self_test() -> int:
         SCRIPTS / "browser_smoke.py",
         SCRIPTS / "health_probe.py",
         SCRIPTS / "trust_store_check.py",
+        SCRIPTS / "trust_assistant.py",
         SCRIPTS / "platform_capability_check.py",
         SCRIPTS / "provider_dossier_validate.py",
         SCRIPTS / "repository_structure_tests.py",
@@ -1596,6 +1601,8 @@ def self_test() -> int:
         SCRIPTS / "fakedns_recovery_check.py",
         SCRIPTS / "install_xray.py",
         SCRIPTS / "route_intent_sync.py",
+        SCRIPTS / "route_graph_verify.py",
+        SCRIPTS / "route_rule_linter.py",
         SCRIPTS / "config_src_validate.py",
         SCRIPTS / "config_src_build.py",
         SCRIPTS / "config_src_merge.py",
@@ -1604,6 +1611,10 @@ def self_test() -> int:
         SCRIPTS / "transport_experiment_validate.py",
         SCRIPTS / "transport_profile_validate.py",
         SCRIPTS / "protocol_smoke.py",
+        SCRIPTS / "core" / "__init__.py",
+        SCRIPTS / "core" / "process_supervisor.py",
+        SCRIPTS / "core" / "route_rule_linter.py",
+        SCRIPTS / "core" / "trust_assistant.py",
         ROOT / "configs" / "health-checks.yml",
         ROOT / "configs" / "route-intent.json",
         ROOT / "configs" / "transport-experiments.json",

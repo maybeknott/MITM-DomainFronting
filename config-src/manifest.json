@@ -17,6 +17,7 @@
     "validate_config",
     "route_intent_sync",
     "route_graph_verify",
+    "route_rule_linter",
     "route_policy_tests",
     "transport_experiment_validate",
     "config_src_runtime_sync"

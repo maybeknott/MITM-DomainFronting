@@ -43,7 +43,10 @@ Best-effort trust-store matching:
 
 ```bash
 python scripts/trust_store_check.py --cert Xray-config/mycert.crt
+python scripts/trust_assistant.py --cert Xray-config/mycert.crt
 ```
+
+`trust_store_check.py` reports whether the local CA appears trusted. `trust_assistant.py` prints platform-specific command blocks for users to run themselves; it does not elevate privileges or modify trust stores.
 
 Local health summary:
 
@@ -108,7 +111,7 @@ The script writes simple JSON with statuses:
   "checks": [
     {"id": "config_json", "status": "pass", "detail": "valid JSON"},
     {"id": "port_10808", "status": "pass", "detail": "present in config"},
-    {"id": "loopback_tls_decrypt_h11", "status": "warn", "detail": "missing explicit listen field; add listen: 127.0.0.1"}
+    {"id": "loopback_tls_decrypt_google_h11", "status": "warn", "detail": "missing explicit listen field; add listen: 127.0.0.1"}
   ]
 }
 ```

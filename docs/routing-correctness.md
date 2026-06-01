@@ -59,7 +59,11 @@ Maintain this table in `docs/routing-correctness.md`. The machine-readable sourc
 
 ```bash
 python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json
+python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json
 ```
+
+`route_graph_verify.py` is a conservative decrypted-inbound isolation check. `route_rule_linter.py` is a first-match shadowing check: it reports absolute catch-all rules that make later rules unreachable, warns about broad fallback boundaries, and fails if decrypted `tls-decrypt-*` traffic can hit a scoped direct route or global fallback before a scoped terminal block.
 
 | Rule tag | Match | Outbound | Intent | Expected failure behavior |
 |---|---|---|---|---|
@@ -110,6 +114,7 @@ python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 - Profile configs have exactly one explicit UDP/443 policy rule.
 - Strict profile blocks the global catch-all and UDP/443.
 - Balanced and compatibility profiles keep direct fallback and direct UDP/443 with documented warning.
+- Decrypted inbound paths stay scoped to repack routes and terminal blocks before any global fallback.
 - Debug profile keeps access logs disabled and blocks UDP/443 to surface QUIC mismatch.
 
 ## Keep the current simple behavior

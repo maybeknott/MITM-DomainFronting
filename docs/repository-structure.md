@@ -108,8 +108,10 @@ MITM-DomainFronting/
     gui.py
     protocol_policy_tests.py
     route_graph_verify.py
+    route_rule_linter.py
     route_policy_tests.py
     secret_scan.py
+    trust_assistant.py
     validate_metadata.py
     build_release_manifest.py
     browser_common.py
@@ -132,6 +134,11 @@ MITM-DomainFronting/
     lab_evidence_run.py
     transport_experiment_validate.py
     launch_browser_mitm.ps1
+    core/
+      __init__.py
+      process_supervisor.py
+      route_rule_linter.py
+      trust_assistant.py
 
   docs/
     lab-evidence-checklist.md
