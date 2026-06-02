@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 import time
@@ -246,8 +245,11 @@ def main() -> int:
         checks = build_audit_checks(args.config, unknown)
         return run_checks(checks, fail_fast=not args.keep_going, title="Static audit")
     if args.command == "test":
-        if args.require_rust and shutil.which("cargo") is None:
-            print("cargo not found but --require-rust was set", file=sys.stderr)
+        # Note: enforcement of --require-rust lives in the "rust core checks"
+        # step (rust_core_tests.py exits non-zero when cargo is absent), so it is
+        # reported in the uniform summary like every other check. We deliberately
+        # avoid printing a separate out-of-band warning here that would look like
+        # a parse-time failure before any check has run.
         checks = build_test_checks(args.config, require_rust=args.require_rust)
         return run_checks(checks, fail_fast=args.fail_fast, title="Full local check suite")
     return 2
