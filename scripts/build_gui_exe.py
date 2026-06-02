@@ -176,7 +176,7 @@ def write_bundle_manifest() -> None:
         "",
         "This folder is the final Windows app bundle.",
         "",
-        "Start here:",
+        "Launch:",
         f"- {APP_NAME}.exe",
         "",
         "Included runtime/application resources:",

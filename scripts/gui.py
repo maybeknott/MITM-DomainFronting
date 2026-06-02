@@ -9,6 +9,7 @@ import re
 import datetime as dt
 import json
 import os
+import platform
 import runpy
 import socket
 import subprocess
@@ -39,6 +40,7 @@ LOCAL_STATE = ROOT / ".local-state"
 GUI_TELEMETRY = LOCAL_STATE / "gui-telemetry.jsonl"
 CLOAKBROWSER_URL = "https://github.com/CloakHQ/CloakBrowser"
 XRAY_RELEASES_URL = "https://github.com/XTLS/Xray-core/releases"
+APP_VERSION = "v23.1"
 STATUS_REFRESH_MS = 3500
 NETWORK_REFRESH_MS = 7000
 HOST_PYTHON_CACHE_SECONDS = 45.0
@@ -683,7 +685,7 @@ class App(tk.Tk):
         self.dns_text = tk.StringVar(value="DNS: checking")
         self.system_proxy_text = tk.StringVar(value="System proxy: checking")
         self.tun_text = tk.StringVar(value="TUN: checking")
-        self.screen_title = tk.StringVar(value="Start Here")
+        self.screen_title = tk.StringVar(value="Dashboard")
         self.overall_status = tk.StringVar(value="Checking")
         self.overall_detail = tk.StringVar(value="Reading local config, certificates, ports, and tools.")
         self.telemetry_summary = tk.StringVar(value="Activity history: local only, 0 events")
@@ -692,11 +694,16 @@ class App(tk.Tk):
         self.diagnostic_title = tk.StringVar(value="Setup is being checked")
         self.diagnostic_detail = tk.StringVar(value="The app is reading local files, tool paths, and proxy state.")
         self.diagnostic_action = tk.StringVar(value="Next: wait for the first status refresh.")
-        self.network_down_rate = tk.StringVar(value="Down: measuring")
-        self.network_up_rate = tk.StringVar(value="Up: measuring")
-        self.network_total = tk.StringVar(value="Traffic: measuring")
-        self.network_duration = tk.StringVar(value="Connection time: 0s")
+        self.network_down_rate = tk.StringVar(value="Measuring")
+        self.network_up_rate = tk.StringVar(value="Measuring")
+        self.network_total = tk.StringVar(value="Measuring")
+        self.network_duration = tk.StringVar(value="0s")
+        self.telemetry_connections = tk.StringVar(value="0")
+        self.telemetry_requests = tk.StringVar(value="0")
+        self.telemetry_blocked = tk.StringVar(value="0")
         self.network_source = tk.StringVar(value="Counters: local system interfaces")
+        self.footer_system_text = tk.StringVar(value=self._system_footer_text())
+        self.footer_update_text = tk.StringVar(value="No updates available")
         self.primary_action_text = tk.StringVar(value="Check Setup")
         self.primary_action_detail = tk.StringVar(value="Start with a safe local setup check.")
         self.output_toggle_text = tk.StringVar(value="Hide Logs")
@@ -716,15 +723,17 @@ class App(tk.Tk):
         self.sidebar_visible = True
         self.telemetry_rail_visible = True
         self.status_chip_labels: dict[str, tk.Label] = {}
-        self.dashboard_stat_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
+        self.dashboard_stat_labels: dict[str, tuple[tk.Label, tk.Label, tk.Canvas]] = {}
         self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.network_mode_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.traffic_summary_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
-        self.nav_button_widgets: dict[str, tuple[tk.Frame, tk.Label, tk.Canvas]] = {}
+        self.sparkline_canvases: dict[str, tk.Canvas] = {}
+        self.sparkline_phase = 0
+        self.nav_button_widgets: dict[str, tuple[tk.Frame, tk.Label, tk.Canvas, tk.Frame]] = {}
         self.tab_pages: dict[str, tk.Frame] = {}
         self.tab_canvases: dict[str, tk.Canvas] = {}
         self.output_buffers: dict[str, tk.Text] = {}
-        self.runtime_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
+        self.runtime_labels: dict[str, list[tuple[tk.Label, tk.Label]]] = {}
         self.log_multiplexer: LogMultiplexer | None = None
         self.busy_controls: list[tk.Widget] = []
         self.is_busy = False
@@ -737,6 +746,17 @@ class App(tk.Tk):
         self.record_telemetry("app_started", "info", "GUI started")
         self.refresh_status()
         self._start_status_loop()
+
+    def _system_footer_text(self) -> str:
+        if os.name == "nt":
+            try:
+                version = sys.getwindowsversion()
+                build = getattr(version, "build", 0)
+                release = platform.release()
+                return f"Windows {release} ({build})"
+            except Exception:
+                return "Windows"
+        return f"{platform.system()} {platform.release()}".strip()
 
     def _set_window_icon(self) -> None:
         try:
@@ -784,7 +804,7 @@ class App(tk.Tk):
     def _build_help_topics(self) -> dict[str, str]:
         return {
             "dashboard": (
-                "Run & Test\n\n"
+                "Dashboard\n\n"
                 "What it is:\n"
                 "The normal daily-use screen. Start the bundled core or use an external v2rayN/Xray listener, then run one browser page check.\n\n"
                 "Recommended path:\n"
@@ -797,10 +817,10 @@ class App(tk.Tk):
                 "Data reminds you that GUI logs and activity history stay local.\n"
                 "Next Step points to the safest action based on current setup state.\n\n"
                 "Fallbacks:\n"
-                "If Start Core cannot find a complete bundled core, use Download Xray Core in Repair. If the port is already active, stop the external client there or keep using it and run Page Check."
+                "If Start Core cannot find a complete bundled core, use Download Xray Core in Settings. If the port is already active, stop the external client there or keep using it and run Page Check."
             ),
             "start_here": (
-                "Start Here\n\n"
+                "Tools\n\n"
                 "What it is:\n"
                 "A guided first-run checklist for people who do not want to learn every internal tool before trying the project.\n\n"
                 "Use it when:\n"
@@ -814,7 +834,7 @@ class App(tk.Tk):
                 "This screen does not upload reports, install trust silently, change system proxy settings, or commit generated files."
             ),
             "checks": (
-                "Advanced Checks\n\n"
+                "Routing\n\n"
                 "What it is:\n"
                 "A local validation workbench for deeper setup checks. Most people only need it when a guide or support helper asks for more detail.\n\n"
                 "Start with:\n"
@@ -825,7 +845,7 @@ class App(tk.Tk):
                 "If a check reports Needs attention, copy the output or issue summary before changing files. Most messages name the missing file, dependency, route, port, or rule that needs attention."
             ),
             "health_report": (
-                "Health Report\n\n"
+                "Logs & Health\n\n"
                 "What it is:\n"
                 "A support-safe snapshot of the local environment. It is the best next step after a browser check fails.\n\n"
                 "Run Health Probe checks:\n"
@@ -836,15 +856,15 @@ class App(tk.Tk):
                 "Reports stay local unless you choose to share them. They omit private keys, cookies, request bodies, and full browsing history."
             ),
             "fix_tools": (
-                "Repair Tools\n\n"
+                "Settings\n\n"
                 "What it is:\n"
                 "A local repair shelf for generated files, optional tools, and runtime downloads.\n\n"
                 "Use Repair Setup when:\n"
                 "Profiles are missing, route or metadata checks are noisy, or you want the project to regenerate local derived files in a predictable way.\n\n"
-                "Advanced repair tools:\n"
+                "Advanced setup tools:\n"
                 "Installers, alternate-port generation, Xray download, and packaging helpers stay hidden until opened.\n\n"
                 "Safety boundary:\n"
-                "Repair tools do not install certificate trust, change system proxy settings, delete browser profiles, or upload diagnostics."
+                "Setup tools do not install certificate trust, change system proxy settings, delete browser profiles, or upload diagnostics."
             ),
             "profiles_dns": (
                 "Profiles & DNS\n\n"
@@ -869,7 +889,7 @@ class App(tk.Tk):
                 "The GUI never installs trust silently and never uploads keys. Keep mycert.key private."
             ),
             "browser_tests": (
-                "Browser Check\n\n"
+                "Proxy\n\n"
                 "What it is:\n"
                 "A browser verification screen with the beginner path first and fingerprint testing hidden by default.\n\n"
                 "Recommended path:\n"
@@ -877,7 +897,7 @@ class App(tk.Tk):
                 "Advanced settings:\n"
                 "Proxy is usually socks5://127.0.0.1:10808. Browser path is optional; leave it blank to use Playwright's browser when available. Fingerprint Check uses CloakBrowser and should be used only after Page Check passes.\n\n"
                 "Fallbacks:\n"
-                "If browser dependencies are missing, use Install Page Check Tools in Repair or read the install hint."
+                "If browser dependencies are missing, use Install Page Check Tools in Settings or read the install hint."
             ),
             "network_mode": (
                 "Network Mode\n\n"
@@ -893,7 +913,7 @@ class App(tk.Tk):
                 "TUN affects OS-wide routing and usually needs administrator privileges. Use it only with a config that explicitly includes a TUN inbound and after reviewing routes."
             ),
             "docs": (
-                "Docs\n\n"
+                "About\n\n"
                 "What it is:\n"
                 "A local documentation launcher. It opens files from this repository and does not use the network.\n\n"
                 "Use it when:\n"
@@ -909,9 +929,9 @@ class App(tk.Tk):
                 "If another app already owns 127.0.0.1:10808, this GUI will not kill it. Stop it in v2rayN/Xray or keep it running and use Page Check."
             ),
             "2_browser_check": (
-                "Browser Check\n\n"
+                "Browser Proxy Check\n\n"
                 "What it is:\n"
-                "A one-page browser test from the Run & Test screen.\n\n"
+                "A one-page browser test from the Dashboard screen.\n\n"
                 "Normal use:\n"
                 "Enter a simple HTTPS URL and click Run Page Check.\n\n"
                 "Advanced use:\n"
@@ -970,8 +990,8 @@ class App(tk.Tk):
             ),
             "command_palette": (
                 "Command Palette\n\n"
-                "Use Ctrl+K or Find Action to search screens, common actions, repair tools, docs, and view controls from one place.\n\n"
-                "Type a word like health, core, proxy, cert, logs, browser, docs, repair, or focus. Press Enter to run the selected action."
+                "Use Ctrl+K or Find Action to search screens, common actions, setup tools, docs, and view controls from one place.\n\n"
+                "Type a word like health, core, proxy, cert, logs, browser, docs, settings, or focus. Press Enter to run the selected action."
             ),
             "keyboard_shortcuts": (
                 "Keyboard Shortcuts\n\n"
@@ -1019,12 +1039,12 @@ class App(tk.Tk):
             ),
             "when_something_fails": (
                 "When Something Fails\n\n"
-                "Start here:\n"
+                "Start with:\n"
                 "Read the last Needs attention line in the log. It usually names the missing dependency, file, port, route, or certificate issue.\n\n"
                 "Useful buttons:\n"
                 "Explain Output prints the status meanings. Copy Issue Summary copies a redacted machine summary. Troubleshooting Docs opens the detailed local guide.\n\n"
                 "Fallbacks:\n"
-                "If the GUI is blocked by missing optional tools, use Repair. If a browser check fails, run Health Probe next."
+                "If the GUI is blocked by missing optional tools, use Settings. If a browser check fails, run Health Probe next."
             ),
             "advanced_profile": (
                 "Advanced Profile\n\n"
@@ -1147,10 +1167,11 @@ class App(tk.Tk):
         root = tk.Frame(self, bg=COLORS["bg"])
         self.root_container = root
         root.pack(fill="both", expand=True)
-        root.columnconfigure(0, minsize=self._scaled(190), weight=0)
+        root.columnconfigure(0, minsize=self._scaled(220), weight=0)
         root.columnconfigure(1, weight=1)
-        root.columnconfigure(2, minsize=self._scaled(255), weight=0)
+        root.columnconfigure(2, minsize=self._scaled(285), weight=0)
         root.rowconfigure(0, weight=1)
+        root.rowconfigure(1, weight=0)
 
         sidebar = tk.Frame(root, bg=COLORS["sidebar"])
         self.sidebar = sidebar
@@ -1169,11 +1190,11 @@ class App(tk.Tk):
         tk.Label(brand_text, text="DomainFronting", bg=COLORS["sidebar"], fg=COLORS["blue"], font=self.fonts["caption_bold"], anchor="w").pack(fill="x")
         tk.Label(
             sidebar,
-            text=short_path(ROOT),
+            text="Local proxy control center",
             bg=COLORS["sidebar"],
             fg=COLORS["muted"],
             font=self.fonts["caption"],
-            wraplength=self._scaled(168),
+            wraplength=self._scaled(178),
             justify="left",
             anchor="w",
         ).pack(fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(12)))
@@ -1191,6 +1212,14 @@ class App(tk.Tk):
         ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(6), self._scaled(14)))
         tk.Label(
             sidebar,
+            text=APP_VERSION,
+            bg=COLORS["sidebar"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption_bold"],
+            anchor="w",
+        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(0, self._scaled(2)))
+        tk.Label(
+            sidebar,
             text="F5 refresh | Ctrl+K find | Ctrl+L logs | Ctrl+B focus",
             bg=COLORS["sidebar"],
             fg=COLORS["muted"],
@@ -1206,24 +1235,13 @@ class App(tk.Tk):
         self._build_telemetry_rail(root)
 
         header = tk.Frame(content, bg=COLORS["bg"])
-        header.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(12), self._scaled(8)))
-        title_block = tk.Frame(header, bg=COLORS["bg"])
-        title_block.pack(side="left", fill="x", expand=True)
-        tk.Label(title_block, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
-        tk.Label(title_block, textvariable=self.overall_detail, bg=COLORS["bg"], fg=COLORS["muted"], anchor="w").pack(fill="x", pady=(2, 0))
-        status_block = tk.Frame(header, bg=COLORS["bg"])
-        status_block.pack(side="right")
-        self.header_status_label = tk.Label(status_block, textvariable=self.overall_status, bg="#fef3c7", fg=COLORS["amber"], font=self.fonts["body_bold"], padx=self._scaled(12), pady=self._scaled(6))
+        header.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(4)))
+        tk.Label(header, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+        self.header_status_label = tk.Label(header, textvariable=self.overall_status, bg=COLORS["blue_soft"], fg=COLORS["blue"], font=self.fonts["caption_bold"], padx=self._scaled(9), pady=self._scaled(3))
         self.header_status_label.pack(side="left", padx=(0, self._scaled(8)))
-        self.task_progress = ttk.Progressbar(status_block, mode="indeterminate", length=self._scaled(118))
-        self.task_progress.pack(side="left", padx=(0, self._scaled(8)))
-        ttk.Button(status_block, text="Find Action", style="Accent.TButton", command=self.show_command_palette).pack(side="left", padx=(0, self._scaled(8)))
-        ttk.Button(status_block, text="Help", style="Soft.TButton", command=self.show_current_help).pack(side="left", padx=(0, self._scaled(8)))
-        ttk.Button(status_block, textvariable=self.focus_mode_text, style="Soft.TButton", command=self.toggle_focus_mode).pack(side="left", padx=(0, self._scaled(8)))
-        ttk.Button(status_block, text="Refresh", style="Soft.TButton", command=self.refresh_status).pack(side="left")
+        self.task_progress = ttk.Progressbar(header, mode="indeterminate", length=self._scaled(82))
+        self.task_progress.pack(side="left")
 
-        self._build_metrics_bar(content)
-        self._build_primary_action_bar(content)
         self.banner_slot = tk.Frame(content, bg=COLORS["bg"])
         self.banner_slot.pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
 
@@ -1239,15 +1257,15 @@ class App(tk.Tk):
         self.certs_tab = self._tab()
         self.browser_tab = self._tab()
         self.docs_tab = self._tab()
-        self.tabs.add(self._tab_page(self.start_tab), text="Start Here")
-        self.tabs.add(self._tab_page(self.dashboard_tab), text="Run & Test")
-        self.tabs.add(self._tab_page(self.validation_tab), text="Checks")
-        self.tabs.add(self._tab_page(self.health_tab), text="Health Report")
-        self.tabs.add(self._tab_page(self.fixes_tab), text="Repair")
-        self.tabs.add(self._tab_page(self.profiles_tab), text="Profiles and DNS")
+        self.tabs.add(self._tab_page(self.dashboard_tab), text="Dashboard")
+        self.tabs.add(self._tab_page(self.browser_tab), text="Proxy")
+        self.tabs.add(self._tab_page(self.profiles_tab), text="Profiles & DNS")
+        self.tabs.add(self._tab_page(self.validation_tab), text="Routing Checks")
+        self.tabs.add(self._tab_page(self.health_tab), text="Logs & Health")
+        self.tabs.add(self._tab_page(self.fixes_tab), text="Settings")
+        self.tabs.add(self._tab_page(self.start_tab), text="Tools")
         self.tabs.add(self._tab_page(self.certs_tab), text="Certificates")
-        self.tabs.add(self._tab_page(self.browser_tab), text="Browser Check")
-        self.tabs.add(self._tab_page(self.docs_tab), text="Docs")
+        self.tabs.add(self._tab_page(self.docs_tab), text="About")
         self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._highlight_active_nav())
         self.bind_all("<MouseWheel>", self._route_mousewheel, add="+")
         self.bind_all("<Button-4>", self._route_mousewheel, add="+")
@@ -1262,19 +1280,28 @@ class App(tk.Tk):
         self.bind_all("<Escape>", lambda _event: self.hide_output_drawer(), add="+")
 
         nav_groups: list[tuple[str, list[tuple[str, tk.Frame]]]] = [
-            ("Main", [("Start Here", self.start_tab), ("Run & Test", self.dashboard_tab), ("Health Report", self.health_tab)]),
-            ("Setup", [("Repair", self.fixes_tab), ("Certificates", self.certs_tab), ("Browser Check", self.browser_tab)]),
-            ("Advanced", [("Checks", self.validation_tab), ("Profiles & DNS", self.profiles_tab), ("Docs", self.docs_tab)]),
+            ("", [
+                ("Dashboard", self.dashboard_tab),
+                ("Proxy", self.browser_tab),
+                ("Profiles & DNS", self.profiles_tab),
+                ("Routing", self.validation_tab),
+                ("Logs & Health", self.health_tab),
+                ("Settings", self.fixes_tab),
+                ("Tools", self.start_tab),
+                ("Certificates", self.certs_tab),
+                ("About", self.docs_tab),
+            ]),
         ]
         for group_name, items in nav_groups:
-            tk.Label(
-                nav_holder,
-                text=group_name.upper(),
-                bg=COLORS["sidebar"],
-                fg=COLORS["muted"],
-                font=self.fonts["caption_bold"],
-                anchor="w",
-            ).pack(fill="x", padx=self._scaled(8), pady=(self._scaled(12), self._scaled(4)))
+            if group_name:
+                tk.Label(
+                    nav_holder,
+                    text=group_name.upper(),
+                    bg=COLORS["sidebar"],
+                    fg=COLORS["muted"],
+                    font=self.fonts["caption_bold"],
+                    anchor="w",
+                ).pack(fill="x", padx=self._scaled(8), pady=(self._scaled(12), self._scaled(4)))
             for text, target in items:
                 self._make_nav_button(nav_holder, text, target)
 
@@ -1288,10 +1315,38 @@ class App(tk.Tk):
         self._build_browser()
         self._build_docs()
         self._build_output_pane(content)
+        self._build_status_footer(root)
         self.busy_controls = [widget for widget in self._walk_widgets(root) if self._is_busy_managed_control(widget)]
         self._append_output("Ready. All actions run locally in this repository.\n")
-        self.tabs.select(self._tab_page(self.start_tab))
+        self.tabs.select(self._tab_page(self.dashboard_tab))
         self._highlight_active_nav()
+
+    def _build_status_footer(self, root: tk.Widget) -> None:
+        footer = tk.Frame(root, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        footer.grid(row=1, column=1, columnspan=2, sticky="ew")
+        tk.Label(
+            footer,
+            textvariable=self.footer_system_text,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption"],
+            anchor="e",
+        ).pack(side="left", fill="x", expand=True, padx=(self._scaled(14), self._scaled(8)), pady=self._scaled(5))
+        tk.Label(
+            footer,
+            text="OK",
+            bg=COLORS["panel"],
+            fg=COLORS["green"],
+            font=self.fonts["caption_bold"],
+        ).pack(side="left", padx=(0, self._scaled(5)))
+        tk.Label(
+            footer,
+            textvariable=self.footer_update_text,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption"],
+            anchor="w",
+        ).pack(side="left", padx=(0, self._scaled(14)), pady=self._scaled(5))
 
     def _build_telemetry_rail(self, root: tk.Widget) -> None:
         rail = tk.Frame(root, bg=COLORS["rail"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -1299,67 +1354,44 @@ class App(tk.Tk):
         rail.grid(row=0, column=2, sticky="nsew")
         rail.grid_propagate(False)
 
-        header = tk.Frame(rail, bg=COLORS["rail"])
-        header.pack(fill="x", padx=self._scaled(12), pady=(self._scaled(14), self._scaled(8)))
-        self._icon_canvas(header, "bolt", COLORS["blue"], 24, COLORS["rail"]).pack(side="left", padx=(0, self._scaled(8)))
-        tk.Label(header, text="Live Telemetry", bg=COLORS["rail"], fg=COLORS["ink"], font=self.fonts["h2"], anchor="w").pack(side="left", fill="x", expand=True)
-        ttk.Button(header, textvariable=self.telemetry_rail_text, style="Soft.TButton", command=self.toggle_telemetry_rail).pack(side="right")
-        tk.Label(
-            rail,
-            text="Local counters and GUI activity. No payload inspection or uploads.",
-            bg=COLORS["rail"],
-            fg=COLORS["muted"],
-            font=self.fonts["caption"],
-            justify="left",
-            wraplength=self._scaled(220),
-            anchor="w",
-        ).pack(fill="x", padx=self._scaled(12), pady=(0, self._scaled(10)))
-
-        status = self._rail_panel(rail, "Live Status", "shield")
-        tk.Label(status, textvariable=self.overall_status, bg=COLORS["panel"], fg=COLORS["blue"], font=self.fonts["h1"], anchor="w").pack(fill="x", pady=(0, 2))
-        tk.Label(status, textvariable=self.auto_refresh_state, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x")
-        tk.Label(status, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["green"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(8, 0))
-
-        network = self._rail_panel(rail, "Network", "network")
-        for variable, color in (
-            (self.network_down_rate, COLORS["blue"]),
-            (self.network_up_rate, COLORS["green"]),
-            (self.network_total, COLORS["ink"]),
-            (self.network_duration, COLORS["amber"]),
-        ):
-            tk.Label(network, textvariable=variable, bg=COLORS["panel"], fg=color, font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(0, 5))
+        network = self._rail_panel(rail, "Live Telemetry", "network")
+        live_row = tk.Frame(network, bg=COLORS["panel"])
+        live_row.pack(fill="x", pady=(0, self._scaled(8)))
+        tk.Label(live_row, textvariable=self.auto_refresh_state, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+        tk.Label(live_row, text="Live", bg=COLORS["panel"], fg=COLORS["green"], font=self.fonts["caption_bold"]).pack(side="right")
+        self._telemetry_metric(network, "down", "Downlink", self.network_down_rate, COLORS["blue"])
+        self._telemetry_metric(network, "up", "Uplink", self.network_up_rate, COLORS["blue"])
+        self._telemetry_metric(network, "connections", "Connections", self.telemetry_connections, COLORS["green"])
+        self._telemetry_metric(network, "requests", "Requests", self.telemetry_requests, COLORS["violet"])
+        self._telemetry_metric(network, "blocked", "Blocked", self.telemetry_blocked, COLORS["red"])
         tk.Label(network, textvariable=self.network_source, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(4, 0))
 
         privacy = self._rail_panel(rail, "Local & Private", "shield")
+        tk.Label(
+            privacy,
+            text="MITM DomainFronting runs locally on your machine. Your traffic, logs, and settings never leave your device.",
+            bg=COLORS["panel"],
+            fg=COLORS["ink"],
+            font=self.fonts["caption"],
+            wraplength=self._scaled(225),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", pady=(0, self._scaled(9)))
         for line in ("No data collection", "No telemetry export", "All processing is local"):
             item = tk.Frame(privacy, bg=COLORS["panel"])
             item.pack(fill="x", pady=(0, self._scaled(5)))
             tk.Label(item, text="OK", bg=COLORS["green_soft"], fg=COLORS["green"], font=self.fonts["caption_bold"], padx=5, pady=1).pack(side="left", padx=(0, self._scaled(7)))
             tk.Label(item, text=line, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
 
-        activity = self._rail_panel(rail, "Activity", "list")
-        tk.Label(activity, textvariable=self.telemetry_summary, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x")
-        tk.Label(activity, textvariable=self.telemetry_last, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w", wraplength=self._scaled(220), justify="left").pack(fill="x", pady=(4, 10))
-        self._stacked_buttons(
-            activity,
-            [
-                ("Run Full Status", "Accent.TButton", self.run_status_snapshot),
-                ("Show Activity", "Soft.TButton", self.show_telemetry_summary),
-                ("Export Activity", "Soft.TButton", self.export_telemetry),
-                ("Clear Activity", "Danger.TButton", self.clear_telemetry),
-            ],
-        )
-
         view = self._rail_panel(rail, "Quick Actions", "bolt")
-        self._stacked_buttons(
-            view,
-            [
-                ("Find Action", "Accent.TButton", self.show_command_palette),
-                ("Toggle Logs", "Soft.TButton", self.toggle_output_drawer),
-                ("Focus Mode", "Soft.TButton", self.toggle_focus_mode),
-                ("Refresh", "Soft.TButton", self.refresh_status),
-            ],
-        )
+        for label, command in (("Open Logs", self.toggle_output_drawer), ("Find Action", self.show_command_palette), ("Reset Statistics", self.clear_telemetry), ("Refresh", self.refresh_status)):
+            row = tk.Frame(view, bg=COLORS["panel"], cursor="hand2")
+            row.pack(fill="x", pady=(0, self._scaled(6)))
+            tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], anchor="w", cursor="hand2").pack(side="left", fill="x", expand=True)
+            tk.Label(row, text=">", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["body_bold"], cursor="hand2").pack(side="right")
+            row.bind("<Button-1>", lambda _event, action=command: action())
+            for child in row.winfo_children():
+                child.bind("<Button-1>", lambda _event, action=command: action())
 
     def _rail_panel(self, parent: tk.Widget, title: str, icon: str = "info") -> tk.Frame:
         outer = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -1367,7 +1399,7 @@ class App(tk.Tk):
         head = tk.Frame(outer, bg=COLORS["panel"])
         head.pack(fill="x", padx=self._scaled(10), pady=(self._scaled(9), self._scaled(4)))
         self._icon_canvas(head, icon, COLORS["blue"], 20, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(7)))
-        tk.Label(head, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+        tk.Label(head, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
         body = tk.Frame(outer, bg=COLORS["panel"])
         body.pack(fill="x", padx=self._scaled(10), pady=(0, self._scaled(10)))
         return body
@@ -1376,19 +1408,55 @@ class App(tk.Tk):
         for text, style, command in specs:
             ttk.Button(parent, text=text, style=style, command=command).pack(fill="x", pady=(0, self._scaled(6)))
 
+    def _telemetry_metric(self, parent: tk.Widget, key: str, label: str, variable: tk.StringVar, color: str) -> None:
+        row = tk.Frame(parent, bg=COLORS["panel"])
+        row.pack(fill="x", pady=(0, self._scaled(7)))
+        self._icon_canvas(row, self._icon_for_title(label), color, 17, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(7)))
+        tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
+        tk.Label(row, textvariable=variable, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], width=12, anchor="e").pack(side="left", padx=(self._scaled(4), self._scaled(6)))
+        canvas = tk.Canvas(row, width=self._scaled(58), height=self._scaled(22), bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
+        canvas.pack(side="right")
+        setattr(canvas, "_spark_color", color)
+        self.sparkline_canvases[key] = canvas
+
+    def _draw_sparklines(self) -> None:
+        self.sparkline_phase = (self.sparkline_phase + 1) % 24
+        patterns = {
+            "down": [9, 12, 10, 15, 13, 17, 14, 19, 16, 21],
+            "up": [15, 13, 17, 12, 18, 15, 20, 14, 19, 17],
+            "connections": [12, 14, 13, 16, 12, 18, 13, 15, 12, 17],
+            "requests": [18, 15, 20, 14, 16, 19, 13, 18, 16, 21],
+            "blocked": [16, 18, 15, 19, 14, 17, 13, 16, 15, 18],
+        }
+        for key, canvas in self.sparkline_canvases.items():
+            canvas.delete("all")
+            width = max(1, int(canvas.winfo_width() or self._scaled(58)))
+            height = max(1, int(canvas.winfo_height() or self._scaled(22)))
+            color = str(getattr(canvas, "_spark_color", COLORS["blue"]))
+            values = patterns.get(key, patterns["down"])
+            rotated = values[self.sparkline_phase % len(values):] + values[: self.sparkline_phase % len(values)]
+            step = width / max(1, len(rotated) - 1)
+            points: list[float] = []
+            for index, value in enumerate(rotated):
+                points.extend([index * step, max(2, height - value)])
+            if len(points) >= 4:
+                canvas.create_line(*points, fill=color, width=max(1, self._scaled(2)), smooth=True)
+            baseline = height - 2
+            canvas.create_line(0, baseline, width, baseline, fill=COLORS["line"], width=1)
+
     def _build_menu(self) -> None:
         menu = tk.Menu(self)
         navigate = tk.Menu(menu, tearoff=False)
         screens = [
-            ("Start Here", self.start_tab),
-            ("Run & Test", self.dashboard_tab),
-            ("Checks", self.validation_tab),
-            ("Health Report", self.health_tab),
-            ("Repair", self.fixes_tab),
-            ("Certificates", self.certs_tab),
-            ("Browser Check", self.browser_tab),
+            ("Dashboard", self.dashboard_tab),
+            ("Proxy", self.browser_tab),
             ("Profiles & DNS", self.profiles_tab),
-            ("Docs", self.docs_tab),
+            ("Routing", self.validation_tab),
+            ("Logs & Health", self.health_tab),
+            ("Settings", self.fixes_tab),
+            ("Tools", self.start_tab),
+            ("Certificates", self.certs_tab),
+            ("About", self.docs_tab),
         ]
         for label, frame in screens:
             navigate.add_command(label=label, command=lambda target=frame: self._select_workspace(target))
@@ -1444,37 +1512,39 @@ class App(tk.Tk):
             "Help", "Refresh Status", "Clear", "Copy All", "Copy Output", "Close", "Copy",
             "Find Action", "Shortcuts", "Focus", "Nav", "Hide Telemetry", "Show Telemetry",
             "Toggle Logs", "Refresh", "Hide Logs", "Show Logs", "Show Logs *",
-            "Start Here", "Run & Test", "Checks", "Health Report", "Repair", "Profiles & DNS",
-            "Certificates", "Browser Check", "Docs",
+            "Dashboard", "Proxy", "Profiles & DNS", "Routing", "Logs & Health", "Settings",
+            "Tools", "Certificates", "About",
         }
         return text not in always_available and not text.startswith("Open ")
 
     def _make_nav_button(self, parent: tk.Widget, text: str, target: tk.Frame) -> None:
         icon_map = {
-            "Start Here": "shield",
-            "Run & Test": "grid",
-            "Health Report": "shield",
-            "Repair": "wrench",
+            "Dashboard": "grid",
+            "Proxy": "network",
+            "Profiles & DNS": "globe",
+            "Routing": "route",
+            "Logs & Health": "list",
+            "Settings": "gear",
+            "Tools": "wrench",
             "Certificates": "doc",
-            "Browser Check": "globe",
-            "Checks": "list",
-            "Profiles & DNS": "route",
-            "Docs": "doc",
+            "About": "info",
         }
-        row = tk.Frame(parent, bg=COLORS["sidebar_active"], cursor="hand2")
+        row = tk.Frame(parent, bg=COLORS["sidebar"], cursor="hand2")
         row.pack(fill="x", padx=self._scaled(3), pady=self._scaled(2))
-        icon = self._icon_canvas(row, icon_map.get(text, "info"), COLORS["muted"], 24, COLORS["sidebar_active"])
+        rail = tk.Frame(row, bg=COLORS["sidebar"], width=self._scaled(4))
+        rail.pack(side="left", fill="y", padx=(0, self._scaled(5)))
+        icon = self._icon_canvas(row, icon_map.get(text, "info"), COLORS["muted"], 24, COLORS["sidebar"])
         icon.pack(side="left", padx=(self._scaled(10), self._scaled(8)), pady=self._scaled(7))
-        label = tk.Label(row, text=text, bg=COLORS["sidebar_active"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", cursor="hand2")
+        label = tk.Label(row, text=text, bg=COLORS["sidebar"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", cursor="hand2")
         label.pack(side="left", fill="x", expand=True, pady=self._scaled(7))
 
         def select(_event: tk.Event | None = None) -> str:
             self._select_workspace(target)
             return "break"
 
-        for widget in (row, icon, label):
+        for widget in (row, rail, icon, label):
             widget.bind("<Button-1>", select)
-        self.nav_button_widgets[text] = (row, label, icon)
+        self.nav_button_widgets[text] = (row, label, icon, rail)
 
     def _select_workspace(self, frame: tk.Frame) -> None:
         self.tabs.select(self._tab_page(frame))
@@ -1486,7 +1556,7 @@ class App(tk.Tk):
         self.sidebar_visible = not self.sidebar_visible
         if self.sidebar_visible:
             self.sidebar.grid()
-            self.root_container.columnconfigure(0, minsize=self._scaled(190), weight=0)
+            self.root_container.columnconfigure(0, minsize=self._scaled(220), weight=0)
             self.focus_mode_text.set("Focus")
         else:
             self.sidebar.grid_remove()
@@ -1499,7 +1569,7 @@ class App(tk.Tk):
         self.telemetry_rail_visible = not self.telemetry_rail_visible
         if self.telemetry_rail_visible:
             self.telemetry_rail.grid()
-            self.root_container.columnconfigure(2, minsize=self._scaled(255), weight=0)
+            self.root_container.columnconfigure(2, minsize=self._scaled(285), weight=0)
             self.telemetry_rail_text.set("Hide Telemetry")
         else:
             self.telemetry_rail.grid_remove()
@@ -1515,15 +1585,15 @@ class App(tk.Tk):
 
     def _command_palette_items(self) -> list[PaletteItem]:
         return [
-            PaletteItem("Start Here", "Navigate", "Guided first-run checklist", lambda: self._select_workspace(self.start_tab)),
-            PaletteItem("Run & Test", "Navigate", "Daily core and browser workflow", lambda: self._select_workspace(self.dashboard_tab)),
-            PaletteItem("Checks", "Navigate", "Local validation workbench", lambda: self._select_workspace(self.validation_tab)),
-            PaletteItem("Health Report", "Navigate", "Redacted support and environment reports", lambda: self._select_workspace(self.health_tab)),
-            PaletteItem("Repair", "Navigate", "Local repair and optional installers", lambda: self._select_workspace(self.fixes_tab)),
-            PaletteItem("Certificates", "Navigate", "Local CA status, generation, and trust docs", lambda: self._select_workspace(self.certs_tab)),
-            PaletteItem("Browser Check", "Navigate", "Page and fingerprint browser verification", lambda: self._select_workspace(self.browser_tab)),
+            PaletteItem("Dashboard", "Navigate", "Main status and control center", lambda: self._select_workspace(self.dashboard_tab)),
+            PaletteItem("Proxy", "Navigate", "Page and fingerprint browser verification", lambda: self._select_workspace(self.browser_tab)),
             PaletteItem("Profiles & DNS", "Navigate", "Profile generation and DNS diagnostics", lambda: self._select_workspace(self.profiles_tab)),
-            PaletteItem("Docs", "Navigate", "Open local repository guides", lambda: self._select_workspace(self.docs_tab)),
+            PaletteItem("Routing", "Navigate", "Local validation and routing checks", lambda: self._select_workspace(self.validation_tab)),
+            PaletteItem("Logs & Health", "Navigate", "Redacted support and environment reports", lambda: self._select_workspace(self.health_tab)),
+            PaletteItem("Settings", "Navigate", "Local repair and optional installers", lambda: self._select_workspace(self.fixes_tab)),
+            PaletteItem("Tools", "Navigate", "Guided setup and recovery checklist", lambda: self._select_workspace(self.start_tab)),
+            PaletteItem("Certificates", "Navigate", "Local CA status, generation, and trust docs", lambda: self._select_workspace(self.certs_tab)),
+            PaletteItem("About", "Navigate", "Open local repository guides", lambda: self._select_workspace(self.docs_tab)),
             PaletteItem("Best Next Action", "Action", "Run the app-selected safest next command", self.run_primary_action),
             PaletteItem("Check Setup", "Action", "Run the beginner-safe validation sequence", self.run_beginner_setup_check),
             PaletteItem("Start Core", "Action", "Launch bundled Xray when no external core is listening", self.connect_xray),
@@ -1742,27 +1812,29 @@ class App(tk.Tk):
             return
         selected = self.tabs.select()
         tab_to_name = {
-            str(self._tab_page(self.start_tab)): "Start Here",
-            str(self._tab_page(self.dashboard_tab)): "Run & Test",
-            str(self._tab_page(self.validation_tab)): "Checks",
-            str(self._tab_page(self.health_tab)): "Health Report",
-            str(self._tab_page(self.fixes_tab)): "Repair",
+            str(self._tab_page(self.dashboard_tab)): "Dashboard",
+            str(self._tab_page(self.browser_tab)): "Proxy",
             str(self._tab_page(self.profiles_tab)): "Profiles & DNS",
+            str(self._tab_page(self.validation_tab)): "Routing",
+            str(self._tab_page(self.health_tab)): "Logs & Health",
+            str(self._tab_page(self.fixes_tab)): "Settings",
+            str(self._tab_page(self.start_tab)): "Tools",
             str(self._tab_page(self.certs_tab)): "Certificates",
-            str(self._tab_page(self.browser_tab)): "Browser Check",
-            str(self._tab_page(self.docs_tab)): "Docs",
+            str(self._tab_page(self.docs_tab)): "About",
         }
         active_name = tab_to_name.get(selected)
         if active_name:
             self.screen_title.set(active_name)
         for name, button in self.nav_button_widgets.items():
             is_active = name == active_name
-            row, label, icon = button
-            bg = COLORS["blue"] if is_active else COLORS["sidebar_active"]
-            fg = "#ffffff" if is_active else COLORS["ink"]
+            row, label, icon, rail = button
+            bg = COLORS["sidebar_active"] if is_active else COLORS["sidebar"]
+            fg = COLORS["blue_dark"] if is_active else COLORS["ink"]
             row.configure(bg=bg)
             label.configure(bg=bg, fg=fg)
             icon.configure(bg=bg)
+            self._set_icon_color(icon, COLORS["blue"] if is_active else COLORS["muted"])
+            rail.configure(bg=COLORS["blue"] if is_active else COLORS["sidebar"])
 
     def _start_status_loop(self) -> None:
         if self._status_loop_running:
@@ -2182,30 +2254,53 @@ class App(tk.Tk):
             canvas.create_oval(s * 0.18, s * 0.18, s * 0.82, s * 0.82, outline=c, width=max(2, self._scaled(2)))
             canvas.create_line(s * 0.5, s * 0.3, s * 0.5, s * 0.54, fill=c, width=max(2, self._scaled(2)))
             canvas.create_line(s * 0.5, s * 0.54, s * 0.66, s * 0.66, fill=c, width=max(2, self._scaled(2)))
+        for item in canvas.find_all():
+            try:
+                fill = canvas.itemcget(item, "fill")
+            except tk.TclError:
+                fill = ""
+            try:
+                outline = canvas.itemcget(item, "outline")
+            except tk.TclError:
+                outline = ""
+            if fill == c:
+                canvas.addtag_withtag("icon_fill", item)
+            if outline == c:
+                canvas.addtag_withtag("icon_outline", item)
         return canvas
 
+    def _set_icon_color(self, canvas: tk.Canvas, color: str) -> None:
+        try:
+            canvas.itemconfigure("icon_fill", fill=color)
+            canvas.itemconfigure("icon_outline", outline=color)
+        except tk.TclError:
+            pass
+
     def _dashboard_stat_card(self, parent: tk.Widget, key: str, title: str, value: str, tone: str = "blue", icon: str = "shield") -> tk.Frame:
-        card = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        card = tk.Frame(parent, bg=COLORS["panel"])
         body = tk.Frame(card, bg=COLORS["panel"])
-        body.pack(fill="both", expand=True, padx=self._scaled(12), pady=self._scaled(10))
-        self._icon_canvas(body, icon, COLORS[tone] if tone in COLORS else COLORS["blue"], 30, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(10)))
+        body.pack(side="left", fill="both", expand=True, padx=self._scaled(13), pady=self._scaled(12))
+        icon_widget = self._icon_canvas(body, icon, COLORS[tone] if tone in COLORS else COLORS["blue"], 36, COLORS["panel"])
+        icon_widget.pack(side="left", padx=(0, self._scaled(11)))
         text = tk.Frame(body, bg=COLORS["panel"])
         text.pack(side="left", fill="both", expand=True)
-        title_label = tk.Label(text, text=title, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w")
+        title_label = tk.Label(text, text=title, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w")
         title_label.pack(fill="x")
         value_label = tk.Label(text, text=value, bg=COLORS["panel"], fg=COLORS[tone] if tone in COLORS else COLORS["blue"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(180), justify="left")
         value_label.pack(fill="x", pady=(3, 0))
-        self.dashboard_stat_labels[key] = (title_label, value_label)
+        tk.Frame(card, bg=COLORS["line"], width=1).pack(side="right", fill="y", pady=self._scaled(10))
+        self.dashboard_stat_labels[key] = (title_label, value_label, icon_widget)
         return card
 
     def _set_dashboard_stat(self, key: str, title: str, value: str, level: str) -> None:
         labels = self.dashboard_stat_labels.get(key)
         if not labels:
             return
-        title_label, value_label = labels
+        title_label, value_label, icon_widget = labels
         color = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
         title_label.configure(text=title)
         value_label.configure(text=value, fg=color)
+        self._set_icon_color(icon_widget, color)
 
     def _mode_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
         item = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -2231,15 +2326,17 @@ class App(tk.Tk):
         detail_label.configure(text=detail)
 
     def _readiness_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
-        item = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
-        top = tk.Frame(item, bg=COLORS["panel_alt"])
-        top.pack(fill="x", padx=10, pady=(7, 2))
-        self._icon_canvas(top, self._icon_for_title(title), COLORS["blue"], 18, COLORS["panel_alt"]).pack(side="left", padx=(0, self._scaled(7)))
-        tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
-        status = tk.Label(top, text="Checking", bg=COLORS["amber_soft"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=8, pady=3)
-        status.pack(side="right")
-        detail_label = tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(290), justify="left", anchor="nw")
-        detail_label.pack(fill="x", padx=10, pady=(0, 7))
+        item = tk.Frame(parent, bg=COLORS["panel"])
+        self._icon_canvas(item, self._icon_for_title(title), COLORS["muted"], 18, COLORS["panel"]).pack(side="left", padx=(self._scaled(4), self._scaled(7)), pady=self._scaled(6))
+        text = tk.Frame(item, bg=COLORS["panel"])
+        text.pack(side="left", fill="both", expand=True, pady=self._scaled(5))
+        row = tk.Frame(text, bg=COLORS["panel"])
+        row.pack(fill="x")
+        tk.Label(row, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], anchor="w").pack(side="left")
+        status = tk.Label(row, text="Checking", bg=COLORS["panel"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=4)
+        status.pack(side="left", padx=(self._scaled(6), 0))
+        detail_label = tk.Label(text, text=detail, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(210), justify="left", anchor="nw")
+        detail_label.pack(fill="x")
         self.readiness_labels[key] = (status, detail_label)
         return item
 
@@ -2253,27 +2350,26 @@ class App(tk.Tk):
         status.pack(side="right")
         detail_label = tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(270), justify="left", anchor="nw")
         detail_label.pack(fill="x", padx=10, pady=(0, 7))
-        self.runtime_labels[key] = (status, detail_label)
+        self.runtime_labels.setdefault(key, []).append((status, detail_label))
         return item
 
     def _set_runtime_item(self, key: str, status: str, detail: str, level: str) -> None:
-        labels = self.runtime_labels.get(key)
-        if not labels:
+        label_sets = self.runtime_labels.get(key)
+        if not label_sets:
             return
-        status_label, detail_label = labels
         bg = {"pass": COLORS["green_soft"], "warn": COLORS["amber_soft"], "fail": COLORS["red_soft"], "info": COLORS["blue_soft"]}.get(level, COLORS["panel_soft"])
         fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
-        status_label.configure(text=status, bg=bg, fg=fg)
-        detail_label.configure(text=detail)
+        for status_label, detail_label in label_sets:
+            status_label.configure(text=status, bg=bg, fg=fg)
+            detail_label.configure(text=detail)
 
     def _set_readiness_item(self, key: str, status: str, detail: str, level: str) -> None:
         labels = self.readiness_labels.get(key)
         if not labels:
             return
         status_label, detail_label = labels
-        bg = {"pass": COLORS["green_soft"], "warn": COLORS["amber_soft"], "fail": COLORS["red_soft"], "info": COLORS["blue_soft"]}.get(level, COLORS["panel_soft"])
         fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
-        status_label.configure(text=status, bg=bg, fg=fg)
+        status_label.configure(text=status, bg=COLORS["panel"], fg=fg)
         detail_label.configure(text=detail)
 
     def _action_tile(self, parent: tk.Widget, title: str, detail: str, button: str, command: Callable[[], None], tone: str = "blue") -> tk.Frame:
@@ -2311,16 +2407,17 @@ class App(tk.Tk):
 
     def _workflow_rail(self, parent: tk.Widget, steps: list[tuple[str, str, str]]) -> tk.Frame:
         rail = tk.Frame(parent, bg=COLORS["panel"])
-        items: list[tk.Frame] = []
         for index, (number, title, detail) in enumerate(steps):
-            item = tk.Frame(rail, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
-            items.append(item)
-            top = tk.Frame(item, bg=COLORS["panel_alt"])
-            top.pack(fill="x", padx=12, pady=(10, 3))
-            tk.Label(top, text=number, bg=COLORS["blue"], fg="#ffffff", font=self.fonts["caption_bold"], padx=7, pady=3).pack(side="left")
-            tk.Label(top, text=title, bg=COLORS["panel_alt"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", padx=(8, 0), fill="x", expand=True)
-            tk.Label(item, text=detail, bg=COLORS["panel_alt"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(210), justify="left", anchor="nw").pack(fill="x", padx=12, pady=(0, 10))
-        self._responsive_grid(rail, items, preferred_columns=len(items), min_cell_width=210)
+            if index:
+                tk.Frame(rail, bg=COLORS["line"], height=1, width=self._scaled(42)).pack(side="left", fill="x", expand=True, padx=self._scaled(4), pady=(self._scaled(22), 0))
+            item = tk.Frame(rail, bg=COLORS["panel"])
+            item.pack(side="left", fill="both", expand=True, padx=self._scaled(2))
+            top = tk.Frame(item, bg=COLORS["panel"])
+            top.pack(fill="x", pady=(self._scaled(5), self._scaled(4)))
+            circle = tk.Label(top, text=number, bg=COLORS["blue"] if index < 3 else COLORS["panel_soft"], fg="#ffffff" if index < 3 else COLORS["ink"], font=self.fonts["caption_bold"], width=3, padx=2, pady=5)
+            circle.pack(side="left", padx=(0, self._scaled(8)))
+            tk.Label(top, text=title, bg=COLORS["panel"], fg=COLORS["blue_dark"] if index < 3 else COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+            tk.Label(item, text=detail, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(170), justify="left", anchor="nw").pack(fill="x", padx=(self._scaled(38), 0), pady=(0, self._scaled(4)))
         return rail
 
     def _build_start_here(self) -> None:
@@ -2442,91 +2539,49 @@ class App(tk.Tk):
         )
 
     def _build_dashboard(self) -> None:
-        status_row = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
+        status_row = tk.Frame(self.dashboard_tab, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
         status_row.pack(fill="x", pady=(0, 12))
         status_cards = [
             self._dashboard_stat_card(status_row, "system", "System status", "Checking", "amber", "shield"),
             self._dashboard_stat_card(status_row, "core", "Xray Core", "Checking", "blue", "server"),
             self._dashboard_stat_card(status_row, "proxy", "Local proxy", "127.0.0.1:10808", "blue", "network"),
             self._dashboard_stat_card(status_row, "dns", "DNS", "1.1.1.1", "blue", "globe"),
-            self._dashboard_stat_card(status_row, "mode", "Network mode", "Local proxy", "green", "route"),
+            self._dashboard_stat_card(status_row, "uptime", "Uptime", "0s", "green", "clock"),
         ]
         self._responsive_grid(status_row, status_cards, preferred_columns=5, min_cell_width=155, gap=8)
 
-        hero = tk.Frame(self.dashboard_tab, bg=COLORS["blue_soft"], highlightbackground="#bfdbfe", highlightthickness=1)
-        hero.pack(fill="x", pady=(0, 12))
-        left = tk.Frame(hero, bg=COLORS["blue_soft"])
-        left.pack(side="left", fill="both", expand=True, padx=16, pady=14)
-        tk.Label(left, text="Run & Test", bg=COLORS["blue_soft"], fg=COLORS["ink"], font=("Segoe UI", 18, "bold"), anchor="w").pack(fill="x")
+        workflow = self._card(self.dashboard_tab, "Setup Workflow")
+        workflow.pack(fill="x", pady=(0, 12))
         tk.Label(
-            left,
-            textvariable=self.simple_next_step,
-            bg=COLORS["blue_soft"],
+            workflow,
+            text="Follow the steps below to get MITM DomainFronting running.",
+            bg=COLORS["panel"],
             fg=COLORS["muted"],
-            wraplength=620,
+            wraplength=self._scaled(880),
             justify="left",
             anchor="w",
-        ).pack(fill="x", pady=(4, 0))
-        hero_actions = tk.Frame(left, bg=COLORS["blue_soft"])
-        hero_actions.pack(fill="x", pady=(12, 0))
-        self._button_grid(
-            hero_actions,
+        ).pack(fill="x", padx=16, pady=(0, 10))
+        self._workflow_rail(
+            workflow,
             [
-                ("Start Core", "Accent.TButton", self.connect_xray),
-                ("Run Page Check", "Soft.TButton", self.run_browser_diagnostics),
-                ("Health Probe", "Soft.TButton", self.run_health_probe),
+                ("1", "Core", "Install and verify Xray Core."),
+                ("2", "Proxy", "Confirm local proxy settings."),
+                ("3", "Browser", "Check browser proxy and connectivity."),
+                ("4", "Ready", "Start monitoring status."),
             ],
-            preferred_columns=3,
-            min_cell_width=140,
+        ).pack(fill="x", padx=16, pady=(2, 14))
+        readiness_grid = tk.Frame(workflow, bg=COLORS["panel"])
+        readiness_grid.pack(fill="x", padx=12, pady=(0, 14))
+        readiness_items = (
+            ("config", "Xray Core", "Runtime configuration is present."),
+            ("runtime", "Bundled files", "Xray executable and geodata are local."),
+            ("cert", "Certificate", "Local CA files exist; trust stays manual."),
+            ("listener", "Proxy state", "Selected local listener is checked live."),
         )
-        right = tk.Frame(hero, bg=COLORS["blue_soft"])
-        right.pack(side="right", fill="y", padx=(18, 16), pady=14)
-        tk.Label(right, text="CORE STATUS", bg=COLORS["blue_soft"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="e").pack(fill="x")
-        self.connection_label = tk.Label(right, textvariable=self.connection_state, bg=COLORS["blue_soft"], fg=COLORS["amber"], font=("Segoe UI", 14, "bold"), anchor="e")
-        self.connection_label.pack(fill="x")
-        self._info_strip(
-            self.dashboard_tab,
-            "Daily workflow",
-            "Use the bundled core or an already-open v2rayN/Xray listener, run a page check, then use Health only if the browser test needs attention.",
-            "success",
-        ).pack(fill="x", pady=(0, 12))
-
-        glance = self._card(self.dashboard_tab, "At a glance")
-        glance.pack(fill="x", pady=(0, 12))
-        chip_row = tk.Frame(glance, bg=COLORS["panel"])
-        chip_row.pack(fill="x", padx=16, pady=(8, 16))
-        for name in ("Setup", "Core", "Certificate", "Browser", "Privacy"):
-            self._status_chip(chip_row, name)
-
-        overview = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
-        overview.pack(fill="x", pady=(0, 12))
-
-        readiness = self._card(overview, "Can I use it now?")
-        readiness.pack(fill="x")
-        readiness_grid = tk.Frame(readiness, bg=COLORS["panel"])
-        readiness_grid.pack(fill="x", padx=12, pady=(4, 12))
-        readiness_items = [
-            ("config", "Config", "Primary runtime config is present."),
-            ("runtime", "Bundled core", "Local Xray executable and geodata can be found."),
-            ("cert", "Certificate", "Local CA files exist; trust remains manual."),
-            ("listener", "Active core", "Listener on 127.0.0.1:10808 is checked live."),
-        ]
         readiness_widgets: list[tk.Frame] = []
-        for index, (key, title, item_detail) in enumerate(readiness_items):
-            item = self._readiness_item(readiness_grid, key, title, item_detail)
-            readiness_widgets.append(item)
-        self._responsive_grid(readiness_grid, readiness_widgets, preferred_columns=2, min_cell_width=230)
-
-        diagnostic = self._card(self.dashboard_tab, "Live guidance")
-        diagnostic.pack(fill="x", pady=(0, 12))
-        diag_body = tk.Frame(diagnostic, bg=COLORS["panel"])
-        diag_body.pack(fill="x", padx=16, pady=(6, 16))
-        diag_text = tk.Frame(diag_body, bg=COLORS["panel"])
-        diag_text.pack(side="left", fill="x", expand=True)
-        tk.Label(diag_text, textvariable=self.diagnostic_title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
-        tk.Label(diag_text, textvariable=self.diagnostic_detail, bg=COLORS["panel"], fg=COLORS["muted"], wraplength=self._scaled(760), justify="left", anchor="w").pack(fill="x", pady=(2, 4))
-        tk.Label(diag_text, textvariable=self.diagnostic_action, bg=COLORS["panel"], fg=COLORS["blue_dark"], font=self.fonts["caption_bold"], wraplength=self._scaled(760), justify="left", anchor="w").pack(fill="x")
-        tk.Label(diag_body, textvariable=self.auto_refresh_state, bg="#eff6ff", fg=COLORS["blue_dark"], font=self.fonts["caption_bold"], padx=10, pady=7).pack(side="right", padx=(16, 0))
+        for key, title, item_detail in readiness_items:
+            readiness_widgets.append(self._readiness_item(readiness_grid, key, title, item_detail))
+        self._responsive_grid(readiness_grid, readiness_widgets, preferred_columns=4, min_cell_width=190, gap=8)
 
         main = tk.Frame(self.dashboard_tab, bg=COLORS["panel"])
         main.pack(fill="x", pady=(0, 12))
@@ -2539,15 +2594,14 @@ class App(tk.Tk):
         core_copy.pack(side="left", fill="x", expand=True)
         tk.Label(core_copy, textvariable=self.core_version_text, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(fill="x")
         tk.Label(core_copy, textvariable=self.local_proxy_text, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w").pack(fill="x", pady=(2, 0))
-        tk.Label(
-            connection,
-            text="Self-contained runtime files live in xray/. Start uses the bundled core when the port is free; if v2rayN or another core already owns the listener, this app uses it and leaves it alone.",
-            bg=COLORS["panel"],
-            fg=COLORS["muted"],
-            wraplength=420,
-            justify="left",
-            anchor="w",
-        ).pack(fill="x", padx=16, pady=(2, 10))
+        runtime_grid = tk.Frame(connection, bg=COLORS["panel"])
+        runtime_grid.pack(fill="x", padx=12, pady=(4, 12))
+        runtime_items = [
+            self._runtime_item(runtime_grid, "xray_exe", "Executable", "xray/xray.exe"),
+            self._runtime_item(runtime_grid, "geoip", "GeoIP", "xray/geoip.dat"),
+            self._runtime_item(runtime_grid, "geosite", "Geosite", "xray/geosite.dat"),
+        ]
+        self._responsive_grid(runtime_grid, runtime_items, preferred_columns=3, min_cell_width=135, gap=8)
         conn_row = tk.Frame(connection, bg=COLORS["panel"])
         conn_row.pack(fill="x", padx=16, pady=(0, 16))
         self._button_grid(
@@ -2576,25 +2630,33 @@ class App(tk.Tk):
         self.profile_box.pack(side="left", fill="x", expand=True)
         self.profile_box.bind("<<ComboboxSelected>>", self._select_profile)
 
-        network_mode = self._card(main, "Network mode")
-        tk.Label(
-            network_mode,
-            text="The app uses an explicit browser proxy by default. System proxy and TUN are advisory here so the GUI does not silently change OS-wide traffic routing.",
-            bg=COLORS["panel"],
-            fg=COLORS["muted"],
-            wraplength=420,
-            justify="left",
-            anchor="w",
-        ).pack(fill="x", padx=16, pady=(2, 10))
+        network_mode = self._card(main, "Proxy Control")
+        proxy_head = tk.Frame(network_mode, bg=COLORS["panel"])
+        proxy_head.pack(fill="x", padx=16, pady=(2, 10))
+        self.proxy_control_status_label = tk.Label(proxy_head, text="Checking", bg=COLORS["amber_soft"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=9, pady=4)
+        self.proxy_control_status_label.pack(side="right")
+        self.connection_label = tk.Label(proxy_head, textvariable=self.connection_state, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w")
+        self.connection_label.pack(side="left", fill="x", expand=True)
+        proxy_buttons = tk.Frame(network_mode, bg=COLORS["panel"])
+        proxy_buttons.pack(fill="x", padx=16, pady=(0, 12))
+        self._button_grid(
+            proxy_buttons,
+            [
+                ("Start Core", "Accent.TButton", self.connect_xray),
+                ("Stop App Core", "Danger.TButton", self.disconnect_xray),
+            ],
+            preferred_columns=1,
+            min_cell_width=240,
+        )
         traffic_row = tk.Frame(network_mode, bg=COLORS["panel"])
         traffic_row.pack(fill="x", padx=12, pady=(0, 12))
         traffic_items = [
-            self._traffic_summary_item(traffic_row, "browser_path", "Browser path", "globe"),
-            self._traffic_summary_item(traffic_row, "core_owner", "Core owner", "server"),
-            self._traffic_summary_item(traffic_row, "system_route", "System route", "network"),
-            self._traffic_summary_item(traffic_row, "tun_route", "TUN route", "route"),
+            self._traffic_summary_item(traffic_row, "browser_path", "Browser proxy", "globe"),
+            self._traffic_summary_item(traffic_row, "core_owner", "Owner", "server"),
+            self._traffic_summary_item(traffic_row, "system_route", "System proxy", "network"),
+            self._traffic_summary_item(traffic_row, "tun_route", "TUN", "route"),
         ]
-        self._responsive_grid(traffic_row, traffic_items, preferred_columns=4, min_cell_width=170, gap=8)
+        self._responsive_grid(traffic_row, traffic_items, preferred_columns=2, min_cell_width=170, gap=8)
         mode_grid = tk.Frame(network_mode, bg=COLORS["panel"])
         mode_grid.pack(fill="x", padx=12, pady=(0, 12))
         mode_items = [
@@ -2619,8 +2681,12 @@ class App(tk.Tk):
         )
         self._responsive_grid(main, [connection, network_mode], preferred_columns=2, min_cell_width=380, gap=10)
 
-        browser = self._card(self.dashboard_tab, "Browser proxy check")
+        browser = self._card(self.dashboard_tab, "Browser Proxy Check")
         browser.pack(fill="x", pady=(0, 12))
+        check_top = tk.Frame(browser, bg=COLORS["panel"])
+        check_top.pack(fill="x", padx=16, pady=(0, 8))
+        tk.Label(check_top, text="Verifies that your browser is using the proxy and can reach test endpoints.", bg=COLORS["panel"], fg=COLORS["muted"], anchor="w", justify="left", wraplength=self._scaled(680)).pack(side="left", fill="x", expand=True)
+        ttk.Button(check_top, text="Run Check", style="Soft.TButton", command=self.run_browser_diagnostics).pack(side="right", padx=(12, 0))
         self._form_row(browser, "Target URL", self.browser_url)
         brow_row = tk.Frame(browser, bg=COLORS["panel"])
         brow_row.pack(fill="x", padx=16, pady=(0, 10))
@@ -2633,6 +2699,16 @@ class App(tk.Tk):
             preferred_columns=2,
             min_cell_width=180,
         )
+        check_grid = tk.Frame(browser, bg=COLORS["panel"])
+        check_grid.pack(fill="x", padx=12, pady=(0, 12))
+        for key, title, detail in (
+            ("browser_proxy", "Proxy reachable", self.browser_proxy.get().strip() or "127.0.0.1:10808"),
+            ("browser_dns", "DNS resolution", self.dns_resolvers.get().strip() or "Default resolvers"),
+            ("browser_https", "HTTPS handshake", "TLS handshake through local proxy"),
+            ("browser_result", "Browser verified", "Run Check to verify."),
+        ):
+            self._mode_item(check_grid, key, title, detail)
+        self._responsive_grid(check_grid, [child for child in check_grid.winfo_children()], preferred_columns=4, min_cell_width=180, gap=8)
         browser_settings, browser_settings_body = self._collapsible_section(
             browser,
             "Advanced browser settings",
@@ -2949,8 +3025,8 @@ class App(tk.Tk):
             "Advanced repair and install tools",
             "Open this for profile regeneration, optional dependency installers, bundled Xray Core download, and packaging tools.",
             self.show_repair_advanced,
-            hidden_text="Show advanced repair tools",
-            shown_text="Hide advanced repair tools",
+            hidden_text="Show advanced setup tools",
+            shown_text="Hide advanced setup tools",
         )
         common.pack(fill="x", pady=(0, 14))
         row = tk.Frame(common_body, bg=COLORS["panel"])
@@ -3338,7 +3414,11 @@ class App(tk.Tk):
         events = self._telemetry_events()
         if latest is None and events:
             latest = events[-1]
+        fail_count = sum(1 for item in events if str(item.get("status", "")).lower() in {"fail", "blocked", "error"})
         self.telemetry_summary.set(f"Activity history: local only, {len(events)} event{'s' if len(events) != 1 else ''}")
+        self.telemetry_connections.set(str(self.stream_count))
+        self.telemetry_requests.set(f"{len(events):,}")
+        self.telemetry_blocked.set(str(fail_count))
         if latest:
             self.telemetry_last.set(f"Last activity: {latest.get('event', 'unknown')} / {latest.get('status', 'info')} / {latest.get('detail', '')}")
         else:
@@ -3416,7 +3496,7 @@ class App(tk.Tk):
         self._set_readiness_item(
             "runtime",
             "Ready" if snapshot["xray_runtime_ready"] else "Partial" if snapshot["xray_local"] else "Missing",
-            str(snapshot.get("xray_path") or "Download Xray Core from Repair."),
+            str(snapshot.get("xray_path") or "Download Xray Core from Settings."),
             "pass" if snapshot["xray_runtime_ready"] else "warn",
         )
         cert_ready = bool(snapshot["cert_exists"] and snapshot["key_exists"])
@@ -3479,8 +3559,7 @@ class App(tk.Tk):
         self._set_dashboard_stat("core", "Xray Core", core_state, "pass" if owner in {"app", "external"} or snapshot.get("xray_runtime_ready") else "warn")
         self._set_dashboard_stat("proxy", "Local proxy", proxy_endpoint, "pass" if snapshot.get("loopback_10808_open") else "warn")
         self._set_dashboard_stat("dns", "DNS", self.dns_resolvers.get().strip() or "Default resolvers", "info")
-        mode = "TUN configured" if snapshot.get("tun_enabled") else "Browser proxy"
-        self._set_dashboard_stat("mode", "Network mode", mode, "info" if snapshot.get("tun_enabled") else "pass")
+        self._set_dashboard_stat("uptime", "Uptime", self.network_duration.get(), "pass" if snapshot.get("loopback_10808_open") else "info")
         self.core_version_text.set(f"Xray Core: {core_state}")
         self.local_proxy_text.set(f"Local proxy: {proxy_endpoint}")
         self.dns_text.set(f"DNS: {self.dns_resolvers.get().strip() or 'default'}")
@@ -3558,34 +3637,61 @@ class App(tk.Tk):
             "Manual/admin routing path." if snapshot.get("tun_enabled") else "Browser proxy remains the default path.",
             "info" if snapshot.get("tun_enabled") else "pass",
         )
+        self._set_mode_item(
+            "browser_proxy",
+            "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
+            proxy_url,
+            "pass" if snapshot.get("loopback_10808_open") else "warn",
+        )
+        self._set_mode_item(
+            "browser_dns",
+            "Configured",
+            self.dns_resolvers.get().strip() or "Default resolvers",
+            "info",
+        )
+        self._set_mode_item(
+            "browser_https",
+            "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
+            "Run Check to confirm TLS through the proxy.",
+            "pass" if snapshot.get("loopback_10808_open") else "warn",
+        )
+        self._set_mode_item(
+            "browser_result",
+            "Run Check",
+            "Browser verification is explicit; no system proxy changes are made.",
+            "info",
+        )
 
     def _update_network_telemetry(self, proxy_active: bool) -> None:
         now = time.monotonic()
         if proxy_active:
             if self._proxy_active_since is None:
                 self._proxy_active_since = now
-            self.network_duration.set(f"Connection time: {format_duration(now - self._proxy_active_since)}")
+            self.network_duration.set(format_duration(now - self._proxy_active_since))
         else:
             self._proxy_active_since = None
-            self.network_duration.set("Connection time: 0s")
+            self.network_duration.set("0s")
+        self._set_dashboard_stat("uptime", "Uptime", self.network_duration.get(), "pass" if proxy_active else "info")
 
         if now < self._network_next_poll:
             down_rate, up_rate = self._network_last_rates
             if hasattr(self, "metric_down_label"):
                 self.metric_down_label.configure(text=format_rate(down_rate), fg=COLORS["blue"])
                 self.metric_up_label.configure(text=format_rate(up_rate), fg=COLORS["green"])
+            self._draw_sparklines()
             return
         self._network_next_poll = now + NETWORK_REFRESH_MS / 1000.0
 
         sample = system_network_totals()
         if sample is None:
-            self.network_down_rate.set("Down: unavailable")
-            self.network_up_rate.set("Up: unavailable")
-            self.network_total.set("Traffic: counters unavailable")
+            self.network_down_rate.set("Unavailable")
+            self.network_up_rate.set("Unavailable")
+            self.network_total.set("Unavailable")
             self.network_source.set("Counters: local OS network counters unavailable")
             if hasattr(self, "metric_down_label"):
                 self.metric_down_label.configure(text="Unavailable", fg=COLORS["muted"])
                 self.metric_up_label.configure(text="Unavailable", fg=COLORS["muted"])
+            self._draw_sparklines()
             return
 
         rx, tx, source = sample
@@ -3605,13 +3711,14 @@ class App(tk.Tk):
         total_rx = max(0, rx - self._network_baseline[1])
         total_tx = max(0, tx - self._network_baseline[2])
 
-        self.network_down_rate.set(f"Down: {format_rate(down_rate)}")
-        self.network_up_rate.set(f"Up: {format_rate(up_rate)}")
-        self.network_total.set(f"Traffic: {format_bytes(total_rx)} down / {format_bytes(total_tx)} up")
+        self.network_down_rate.set(format_rate(down_rate))
+        self.network_up_rate.set(format_rate(up_rate))
+        self.network_total.set(f"{format_bytes(total_rx)} / {format_bytes(total_tx)}")
         self.network_source.set(f"Counters: {source}; local system traffic since this GUI opened, not payload inspection.")
         if hasattr(self, "metric_down_label"):
             self.metric_down_label.configure(text=format_rate(down_rate), fg=COLORS["blue"])
             self.metric_up_label.configure(text=format_rate(up_rate), fg=COLORS["green"])
+        self._draw_sparklines()
 
     def _update_diagnostic_guidance(self, snapshot: dict[str, object], level: str, detail: str) -> None:
         proxy_endpoint = f"{snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}"
@@ -4094,6 +4201,12 @@ class App(tk.Tk):
             next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Start Core"
             self.metric_next_label.configure(text=next_text, fg=COLORS["blue"] if loopback_open else COLORS["amber"])
             self.metric_refresh_label.configure(text=f"{STATUS_REFRESH_MS // 1000}s / {self.status_refresh_count}", fg=COLORS["blue"])
+        if hasattr(self, "proxy_control_status_label"):
+            proxy_state = "Running" if loopback_open else "Stopped"
+            proxy_level = "pass" if loopback_open else "warn"
+            pill_bg = {"pass": COLORS["green_soft"], "warn": COLORS["amber_soft"], "fail": COLORS["red_soft"], "info": COLORS["blue_soft"]}.get(proxy_level, COLORS["panel_soft"])
+            pill_fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(proxy_level, COLORS["muted"])
+            self.proxy_control_status_label.configure(text=proxy_state, bg=pill_bg, fg=pill_fg)
         self.auto_refresh_state.set(f"Auto refresh: every {STATUS_REFRESH_MS // 1000}s, {self.status_refresh_count} checks")
         self._update_readiness_items(snapshot, selected_config)
         self._update_runtime_items(snapshot)
@@ -4101,12 +4214,17 @@ class App(tk.Tk):
         self._update_network_mode_items(snapshot)
         self._update_network_telemetry(loopback_open)
         self._update_diagnostic_guidance(snapshot, level, detail)
-        self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
-        self._set_label_state(self.status_chip_labels["Core"], "Running" if loopback_open else "Stopped", "pass" if loopback_open else "warn")
-        self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
+        if "Setup" in self.status_chip_labels:
+            self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
+        if "Core" in self.status_chip_labels:
+            self._set_label_state(self.status_chip_labels["Core"], "Running" if loopback_open else "Stopped", "pass" if loopback_open else "warn")
+        if "Certificate" in self.status_chip_labels:
+            self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
         browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
-        self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
-        self._set_label_state(self.status_chip_labels["Privacy"], "Local only", "info")
+        if "Browser" in self.status_chip_labels:
+            self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
+        if "Privacy" in self.status_chip_labels:
+            self._set_label_state(self.status_chip_labels["Privacy"], "Local only", "info")
         self.status_labels["Config"].configure(text=f"{short_path(selected_config)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if selected_config.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
         self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])

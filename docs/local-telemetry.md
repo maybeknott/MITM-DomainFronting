@@ -33,7 +33,16 @@ The JSONL file is append-only during normal GUI use. The export file is created 
 
 ## GUI Controls
 
-The **Run & Test** screen includes a collapsed **Activity History** section:
+The **Dashboard** screen shows a right-side **Live Telemetry** rail:
+
+- **Downlink** and **Uplink**: local OS network rates with compact sparklines;
+- **Connections**: GUI/core activity stream count;
+- **Requests**: local GUI activity event count;
+- **Blocked**: failed/blocked/error activity events;
+- **Local & Private**: a visible reminder that telemetry stays on the device;
+- **Quick Actions**: opens logs, finds actions, resets statistics, or refreshes status.
+
+The detailed activity actions are still available from the command palette and related tools:
 
 - **Run Full Status**: records a redacted status snapshot and prints it in the local output pane;
 - **Show Activity**: prints the most recent local GUI events;

@@ -26,7 +26,7 @@ py -3 scripts\gui.py --self-test
 
 ## مسیر پیشنهادی برای شروع
 
-برنامه با صفحه **Start Here** باز می‌شود. برای استفاده معمولی همین ترتیب کافی است:
+برنامه با صفحه **Dashboard** باز می‌شود. برای استفاده معمولی همین ترتیب کافی است:
 
 ۱. **Check Setup**: بررسی سبک و محلی برای کانفیگ، فایل‌های لازم، ابزارهای موجود و وضعیت پایه.
 
@@ -43,7 +43,7 @@ py -3 scripts\gui.py --self-test
 - نوار راست Telemetry همیشه وضعیت زنده، شبکه و فعالیت محلی را نشان می‌دهد.
 - Log Drawer پایین برنامه به صورت پیش‌فرض مخفی است و فقط وقتی لازم باشد باز می‌شود.
 
-صفحه روزمره **Run & Test** با مدل dashboard طراحی شده است: ردیف اول وضعیت System، Xray Core، Local Proxy، DNS و Network Mode را نشان می‌دهد؛ پایین‌تر workflow، وضعیت آماده‌بودن، کنترل core، Network Mode، Browser Proxy Check و Quick Actions قرار دارند. هدف این است که کاربر اول بفهمد «چه چیزی آماده است؟ چه چیزی listener را در اختیار دارد؟ قدم بعدی چیست؟»
+صفحه روزمره **Dashboard** با مدل control center طراحی شده است: ردیف اول وضعیت System، Xray Core، Local Proxy، DNS و Uptime را نشان می‌دهد؛ پایین‌تر workflow، وضعیت آماده‌بودن، کنترل core، Proxy Control، Browser Proxy Check و Quick Actions قرار دارند. هدف این است که کاربر اول بفهمد «چه چیزی آماده است؟ چه چیزی listener را در اختیار دارد؟ قدم بعدی چیست؟»
 
 با **Focus Mode** می‌توانید نوار چپ را مخفی کنید. با **Telemetry Rail** می‌توانید نوار راست را هم مخفی یا دوباره نمایش دهید.
 
@@ -76,22 +76,21 @@ py -3 scripts\gui.py --self-test
 
 نوار سمت راست شامل این بخش‌ها است:
 
-- **Live Status**: وضعیت کلی، وضعیت اتصال و چرخه auto-refresh.
-- **Network**: سرعت دریافت، سرعت ارسال، مجموع ترافیک از زمان باز شدن برنامه و مدت اتصال پروکسی.
-- **Activity**: تاریخچه محلی خود GUI و دکمه‌های export/clear/show.
-- **View**: میانبرهای سریع برای Find Action، Logs، Focus و Refresh.
+- **Live Telemetry**: سرعت دریافت/ارسال، connections، requests، blocked و نمودارهای کوچک زنده.
+- **Local & Private**: یادآوری اینکه داده‌ها، logها و تنظیمات روی همین دستگاه می‌مانند.
+- **Quick Actions**: میانبرهای سریع برای Logs، Find Action، Reset Statistics و Refresh.
 
 داده‌های شبکه از شمارنده‌های سیستم‌عامل خوانده می‌شود. برنامه محتوای ترافیک، کوکی، بدنه درخواست، تاریخچه مرورگر یا payload رمزگشایی‌شده را بررسی نمی‌کند.
 
 ## صفحه‌ها
 
-### Start Here
+### Dashboard
 
-مسیر مناسب برای کاربر جدید است. وضعیت **Bundled Xray Core** نشان می‌دهد `xray.exe`، `geoip.dat` و `geosite.dat` در برنامه موجود هستند یا نه. ابزارهای اضافی مثل نصب Playwright، نصب ابزار fingerprint، دانلود Xray Core و PyInstaller در بخش اختیاری مخفی شده‌اند تا صفحه اول شلوغ نشود.
+صفحه اصلی برنامه است. وضعیت **Bundled Xray Core** نشان می‌دهد `xray.exe`، `geoip.dat` و `geosite.dat` در برنامه موجود هستند یا نه. کارت **Proxy Control** مسیر browser proxy، external core، system proxy و TUN را واضح نشان می‌دهد بدون اینکه تنظیمات سیستم را بی‌اجازه تغییر دهد.
 
-### Run & Test
+### Tools
 
-صفحه استفاده روزمره است. از اینجا می‌توانید Xray Core داخلی برنامه را start/stop کنید، یک Page Check بگیرید، repair سریع انجام دهید، issue summary بسازید و وضعیت کلی پروژه را ببینید. اگر v2rayN یا یک core خارجی روی پورت پروفایل انتخاب‌شده باز باشد، برنامه آن را usable نشان می‌دهد و دکمه stop فقط روی core اجراشده توسط خود برنامه اثر دارد.
+مسیر راه‌اندازی مرحله‌ای و ابزارهای اختیاری را نگه می‌دارد. ابزارهای اضافی مثل نصب Playwright، نصب ابزار fingerprint، دانلود Xray Core و PyInstaller در بخش اختیاری مخفی شده‌اند تا صفحه اصلی شلوغ نشود.
 
 ### Network Mode
 
@@ -102,15 +101,15 @@ py -3 scripts\gui.py --self-test
 - **System proxy**: فقط بررسی و هشدار است. برنامه system proxy را خودکار روشن، خاموش یا تغییر نمی‌دهد.
 - **TUN mode**: پروفایل استاندارد TUN ندارد. اگر کانفیگ انتخاب‌شده inbound نوع TUN داشته باشد، GUI آن را advisory نشان می‌دهد؛ استفاده از TUN یعنی routing سطح سیستم و معمولاً نیازمند administrator و بررسی routeها است.
 
-### Checks
+### Routing
 
 محیط بررسی محلی است. Checks اصلی اول نمایش داده می‌شوند و checks عمیق‌تر پشت بخش extra پنهان هستند. با Command Search می‌توانید بین checks جست‌وجو کنید.
 
-### Health Report
+### Logs & Health
 
 برای زمانی است که تست مرورگر یا راه‌اندازی مشکل دارد. Health Probe، Platform Capability و Trust Store Check خروجی redacted و محلی تولید می‌کنند. گزارش‌های عمیق‌تر مثل Lab Evidence و Decision Report در بخش advanced قرار دارند.
 
-### Repair
+### Settings
 
 ابزارهای تعمیر local را نگه می‌دارد. Repair Setup فایل‌های تولیدی و metadata را بررسی و بازسازی می‌کند. ابزارهای نصب dependency و دانلود Xray Core در advanced قرار دارند.
 
@@ -118,7 +117,7 @@ py -3 scripts\gui.py --self-test
 
 برای وضعیت گواهی، بررسی تطابق cert/key، ساخت گواهی محلی و راهنمای trust استفاده می‌شود. برنامه کلید خصوصی را آپلود نمی‌کند و trust را بی‌اجازه نصب نمی‌کند.
 
-### Browser Check
+### Proxy
 
 ابتدا Page Check با Chromium/Playwright را اجرا کنید. تنظیم مسیر Chrome، headless و تست CloakBrowser/Fingerprint برای استفاده advanced است.
 
@@ -126,7 +125,7 @@ py -3 scripts\gui.py --self-test
 
 برای تولید پروفایل‌های استاندارد، ساخت alternate-port profile و اجرای DNS Sweep استفاده می‌شود.
 
-### Docs
+### About
 
 لینک‌های سریع به راهنماهای محلی مخزن را نشان می‌دهد.
 
