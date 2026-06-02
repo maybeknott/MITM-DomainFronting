@@ -3,6 +3,10 @@ use std::io::{self, Read};
 
 const TLS_HANDSHAKE_RECORD_TYPE: u8 = 0x16;
 const HANDSHAKE_TYPE_CLIENT_HELLO: u8 = 0x01;
+/// Maximum `TLSPlaintext.length` permitted by RFC 8446 §5.1 (2^14 bytes). A
+/// record claiming more than this is malformed; rejecting it early also caps
+/// the per-record buffer we pre-allocate from an attacker-controlled length.
+const MAX_TLS_RECORD_PAYLOAD: usize = 1 << 14;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientHelloInfo {
@@ -23,6 +27,7 @@ pub enum ParserError {
     Invalid(&'static str),
     InvalidSniUtf8,
     DuplicateExtension(u16),
+    RecordTooLarge(usize),
 }
 
 impl fmt::Display for ParserError {
@@ -45,6 +50,11 @@ impl fmt::Display for ParserError {
             ParserError::DuplicateExtension(ext_type) => {
                 write!(f, "duplicate TLS extension {:#06x}", ext_type)
             }
+            ParserError::RecordTooLarge(len) => write!(
+                f,
+                "TLS record payload ({} bytes) exceeds the RFC 8446 limit of {} bytes",
+                len, MAX_TLS_RECORD_PAYLOAD
+            ),
         }
     }
 }
@@ -106,6 +116,26 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// Validate an attacker-controlled record payload length before it is used to
+/// size an allocation. Enforces the RFC 8446 §5.1 record ceiling and ensures
+/// the running raw-byte total cannot exceed the caller's overall budget. On
+/// success returns the (unchanged) length so call sites read clearly.
+fn check_record_len(
+    record_len: usize,
+    bytes_so_far: usize,
+    max_client_hello_bytes: usize,
+) -> Result<usize, ParserError> {
+    if record_len > MAX_TLS_RECORD_PAYLOAD {
+        return Err(ParserError::RecordTooLarge(record_len));
+    }
+    // `bytes_so_far` already counts the 5-byte record header for this record.
+    let projected = bytes_so_far.saturating_add(record_len);
+    if projected > max_client_hello_bytes {
+        return Err(ParserError::ClientHelloTooLarge(projected));
+    }
+    Ok(record_len)
+}
+
 pub fn read_client_hello_info<R: Read>(
     reader: &mut R,
     raw_out: &mut Vec<u8>,
@@ -126,6 +156,7 @@ pub fn read_client_hello_info<R: Read>(
     }
 
     let first_len = u16::from_be_bytes([first_header[3], first_header[4]]) as usize;
+    let first_len = check_record_len(first_len, raw_out.len(), max_client_hello_bytes)?;
     let mut first_payload = vec![0_u8; first_len];
     reader.read_exact(&mut first_payload)?;
     raw_out.extend_from_slice(&first_payload);
@@ -156,6 +187,7 @@ pub fn read_client_hello_info<R: Read>(
             return Err(ParserError::UnexpectedRecordType(header[0]));
         }
         let fragment_len = u16::from_be_bytes([header[3], header[4]]) as usize;
+        let fragment_len = check_record_len(fragment_len, raw_out.len(), max_client_hello_bytes)?;
         let mut fragment = vec![0_u8; fragment_len];
         reader.read_exact(&mut fragment)?;
         raw_out.extend_from_slice(&fragment);
@@ -447,6 +479,52 @@ mod tests {
         let hello = vec![0x01, 0x00, 0x00, 0x05, 0x03];
         let err = parse_client_hello_handshake(&hello).expect_err("must reject truncated");
         assert!(matches!(err, ParserError::Invalid(_)));
+    }
+
+    #[test]
+    fn check_record_len_rejects_oversized_record() {
+        let err = check_record_len(MAX_TLS_RECORD_PAYLOAD + 1, 5, 1 << 20)
+            .expect_err("record above RFC 8446 ceiling must be rejected");
+        assert!(matches!(err, ParserError::RecordTooLarge(_)));
+    }
+
+    #[test]
+    fn check_record_len_enforces_overall_budget() {
+        let err = check_record_len(1000, 9_005, 10_000)
+            .expect_err("must reject when projected total exceeds budget");
+        assert!(matches!(err, ParserError::ClientHelloTooLarge(_)));
+    }
+
+    #[test]
+    fn check_record_len_accepts_in_bounds_record() {
+        assert_eq!(
+            check_record_len(1000, 5, 64 * 1024).expect("in-bounds record"),
+            1000
+        );
+        assert_eq!(
+            check_record_len(MAX_TLS_RECORD_PAYLOAD, 5, 1 << 20).expect("record at ceiling"),
+            MAX_TLS_RECORD_PAYLOAD
+        );
+    }
+
+    #[test]
+    fn read_client_hello_rejects_oversized_first_record() {
+        // Handshake record header declaring a payload larger than the RFC 8446
+        // record ceiling. The parser must reject it before allocating, without
+        // requiring the bytes to actually arrive.
+        let oversized = (MAX_TLS_RECORD_PAYLOAD + 1) as u16;
+        let header = [
+            TLS_HANDSHAKE_RECORD_TYPE,
+            0x03,
+            0x03,
+            (oversized >> 8) as u8,
+            (oversized & 0xff) as u8,
+        ];
+        let mut cursor = std::io::Cursor::new(header.to_vec());
+        let mut raw = Vec::new();
+        let err = read_client_hello_info(&mut cursor, &mut raw, 1 << 20)
+            .expect_err("oversized record must be rejected");
+        assert!(matches!(err, ParserError::RecordTooLarge(_)));
     }
 
     #[test]
