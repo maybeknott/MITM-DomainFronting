@@ -188,13 +188,23 @@ impl PathScheduler {
         let sample_count = arm.samples.len() as f64;
         let success_count = arm.samples.iter().filter(|sample| sample.success).count() as f64;
         let success_rate = success_count / sample_count;
-        let avg_latency = arm
-            .samples
-            .iter()
-            .filter_map(|sample| sample.latency_ms)
-            .map(f64::from)
-            .sum::<f64>()
-            / sample_count.max(1.0);
+        // Only divide by the number of samples that actually carry a latency
+        // reading. Failures often have `latency_ms=None` (e.g. DNS/TCP failures)
+        // and including those untimed failures in the divisor would dilute the
+        // latency penalty toward zero precisely when the arm is flaking.
+        let mut timed_count: f64 = 0.0;
+        let mut timed_sum_ms: f64 = 0.0;
+        for sample in &arm.samples {
+            if let Some(latency_ms) = sample.latency_ms {
+                timed_count += 1.0;
+                timed_sum_ms += f64::from(latency_ms);
+            }
+        }
+        let avg_latency = if timed_count > 0.0 {
+            timed_sum_ms / timed_count
+        } else {
+            0.0
+        };
         let latency_penalty = (avg_latency / 1000.0).min(0.5);
         let in_flight_penalty = arm.in_flight as f64 * 0.05;
         let circuit_penalty = match arm.state {
@@ -277,5 +287,33 @@ mod tests {
         assert_eq!(scheduler.arm(0).expect("arm").in_flight, 1);
         scheduler.finish_request(0, 20, true, None, Some(20), None);
         assert_eq!(scheduler.arm(0).expect("arm").in_flight, 0);
+    }
+
+    #[test]
+    fn latency_penalty_ignores_untimed_failures() {
+        // Two arms with identical success rates and identical untimed failures,
+        // but different timed success latencies. The fast arm must outrank the
+        // slow arm by the full (clamped) latency penalty gap; untimed failures
+        // must not dilute the computed average latency toward zero.
+        let mut scheduler = PathScheduler::new(2, 32, 1_000);
+
+        // 10 successes + 10 untimed failures on each arm.
+        for i in 0..10_u64 {
+            scheduler.finish_request(0, 10 + i, true, None, Some(900), None);
+            scheduler.finish_request(1, 10 + i, true, None, Some(10), None);
+        }
+        for i in 0..10_u64 {
+            scheduler.finish_request(0, 100 + i, false, Some(FailurePhase::Dns), None, None);
+            scheduler.finish_request(1, 100 + i, false, Some(FailurePhase::Dns), None, None);
+        }
+
+        let slow = scheduler.score_arm(scheduler.arm(0).expect("arm0"));
+        let fast = scheduler.score_arm(scheduler.arm(1).expect("arm1"));
+        assert!(
+            fast > slow,
+            "fast arm must outrank slow arm (fast={} slow={})",
+            fast,
+            slow
+        );
     }
 }
