@@ -23,8 +23,23 @@ Current scope:
 
 1. **Milestone 4: stream-core baseline**
    - Loopback listener (`MITM_STREAM_LISTEN`, default `127.0.0.1:10808`)
-   - Safe, bounded TLS `ClientHello` parser
+   - Safe, bounded TLS `ClientHello` parser. Per-record payload lengths are
+     validated against the RFC 8446 §5.1 ceiling (2^14 bytes) and the overall
+     ClientHello budget *before* any buffer is allocated, so a peer cannot make
+     the parser reserve a large buffer for bytes it never (or only slowly)
+     sends (pre-allocation DoS hardening)
    - Fragment-aware collection across TLS handshake records
+   - Bounded handshake read timeout (`MITM_STREAM_HANDSHAKE_TIMEOUT_MS`,
+     default `10000`, `0` disables) so a slow/idle peer cannot pin a worker
+     thread indefinitely (slow-loris hardening)
+   - Accept-loop backoff after `accept_flow` errors, preventing a hot
+     busy-loop when accept fails persistently (e.g. file-descriptor
+     exhaustion)
+   - Misconfiguration is now visible on stderr instead of silently ignored:
+     unrecognized `MITM_STREAM_BACKEND` values, non-integer millisecond env
+     vars (`MITM_STREAM_HANDSHAKE_TIMEOUT_MS`, `MITM_STREAM_TIMEOUT_MS`), and
+     unrecognized boolean values (`MITM_STREAM_ALLOW_POLICY_INFERENCE`) emit a
+     warning and fall back to the documented default
 
 2. **Milestone 5: bounded cert cache**
    - Bounded positive cache with per-provider and global caps
