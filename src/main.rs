@@ -176,14 +176,20 @@ fn handle_client(mut socket: TcpStream, handshake_timeout_ms: u64) -> Result<(),
             .collect::<Vec<String>>()
             .join(",")
     };
+    let ext_order_display = info
+        .extension_order
+        .iter()
+        .map(|ext| format!("{:#06x}", ext))
+        .collect::<Vec<_>>()
+        .join(",");
     println!(
-        "clienthello parsed sni={} alpn={} versions={:?} sigalgs={} groups={} extorder={:?} raw_len={}",
+        "clienthello parsed sni={} alpn={} versions={:?} sigalgs={} groups={} extorder=[{}] raw_len={}",
         info.sni.as_deref().unwrap_or("<none>"),
         alpn_display,
         info.supported_versions,
         info.signature_algorithms.len(),
         info.supported_groups.len(),
-        info.extension_order,
+        ext_order_display,
         info.raw_len
     );
 

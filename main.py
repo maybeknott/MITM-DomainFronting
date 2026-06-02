@@ -195,8 +195,38 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MITM-DomainFronting local operations")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="mitm",
+        description=(
+            "MITM-DomainFronting local operations.\n\n"
+            "A toolkit for running and validating the local TLS MITM "
+            "domain-fronting proxy: bootstrap the environment, launch the "
+            "desktop control center, audit configuration, and run the full "
+            "offline CI-mirroring check suite."
+        ),
+        epilog=(
+            "Typical workflow:\n"
+            "  python main.py init        # one-time: create venv + optional tooling\n"
+            "  python main.py audit       # fast static config/route/governance checks\n"
+            "  python main.py test        # full offline suite (mirrors CI)\n"
+            "  python main.py gui         # launch the desktop control center\n"
+            "  python main.py probe       # local redacted health probe\n"
+            "  python main.py trust       # advisory trust-store setup instructions\n\n"
+            "Tips:\n"
+            "  * 'audit --keep-going' reports every problem in one pass.\n"
+            "  * 'test --fail-fast' stops at the first failing check for tight loops.\n"
+            "  * 'test --require-rust' turns a missing cargo toolchain into a failure\n"
+            "    instead of a skip (use in CI where Rust must be present).\n"
+            "  * Unknown flags after a subcommand are forwarded to the underlying tool."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(
+        dest="command",
+        required=True,
+        metavar="<command>",
+        title="commands",
+    )
     sub.add_parser("init", help="create a local virtual environment and install optional tooling")
     sub.add_parser("gui", help="launch the desktop control center")
     audit_parser = sub.add_parser(

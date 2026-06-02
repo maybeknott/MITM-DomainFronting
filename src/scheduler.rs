@@ -325,6 +325,43 @@ mod tests {
     }
 
     #[test]
+    fn expired_open_circuit_is_not_admitted_to_foreground_without_probe() {
+        // Single-arm scheduler whose only path trips its circuit. Once the
+        // backoff elapses, the arm must STILL be withheld from foreground
+        // selection: recovery has to go through a half-open probe, not a
+        // full-traffic flood the instant the timer expires.
+        let mut scheduler = PathScheduler::new(1, 8, 100);
+        for i in 0..3 {
+            scheduler.finish_request(
+                0,
+                100 + i,
+                false,
+                Some(FailurePhase::TcpConnect),
+                None,
+                None,
+            );
+        }
+        assert_eq!(scheduler.arm(0).expect("arm").state, ArmState::OpenCircuit);
+        let open_until = scheduler.arm(0).expect("arm").open_until_ms;
+        let after_expiry = open_until.saturating_add(10_000);
+
+        assert!(
+            scheduler.begin_request(after_expiry).is_none(),
+            "expired-but-unprobed open circuit must not serve foreground traffic"
+        );
+
+        let probe = scheduler
+            .select_probe(after_expiry)
+            .expect("probe admitted");
+        assert_eq!(probe.arm_index, 0);
+        assert_eq!(scheduler.arm(0).expect("arm").state, ArmState::HalfOpen);
+
+        scheduler.finish_request(0, after_expiry + 5, true, None, Some(50), Some(5_000));
+        assert_eq!(scheduler.arm(0).expect("arm").state, ArmState::Healthy);
+        assert!(scheduler.begin_request(after_expiry + 10).is_some());
+    }
+
+    #[test]
     fn half_open_probe_recovers_path() {
         let mut scheduler = PathScheduler::new(1, 8, 100);
         for i in 0..3 {

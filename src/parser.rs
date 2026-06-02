@@ -434,6 +434,25 @@ mod tests {
         assert_eq!(parsed.raw_len, hello.len());
     }
 
+    #[test]
+    fn extension_order_records_unrecognized_types_in_wire_order() {
+        // Insert an unknown extension type between two known ones; the unknown
+        // identifier must still appear in the recorded wire order.
+        let mut extensions = Vec::new();
+        // supported_groups (0x000a)
+        extensions.extend_from_slice(&supported_groups_ext());
+        // unknown extension 0xfafa with empty payload
+        extensions.extend_from_slice(&0xfafa_u16.to_be_bytes());
+        extensions.extend_from_slice(&0x0000_u16.to_be_bytes());
+        // another extension we do not decode (extended_master_secret 0x0017)
+        extensions.extend_from_slice(&0x0017_u16.to_be_bytes());
+        extensions.extend_from_slice(&0x0000_u16.to_be_bytes());
+
+        let hello = client_hello_with_extensions(&extensions);
+        let parsed = parse_client_hello_handshake(&hello).expect("parse");
+        assert_eq!(parsed.extension_order, vec![0x000a, 0xfafa, 0x0017]);
+    }
+
     /// Builds a ClientHello whose extensions block is exactly `extensions`,
     /// wrapping it with valid record/handshake/body framing.
     fn client_hello_with_extensions(extensions: &[u8]) -> Vec<u8> {
