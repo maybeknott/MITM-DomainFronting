@@ -103,6 +103,18 @@ Recommended flags for protected sites (still route through local MITM proxy):
 python scripts\browser_stealth.py --url https://target.example --geoip --fingerprint-seed 42069
 ```
 
+To *measure* (not assume) the live TLS fingerprint, point the probe at a JA3-echo
+oracle you trust and optionally pin an expected baseline:
+
+```powershell
+python scripts\browser_stealth.py --url https://target.example `
+  --ja3-oracle-url https://tls.peet.ws/api/all --expected-ja3 <known-ja3-or-md5>
+```
+
+Without `--ja3-oracle-url`, `tls_fingerprint_ja3_matches_browser` stays `null`
+with `verification_method: "not_measured"` — the probe never fabricates a green
+TLS-match signal.
+
 Proxy default: `socks5://127.0.0.1:10808` (matches `mixed-in`). HTTP proxy `http://127.0.0.1:10808` also works.
 
 **Manual launch helper:**
@@ -124,7 +136,12 @@ Align with [`configs/protocols.yml`](../configs/protocols.yml) and strict Xray p
 
 ## Telemetry JSON
 
-Scripts print a single JSON object (stdout) with `mode`, `runtime_environment`, `network_telemetry`, `fingerprint_validation`, and `execution_state`. Use diagnostics output to debug proxy/CA; use stealth output only after diagnostics is green.
+Scripts print a single JSON object (stdout) with `mode`, `runtime_environment`, `network_telemetry`, `engine_capabilities`, `fingerprint_validation`, and `execution_state`. Use diagnostics output to debug proxy/CA; use stealth output only after diagnostics is green.
+
+Two buckets keep claims separate from measurements:
+
+- **`engine_capabilities`**: what the stealth engine is configured to do (e.g. `navigator_webdriver_shadowed`, `canvas_noise_injected`).
+- **`fingerprint_validation`**: what was actually measured against an external oracle. `tls_fingerprint_ja3_matches_browser` is `null` unless `--ja3-oracle-url` produced an `observed_ja3`.
 
 ## Loopback routing deadlock
 

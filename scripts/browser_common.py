@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+import re
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "browser-integration.json"
 DEFAULT_CERT = REPO_ROOT / "Xray-config" / "mycert.crt"
@@ -94,10 +96,20 @@ def base_telemetry(
             "local_mitm_decryption_verified": None,
             "certificate_chain_state": None,
         },
-        "fingerprint_validation": {
+        # Two honest buckets instead of one ambiguous one:
+        # - `engine_capabilities` captures what the stealth engine is configured
+        #   to do once it launches (a claim, true by construction).
+        # - `fingerprint_validation` is reserved for measurements against an
+        #   external oracle. It must never be fabricated to True.
+        "engine_capabilities": {
             "navigator_webdriver_shadowed": None,
             "canvas_noise_injected": None,
+        },
+        "fingerprint_validation": {
             "tls_fingerprint_ja3_matches_browser": None,
+            "observed_ja3": None,
+            "expected_ja3": None,
+            "verification_method": "not_measured",
         },
         "execution_state": {
             "target_url": url,
@@ -113,6 +125,86 @@ def base_telemetry(
 
 def emit_json(payload: Dict[str, Any]) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def verify_ja3_against_oracle(
+    page: Any,
+    oracle_url: str,
+    *,
+    expected_ja3: Optional[str] = None,
+    timeout_ms: int = 15000,
+) -> Dict[str, Any]:
+    """
+    Measure the live TLS fingerprint by navigating to a JA3-echo oracle and
+    reading the JA3/JA3-hash it reports back.
+
+    JA3 is a property of the TLS ClientHello on the wire; it cannot be observed
+    from browser JavaScript. This helper is therefore intentionally opt-in and
+    relies on an operator-supplied oracle URL they trust.
+    """
+    result: Dict[str, Any] = {
+        "tls_fingerprint_ja3_matches_browser": None,
+        "observed_ja3": None,
+        "expected_ja3": expected_ja3,
+        "verification_method": "ja3_echo_oracle",
+    }
+    try:
+        response = page.goto(oracle_url, wait_until="domcontentloaded", timeout=timeout_ms)
+    except Exception as exc:  # noqa: BLE001
+        result["verification_method"] = f"ja3_echo_oracle_error:{exc}"
+        return result
+
+    observed = _extract_ja3_from_oracle(page, response)
+    result["observed_ja3"] = observed
+    if observed is None:
+        result["verification_method"] = "ja3_echo_oracle_no_ja3_in_response"
+        return result
+
+    if expected_ja3:
+        result["tls_fingerprint_ja3_matches_browser"] = (
+            observed.strip().lower() == expected_ja3.strip().lower()
+        )
+    return result
+
+
+def _extract_ja3_from_oracle(page: Any, response: Any) -> Optional[str]:
+    """
+    Best-effort extraction of a JA3 value from a JA3 echo service.
+
+    Tries JSON first (common shapes: {"ja3": ...}, {"ja3_hash": ...},
+    {"tls": {"ja3": ...}}), then falls back to scraping a 32-hex token from the
+    rendered page content.
+    """
+    if response is not None:
+        try:
+            body = response.json()
+            candidate = _ja3_from_mapping(body)
+            if candidate:
+                return candidate
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        text = page.content()
+    except Exception:  # noqa: BLE001
+        return None
+    match = re.search(r"\b[0-9a-f]{32}\b", text.lower())
+    if match:
+        return match.group(0)
+    return None
+
+
+def _ja3_from_mapping(body: Any) -> Optional[str]:
+    if isinstance(body, dict):
+        for key in ("ja3_hash", "ja3", "ja3_md5", "fingerprint"):
+            value = body.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        for value in body.values():
+            nested = _ja3_from_mapping(value)
+            if nested:
+                return nested
+    return None
 
 
 def navigation_succeeded(target_url: str, resolved_url: str, response: Any) -> bool:

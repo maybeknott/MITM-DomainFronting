@@ -27,6 +27,7 @@ from browser_common import (
     navigation_succeeded,
     resolve_profile_dir,
     transport_hardening_args,
+    verify_ja3_against_oracle,
     DEFAULT_CERT,
 )
 
@@ -53,6 +54,8 @@ def run_stealth_probe(
     navigation_timeout_ms: int = 30000,
     cert_path: Path = DEFAULT_CERT,
     extra_args: Optional[List[str]] = None,
+    ja3_oracle_url: Optional[str] = None,
+    expected_ja3: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = load_integration_config()
     proxy_url = proxy_url or default_proxy_url(cfg)
@@ -100,8 +103,8 @@ def run_stealth_probe(
             args=launch_args,
             ignore_https_errors=True,
         )
-        telemetry["fingerprint_validation"]["navigator_webdriver_shadowed"] = True
-        telemetry["fingerprint_validation"]["canvas_noise_injected"] = True
+        telemetry["engine_capabilities"]["navigator_webdriver_shadowed"] = True
+        telemetry["engine_capabilities"]["canvas_noise_injected"] = True
         page = context.new_page()
         page.set_default_navigation_timeout(navigation_timeout_ms)
         response = page.goto(url, wait_until="domcontentloaded")
@@ -119,7 +122,14 @@ def run_stealth_probe(
             response is not None and "chrome-error" not in page.url
         )
         telemetry["network_telemetry"]["certificate_chain_state"] = "ignore_https_errors"
-        telemetry["fingerprint_validation"]["tls_fingerprint_ja3_matches_browser"] = True
+        if ja3_oracle_url:
+            measured = verify_ja3_against_oracle(
+                page,
+                ja3_oracle_url,
+                expected_ja3=expected_ja3,
+                timeout_ms=navigation_timeout_ms,
+            )
+            telemetry["fingerprint_validation"].update(measured)
     except Exception as exc:  # noqa: BLE001
         telemetry["execution_state"]["execution_exception"] = str(exc)
         telemetry["network_telemetry"]["handshake_latency_ms"] = int(
@@ -148,6 +158,20 @@ def main() -> int:
     parser.add_argument("--no-humanize", action="store_true", help="Disable human-like input pacing")
     parser.add_argument("--geoip", action="store_true", help="Match timezone/locale to proxy exit IP")
     parser.add_argument("--fingerprint-seed", default=None, help="Fixed --fingerprint= seed for returning identity")
+    parser.add_argument(
+        "--ja3-oracle-url",
+        default=None,
+        help=(
+            "Optional JA3-echo endpoint to measure the live TLS fingerprint. "
+            "Without it, tls_fingerprint_ja3_matches_browser stays null with "
+            "verification_method=not_measured."
+        ),
+    )
+    parser.add_argument(
+        "--expected-ja3",
+        default=None,
+        help="Baseline JA3 (or JA3 MD5 hash) to compare against the oracle result",
+    )
     parser.add_argument("--timeout-ms", type=int, default=30000)
     parser.add_argument("--cert", type=Path, default=DEFAULT_CERT)
     parser.add_argument(
@@ -174,6 +198,8 @@ def main() -> int:
         navigation_timeout_ms=args.timeout_ms,
         cert_path=args.cert,
         extra_args=args.extra_args or None,
+        ja3_oracle_url=args.ja3_oracle_url,
+        expected_ja3=args.expected_ja3,
     )
     emit_json(result)
     return 0 if result["execution_state"]["page_load_success"] else 1

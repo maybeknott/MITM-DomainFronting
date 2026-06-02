@@ -9,12 +9,35 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from browser_common import navigation_succeeded  # noqa: E402
+from browser_common import (  # noqa: E402
+    _ja3_from_mapping,
+    base_telemetry,
+    navigation_succeeded,
+    verify_ja3_against_oracle,
+)
 
 
 class _DummyResponse:
-    def __init__(self, ok: bool) -> None:
+    def __init__(self, ok: bool, json_body: object = None) -> None:
         self.ok = ok
+        self._json_body = json_body
+
+    def json(self) -> object:
+        if self._json_body is None:
+            raise ValueError("no json body")
+        return self._json_body
+
+
+class _DummyPage:
+    def __init__(self, response: object, content: str = "") -> None:
+        self._response = response
+        self._content = content
+
+    def goto(self, url: str, **kwargs: object) -> object:  # noqa: ARG002
+        return self._response
+
+    def content(self) -> str:
+        return self._content
 
 
 def main() -> int:
@@ -45,6 +68,63 @@ def main() -> int:
             False,
         ),
     ]
+
+    checks.extend(
+        [
+            ("ja3_mapping_top_level_hash", _ja3_from_mapping({"ja3_hash": "ABCD"}), "ABCD"),
+            ("ja3_mapping_nested", _ja3_from_mapping({"tls": {"ja3": "771,4-5"}}), "771,4-5"),
+            ("ja3_mapping_absent", _ja3_from_mapping({"unrelated": 1}), None),
+        ]
+    )
+
+    match_page = _DummyPage(_DummyResponse(True, {"ja3_hash": "deadbeef"}))
+    match_result = verify_ja3_against_oracle(
+        match_page, "https://oracle.example/json", expected_ja3="DEADBEEF"
+    )
+    checks.append(
+        ("ja3_oracle_match_true", match_result["tls_fingerprint_ja3_matches_browser"], True)
+    )
+    checks.append(("ja3_oracle_records_observed", match_result["observed_ja3"], "deadbeef"))
+
+    mismatch_page = _DummyPage(_DummyResponse(True, {"ja3_hash": "0011"}))
+    mismatch_result = verify_ja3_against_oracle(
+        mismatch_page, "https://oracle.example/json", expected_ja3="ffff"
+    )
+    checks.append(
+        ("ja3_oracle_mismatch_false", mismatch_result["tls_fingerprint_ja3_matches_browser"], False)
+    )
+
+    empty_page = _DummyPage(_DummyResponse(True, {"unrelated": 1}), content="no fingerprint here")
+    empty_result = verify_ja3_against_oracle(
+        empty_page, "https://oracle.example/json", expected_ja3="ffff"
+    )
+    checks.append(
+        ("ja3_oracle_no_value_stays_none", empty_result["tls_fingerprint_ja3_matches_browser"], None)
+    )
+
+    tele = base_telemetry(
+        "stealth",
+        proxy_url="socks5://127.0.0.1:10808",
+        url="https://example.com",
+        browser_flavor="test",
+        headless=True,
+    )
+    checks.append(("telemetry_has_engine_capabilities", "engine_capabilities" in tele, True))
+    checks.append(
+        (
+            "telemetry_tls_match_defaults_none",
+            tele["fingerprint_validation"]["tls_fingerprint_ja3_matches_browser"],
+            None,
+        )
+    )
+    checks.append(
+        (
+            "telemetry_verification_method_not_measured",
+            tele["fingerprint_validation"]["verification_method"],
+            "not_measured",
+        )
+    )
+
     failed = False
     for name, actual, expected in checks:
         if actual != expected:
