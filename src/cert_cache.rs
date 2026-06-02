@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum ProviderFamily {
     Google,
     Meta,
@@ -9,13 +9,13 @@ pub enum ProviderFamily {
     Generic,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum CertAlg {
     EcdsaP256,
     Rsa2048,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub struct CertCacheKey {
     pub san_group: String,
     pub provider_family: ProviderFamily,
@@ -165,14 +165,14 @@ impl CertCache {
         self.entries
             .iter()
             .filter(|(key, _)| &key.provider_family == provider)
-            .min_by_key(|(_, value)| value.last_used_ms)
+            .min_by(|(k1, v1), (k2, v2)| (v1.last_used_ms, k1).cmp(&(v2.last_used_ms, k2)))
             .map(|(key, _)| key.clone())
     }
 
     fn find_oldest_key(&self) -> Option<CertCacheKey> {
         self.entries
             .iter()
-            .min_by_key(|(_, value)| value.last_used_ms)
+            .min_by(|(k1, v1), (k2, v2)| (v1.last_used_ms, k1).cmp(&(v2.last_used_ms, k2)))
             .map(|(key, _)| key.clone())
     }
 }
@@ -230,5 +230,25 @@ mod tests {
             Some("policy deny")
         );
         assert_eq!(cache.denied_reason("blocked.example", 151), None);
+    }
+
+    #[test]
+    fn eviction_tie_break_is_deterministic() {
+        // When multiple entries share the same timestamp, eviction should be
+        // deterministic (tie-break on key) rather than depending on HashMap
+        // iteration order.
+        let mut cache = CertCache::new(2, 2);
+        let k1 = key("a.example", ProviderFamily::Google);
+        let k2 = key("b.example", ProviderFamily::Google);
+        let k3 = key("c.example", ProviderFamily::Google);
+        cache.insert(k2.clone(), vec![2], "k2".to_string(), 1000, 60_000);
+        cache.insert(k1.clone(), vec![1], "k1".to_string(), 1000, 60_000);
+        cache.insert(k3.clone(), vec![3], "k3".to_string(), 1001, 60_000);
+
+        // Both k1 and k2 have last_used_ms=1000; smallest key should be evicted
+        // consistently (k1).
+        assert!(cache.get(&k1, 2000).is_none());
+        assert!(cache.get(&k2, 2000).is_some());
+        assert!(cache.get(&k3, 2000).is_some());
     }
 }

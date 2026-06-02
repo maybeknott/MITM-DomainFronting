@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::net::SocketAddr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SessionId([u8; 16]);
 
 impl SessionId {
@@ -236,7 +236,7 @@ impl CooperativeOverlay {
             let oldest = self
                 .sessions
                 .iter()
-                .min_by_key(|(_, session)| session.last_seen_ms)
+                .min_by(|(k1, v1), (k2, v2)| (v1.last_seen_ms, k1).cmp(&(v2.last_seen_ms, k2)))
                 .map(|(session_id, _)| *session_id);
             if let Some(session_id) = oldest {
                 self.sessions.remove(&session_id);
@@ -479,5 +479,59 @@ mod tests {
         assert_eq!(removed, 1);
         assert!(overlay.session(session_id(5)).is_none());
         assert!(overlay.session(session_id(6)).is_some());
+    }
+
+    #[test]
+    fn session_eviction_tie_break_is_deterministic() {
+        // When multiple sessions share the same last_seen_ms, eviction should
+        // deterministically remove the smallest SessionId (tie-break), not
+        // depend on HashMap iteration order.
+        let mut overlay = CooperativeOverlay::new(2, 5_000, 4_096);
+        let auth = StaticAuthenticator;
+
+        let s1 = session_id(1);
+        let s2 = session_id(2);
+        let s3 = session_id(3);
+
+        overlay
+            .open_session(
+                OpenSessionRequest {
+                    session_id: s2,
+                    endpoint: endpoint(9002),
+                    auth_token: b"open-ok",
+                    now_ms: 100,
+                },
+                &auth,
+            )
+            .expect("open s2");
+        overlay
+            .open_session(
+                OpenSessionRequest {
+                    session_id: s1,
+                    endpoint: endpoint(9001),
+                    auth_token: b"open-ok",
+                    now_ms: 100,
+                },
+                &auth,
+            )
+            .expect("open s1");
+
+        // Adding a third forces eviction; s1 and s2 are tied, so s1 (smallest)
+        // should be removed.
+        overlay
+            .open_session(
+                OpenSessionRequest {
+                    session_id: s3,
+                    endpoint: endpoint(9003),
+                    auth_token: b"open-ok",
+                    now_ms: 200,
+                },
+                &auth,
+            )
+            .expect("open s3");
+
+        assert!(overlay.session(s1).is_none());
+        assert!(overlay.session(s2).is_some());
+        assert!(overlay.session(s3).is_some());
     }
 }
