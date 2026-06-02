@@ -518,6 +518,10 @@ def py_script(name: str, *args: str, prefer_host: bool = False) -> list[str]:
     return [sys.executable, str(SCRIPTS / name), *args]
 
 
+def py_test(name: str, *args: str) -> list[str]:
+    return [sys.executable, str(ROOT / "tests" / "python" / name), *args]
+
+
 def short_path(path: Path) -> str:
     try:
         return str(path.relative_to(ROOT))
@@ -3122,12 +3126,12 @@ class App(tk.Tk):
             CommandSpec("Readiness State", "Shared ProjectState probe used by Dashboard and CLI.", tuple(py_script("core/readiness.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--json"))),
             CommandSpec("Static Preflight", "Local preflight without cert/runtime/DNS requirements.", tuple(py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"))),
             CommandSpec("Metadata", "Provider/profile/health metadata checks.", tuple(py_script("validate_metadata.py"))),
-            CommandSpec("Route Tests", "Route order, references, and policy tests.", tuple(py_script("route_policy_tests.py"))),
+            CommandSpec("Route Tests", "Route order, references, and policy tests.", tuple(py_test("route_policy_tests.py"))),
             CommandSpec("Route Rule Linter", "First-match shadow and decrypted-inbound isolation lint.", tuple(py_script("route_rule_linter.py", str(CONFIG)))),
-            CommandSpec("Protocol Tests", "Protocol metadata and docs coverage tests.", tuple(py_script("protocol_policy_tests.py"))),
-            CommandSpec("Browser Probe Semantics", "Regression tests for browser probe success/failure classification.", tuple(py_script("browser_probe_semantics_test.py"))),
-            CommandSpec("Health Policy Tests", "Regression tests for health recommendation behavior.", tuple(py_script("health_policy_tests.py"))),
-            CommandSpec("Repository Structure", "Required files and gitignore hygiene checks.", tuple(py_script("repository_structure_tests.py"))),
+            CommandSpec("Protocol Tests", "Protocol metadata and docs coverage tests.", tuple(py_test("protocol_policy_tests.py"))),
+            CommandSpec("Browser Probe Semantics", "Regression tests for browser probe success/failure classification.", tuple(py_test("browser_probe_semantics_test.py"))),
+            CommandSpec("Health Policy Tests", "Regression tests for health recommendation behavior.", tuple(py_test("health_policy_tests.py"))),
+            CommandSpec("Repository Structure", "Required files and gitignore hygiene checks.", tuple(py_test("repository_structure_tests.py"))),
             CommandSpec("Provider Dossiers", "Provider metadata, route-tag linkage, and rollback/evidence checks.", tuple(py_script("provider_dossier_validate.py"))),
             CommandSpec("Provider Policy", "Typed provider policy schema and freshness validation.", tuple(py_script("provider_policy_validator.py"))),
             CommandSpec("Geodata Pin Verify", "Verifies geodata lock file when present; info-only if absent.", tuple(py_script("geodata_pin.py", "--verify"))),
@@ -3135,9 +3139,9 @@ class App(tk.Tk):
             CommandSpec("Route Intent Sync", "Compare config ruleTags against configs/route-intent.json.", tuple(py_script("route_intent_sync.py", str(CONFIG)))),
             CommandSpec("Config-src Validate", "Validate config-src manifest and run build-time checks.", tuple(py_script("config_src_validate.py", "--run-steps"))),
             CommandSpec("Config-src Build", "Validate and compile config-src output to build/config/.", tuple(py_script("config_src_build.py"))),
-            CommandSpec("Config-src Merge Tests", "Regression tests for structured config merge behavior.", tuple(py_script("config_src_merge_test.py"))),
+            CommandSpec("Config-src Merge Tests", "Regression tests for structured config merge behavior.", tuple(py_test("config_src_merge_test.py"))),
             CommandSpec("Transport Governance", "Validate transport experiment manifest guardrails.", tuple(py_script("transport_experiment_validate.py"))),
-            CommandSpec("DNS Harness Tests", "Regression tests for DNS packet parsing and harness safety.", tuple(py_script("dns_lab_harness_tests.py"))),
+            CommandSpec("DNS Harness Tests", "Regression tests for DNS packet parsing and harness safety.", tuple(py_test("dns_lab_harness_tests.py"))),
             CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py", "--allow-warn"))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
             CommandSpec(
@@ -5224,8 +5228,8 @@ class App(tk.Tk):
                 120,
             ),
             ("Validate config", py_script("validate_config.py", str(CONFIG)), 120),
-            ("Route policy tests", py_script("route_policy_tests.py"), 120),
-            ("Protocol policy tests", py_script("protocol_policy_tests.py"), 120),
+            ("Route policy tests", py_test("route_policy_tests.py"), 120),
+            ("Protocol policy tests", py_test("protocol_policy_tests.py"), 120),
             ("Metadata validation", py_script("validate_metadata.py"), 120),
             ("Static preflight", py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"), 120),
             ("Secret scan", py_script("secret_scan.py"), 120),
@@ -5362,10 +5366,17 @@ def self_test() -> int:
         SCRIPTS / "check_dns.py",
         SCRIPTS / "decision_report.py",
         SCRIPTS / "path_scorer.py",
-        SCRIPTS / "path_scorer_tests.py",
-        SCRIPTS / "gui_readiness_tests.py",
-        SCRIPTS / "readiness_tests.py",
-        SCRIPTS / "rust_core_tests.py",
+        ROOT / "tests" / "python" / "browser_probe_semantics_test.py",
+        ROOT / "tests" / "python" / "failure_classifier_tests.py",
+        ROOT / "tests" / "python" / "path_scorer_tests.py",
+        ROOT / "tests" / "python" / "gui_readiness_tests.py",
+        ROOT / "tests" / "python" / "health_policy_tests.py",
+        ROOT / "tests" / "python" / "protocol_policy_tests.py",
+        ROOT / "tests" / "python" / "provider_policy_validator_tests.py",
+        ROOT / "tests" / "python" / "readiness_tests.py",
+        ROOT / "tests" / "python" / "route_policy_tests.py",
+        ROOT / "tests" / "python" / "rust_core_tests.py",
+        ROOT / "tests" / "python" / "_path.py",
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
         SCRIPTS / "browser_stealth.py",
@@ -5375,10 +5386,10 @@ def self_test() -> int:
         SCRIPTS / "trust_assistant.py",
         SCRIPTS / "platform_capability_check.py",
         SCRIPTS / "provider_dossier_validate.py",
-        SCRIPTS / "repository_structure_tests.py",
+        ROOT / "tests" / "python" / "repository_structure_tests.py",
         SCRIPTS / "geodata_pin.py",
         SCRIPTS / "dns_lab_harness.py",
-        SCRIPTS / "dns_lab_harness_tests.py",
+        ROOT / "tests" / "python" / "dns_lab_harness_tests.py",
         SCRIPTS / "fakedns_recovery_check.py",
         SCRIPTS / "install_xray.py",
         SCRIPTS / "route_intent_sync.py",
@@ -5387,7 +5398,7 @@ def self_test() -> int:
         SCRIPTS / "config_src_validate.py",
         SCRIPTS / "config_src_build.py",
         SCRIPTS / "config_src_merge.py",
-        SCRIPTS / "config_src_merge_test.py",
+        ROOT / "tests" / "python" / "config_src_merge_test.py",
         SCRIPTS / "lab_evidence_run.py",
         SCRIPTS / "transport_experiment_validate.py",
         SCRIPTS / "transport_profile_validate.py",
@@ -5433,7 +5444,7 @@ def self_test() -> int:
         print("GUI self-test failed; missing: " + ", ".join(missing))
         return 2
     if IS_FROZEN:
-        for script_name in ("preflight.py", "check_dns.py", "route_policy_tests.py", "install_xray.py"):
+        for script_name in ("preflight.py", "check_dns.py", "install_xray.py"):
             code, output = run_command([sys.executable, "--backend", script_name, "--help"], timeout=30)
             if code != 0:
                 print(f"GUI self-test failed; backend {script_name} did not start")

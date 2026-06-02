@@ -2,6 +2,8 @@
 """Regression tests for typed provider policy validation."""
 from __future__ import annotations
 
+import _path  # noqa: F401
+
 from core.provider_policy import validate_policy_dict
 
 

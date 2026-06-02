@@ -112,6 +112,6 @@ Important limits:
 
 Validation:
 
-- Run Rust tests: `python scripts/rust_core_tests.py`
+- Run Rust tests: `python tests/python/rust_core_tests.py`
 - Or directly: `cargo test`
 - Lint strictly: `cargo clippy --all-targets -- -D warnings`

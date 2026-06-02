@@ -28,4 +28,4 @@ jobs:
           python3 scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json --quiet
           python3 scripts/config_src_validate.py --run-steps
           python3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-          python3 scripts/repository_structure_tests.py
+          python3 tests/python/repository_structure_tests.py

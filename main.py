@@ -11,6 +11,7 @@ from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent
 SCRIPTS = ROOT / "scripts"
+PYTHON_TESTS = ROOT / "tests" / "python"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
@@ -58,6 +59,15 @@ def _script_check(label: str, script_name: str, args: Optional[List[str]] = None
 
     def _run() -> int:
         return run_script(SCRIPTS / script_name, script_args)
+
+    return (label, _run)
+
+
+def _python_test_check(label: str, script_name: str, args: Optional[List[str]] = None) -> Check:
+    script_args = list(args or [])
+
+    def _run() -> int:
+        return run_script(PYTHON_TESTS / script_name, script_args)
 
     return (label, _run)
 
@@ -112,17 +122,17 @@ def build_audit_checks(config: str, extra_validate_args: List[str]) -> List[Chec
         _script_check("route intent sync", "route_intent_sync.py", [config_arg]),
         _script_check("route graph verify", "route_graph_verify.py", [config_arg]),
         _script_check("route rule lint", "route_rule_linter.py", [config_arg, "--quiet"]),
-        _script_check("route policy tests", "route_policy_tests.py"),
+        _python_test_check("route policy tests", "route_policy_tests.py"),
         _script_check("metadata", "validate_metadata.py"),
         _script_check("provider dossiers", "provider_dossier_validate.py"),
         _script_check("provider policy", "provider_policy_validator.py"),
-        _script_check("provider policy tests", "provider_policy_validator_tests.py"),
-        _script_check("failure classifier tests", "failure_classifier_tests.py"),
-        _script_check("path scorer tests", "path_scorer_tests.py"),
-        _script_check("rust core tests", "rust_core_tests.py"),
+        _python_test_check("provider policy tests", "provider_policy_validator_tests.py"),
+        _python_test_check("failure classifier tests", "failure_classifier_tests.py"),
+        _python_test_check("path scorer tests", "path_scorer_tests.py"),
+        _python_test_check("rust core tests", "rust_core_tests.py"),
         _script_check("transport experiments", "transport_experiment_validate.py"),
         _script_check("transport profiles", "transport_profile_validate.py"),
-        _script_check("repository structure", "repository_structure_tests.py"),
+        _python_test_check("repository structure", "repository_structure_tests.py"),
     ]
 
 
@@ -152,7 +162,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
     rust_args = ["--required"] if require_rust else []
     checks: List[Check] = [
         ("compile python scripts", _compile_scripts_check),
-        _script_check("rust core checks", "rust_core_tests.py", rust_args),
+        _python_test_check("rust core checks", "rust_core_tests.py", rust_args),
         _script_check("validate config", "validate_config.py", [config_arg]),
         _script_check("generate profiles", "generate_profiles.py", ["--base", config_arg]),
     ]
@@ -179,24 +189,24 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
                 ["--config", config_arg, "--no-dns", "--skip-cert", "--skip-runtime"],
             ),
             _script_check("metadata", "validate_metadata.py"),
-            _script_check("repository structure", "repository_structure_tests.py"),
+            _python_test_check("repository structure", "repository_structure_tests.py"),
             _script_check("geodata lock", "geodata_pin.py", ["--verify"]),
-            _script_check("route policy tests", "route_policy_tests.py"),
+            _python_test_check("route policy tests", "route_policy_tests.py"),
             _script_check("route graph verify", "route_graph_verify.py", [config_arg]),
             _script_check("route rule lint", "route_rule_linter.py", [config_arg, "--quiet"]),
             _script_check("route intent sync", "route_intent_sync.py", [config_arg]),
-            _script_check("protocol policy tests", "protocol_policy_tests.py"),
+            _python_test_check("protocol policy tests", "protocol_policy_tests.py"),
             _script_check("transport profiles", "transport_profile_validate.py"),
             _script_check("protocol smoke", "protocol_smoke.py", ["--scenario", "udp443-policy"]),
             _script_check("provider dossiers", "provider_dossier_validate.py"),
             _script_check("provider policy", "provider_policy_validator.py"),
-            _script_check("provider policy tests", "provider_policy_validator_tests.py"),
-            _script_check("failure classifier tests", "failure_classifier_tests.py"),
-            _script_check("path scorer tests", "path_scorer_tests.py"),
-            _script_check("health policy tests", "health_policy_tests.py"),
-            _script_check("readiness state tests", "readiness_tests.py"),
-            _script_check("gui readiness bridge tests", "gui_readiness_tests.py"),
-            _script_check("dns lab harness tests", "dns_lab_harness_tests.py"),
+            _python_test_check("provider policy tests", "provider_policy_validator_tests.py"),
+            _python_test_check("failure classifier tests", "failure_classifier_tests.py"),
+            _python_test_check("path scorer tests", "path_scorer_tests.py"),
+            _python_test_check("health policy tests", "health_policy_tests.py"),
+            _python_test_check("readiness state tests", "readiness_tests.py"),
+            _python_test_check("gui readiness bridge tests", "gui_readiness_tests.py"),
+            _python_test_check("dns lab harness tests", "dns_lab_harness_tests.py"),
             _script_check("transport experiments", "transport_experiment_validate.py"),
             _script_check("config-src validate", "config_src_validate.py", ["--run-steps"]),
             _script_check(
@@ -204,8 +214,8 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
                 "build_config.py",
                 ["--check-runtime-sync", "--generate-profiles", "--check-profile-sync"],
             ),
-            _script_check("config-src merge tests", "config_src_merge_test.py"),
-            _script_check("browser probe semantics", "browser_probe_semantics_test.py"),
+            _python_test_check("config-src merge tests", "config_src_merge_test.py"),
+            _python_test_check("browser probe semantics", "browser_probe_semantics_test.py"),
             _script_check("gui self-test", "gui.py", ["--self-test"]),
             _script_check("secret scan", "secret_scan.py"),
         ]
@@ -304,7 +314,7 @@ def main() -> int:
         return run_checks(checks, fail_fast=not args.keep_going, title="Static audit")
     if args.command == "test":
         # Note: enforcement of --require-rust lives in the "rust core checks"
-        # step (rust_core_tests.py exits non-zero when cargo is absent), so it is
+        # step (tests/python/rust_core_tests.py exits non-zero when cargo is absent), so it is
         # reported in the uniform summary like every other check. We deliberately
         # avoid printing a separate out-of-band warning here that would look like
         # a parse-time failure before any check has run.

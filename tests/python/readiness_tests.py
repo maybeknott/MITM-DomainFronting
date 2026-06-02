@@ -2,13 +2,9 @@
 """Regression checks for the shared readiness model."""
 from __future__ import annotations
 
-import sys
 from dataclasses import replace
-from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+import _path  # noqa: F401
 
 from core.readiness import (  # noqa: E402
     CheckResult,

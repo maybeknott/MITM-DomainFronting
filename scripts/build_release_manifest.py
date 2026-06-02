@@ -87,6 +87,13 @@ def tracked_command(root: Path, script_name: str, *args: str) -> Dict[str, objec
     return command_result([sys.executable, str(script), *args], root)
 
 
+def tracked_python_test(root: Path, test_name: str, *args: str) -> Dict[str, object]:
+    script = root / "tests" / "python" / test_name
+    if not script.exists():
+        return {"status": "not_run", "reason": f"{test_name} not found"}
+    return command_result([sys.executable, str(script), *args], root)
+
+
 def run_validate(config: Path) -> Dict[str, object]:
     script = Path(__file__).resolve().parent / "validate_config.py"
     if not script.exists():
@@ -193,7 +200,7 @@ def main() -> int:
         "validation": run_validate(config) if config.exists() else {"status": "fail", "reason": "config missing"},
         "metadata_validation": tracked_command(root, "validate_metadata.py"),
         "provider_dossier_validation": tracked_command(root, "provider_dossier_validate.py"),
-        "repository_structure_tests": tracked_command(root, "repository_structure_tests.py"),
+        "repository_structure_tests": tracked_python_test(root, "repository_structure_tests.py"),
         "route_intent_sync": tracked_command(root, "route_intent_sync.py", str(config)),
         "transport_experiment_validate": tracked_command(root, "transport_experiment_validate.py"),
         "transport_profile_validate": tracked_command(root, "transport_profile_validate.py"),
@@ -202,8 +209,8 @@ def main() -> int:
         "config_src_build": tracked_command(root, "build_config.py", "--check-runtime-sync", "--generate-profiles", "--check-profile-sync"),
         "lab_evidence_bundle": tracked_command(root, "lab_evidence_run.py", "--allow-warn", "--json-out", "lab-evidence.bundle.json"),
         "lab_evidence_validate": tracked_command(root, "lab_evidence_validate.py", "--allow-warn", "lab-evidence.bundle.json"),
-        "health_policy_tests": tracked_command(root, "health_policy_tests.py"),
-        "route_policy_tests": tracked_command(root, "route_policy_tests.py"),
+        "health_policy_tests": tracked_python_test(root, "health_policy_tests.py"),
+        "route_policy_tests": tracked_python_test(root, "route_policy_tests.py"),
         "secret_scan": tracked_command(root, "secret_scan.py"),
         "xray": {
             "binary": args.xray_bin,

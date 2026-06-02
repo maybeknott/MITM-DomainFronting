@@ -14,6 +14,7 @@
 - Release validation workflow.
 - Shared readiness model for CLI/GUI orchestration with `ProjectState`, `CheckResult`, and `RepairAction` contracts.
 - `main.py probe` now emits the shared readiness state instead of running a separate health-probe path.
+- Python regression tests now live under `tests/python/`; `scripts/` is kept for operator commands, diagnostics, builders, and app entrypoints.
 
 ### Changed
 

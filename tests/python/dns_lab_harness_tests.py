@@ -2,6 +2,8 @@
 """Regression tests for DNS lab harness packet parsing."""
 from __future__ import annotations
 
+import _path  # noqa: F401
+
 from dns_lab_harness import build_dns_a_response, extract_first_a_ipv4
 from check_dns import build_query
 

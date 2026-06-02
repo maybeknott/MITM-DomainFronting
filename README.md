@@ -210,8 +210,8 @@ py -3 scripts\preflight.py --config Xray-config\MITM-DomainFronting.json --no-dn
 py -3 scripts\route_intent_sync.py Xray-config\MITM-DomainFronting.json
 py -3 scripts\config_src_validate.py --run-steps
 py -3 scripts\build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-py -3 scripts\health_policy_tests.py
-py -3 scripts\browser_probe_semantics_test.py
+py -3 tests\python\health_policy_tests.py
+py -3 tests\python\browser_probe_semantics_test.py
 py -3 scripts\lab_evidence_run.py --json-out lab-evidence.bundle.json
 py -3 scripts\lab_evidence_validate.py lab-evidence.bundle.json
 ```

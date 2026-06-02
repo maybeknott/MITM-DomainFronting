@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-import sys
 
-SCRIPTS = Path(__file__).resolve().parent
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
+import _path  # noqa: F401
 
 from core.gui_readiness import (  # noqa: E402
     FALLBACK_ACTION,

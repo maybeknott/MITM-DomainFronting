@@ -2,6 +2,8 @@
 """Regression tests for staged failure classifier behavior."""
 from __future__ import annotations
 
+import _path  # noqa: F401
+
 from core.failure_classifier import ProbeResult, run_staged_probe
 
 

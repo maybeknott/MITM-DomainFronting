@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(SCRIPT_DIR))
+import _path  # noqa: F401
+
 from config_src_merge import compile_config, deep_merge  # noqa: E402
 
 

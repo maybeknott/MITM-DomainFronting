@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import _path  # noqa: F401
+
 from health_probe import build_policy_recommendation
 
 

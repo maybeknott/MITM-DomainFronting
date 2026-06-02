@@ -66,7 +66,7 @@ jobs:
 
       - name: Validate repository structure
         run: |
-          python scripts/repository_structure_tests.py
+          python tests/python/repository_structure_tests.py
 
       - name: Verify geodata lock when present
         run: |
@@ -74,7 +74,7 @@ jobs:
 
       - name: Run route policy tests
         run: |
-          python scripts/route_policy_tests.py
+          python tests/python/route_policy_tests.py
           python scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json
           python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json --quiet
 
@@ -97,7 +97,7 @@ jobs:
 
       - name: Run protocol policy tests
         run: |
-          python scripts/protocol_policy_tests.py
+          python tests/python/protocol_policy_tests.py
           python scripts/transport_profile_validate.py
           python scripts/protocol_smoke.py --scenario udp443-policy
 
@@ -107,9 +107,9 @@ jobs:
 
       - name: Validate health policy recommendations
         run: |
-          python scripts/health_policy_tests.py
-          python scripts/readiness_tests.py
-          python scripts/gui_readiness_tests.py
+          python tests/python/health_policy_tests.py
+          python tests/python/readiness_tests.py
+          python tests/python/gui_readiness_tests.py
 
       - name: Validate transport experiment manifest
         run: |
@@ -119,7 +119,7 @@ jobs:
         run: |
           python scripts/config_src_validate.py --run-steps
           python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-          python scripts/config_src_merge_test.py
+          python tests/python/config_src_merge_test.py
 
       - name: Lab evidence bundle
         run: |
@@ -128,7 +128,7 @@ jobs:
 
       - name: Run browser probe semantics regression checks
         run: |
-          python scripts/browser_probe_semantics_test.py
+          python tests/python/browser_probe_semantics_test.py
 
       - name: Check that private keys are not committed
         run: |

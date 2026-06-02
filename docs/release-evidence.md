@@ -17,7 +17,7 @@ For release evidence, collect the individual command output:
 ```sh
 python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
 python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
-python scripts/repository_structure_tests.py
+python tests/python/repository_structure_tests.py
 python scripts/provider_dossier_validate.py
 python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
 python scripts/config_src_validate.py --run-steps

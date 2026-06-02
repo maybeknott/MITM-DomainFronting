@@ -125,10 +125,8 @@ MITM-DomainFronting/
     decision_report.py
     generate_profiles.py
     gui.py
-    protocol_policy_tests.py
     route_graph_verify.py
     route_rule_linter.py
-    route_policy_tests.py
     secret_scan.py
     trust_assistant.py
     validate_metadata.py
@@ -137,8 +135,6 @@ MITM-DomainFronting/
     browser_diagnostics.py
     browser_stealth.py
     browser_smoke.py
-    browser_probe_semantics_test.py
-    repository_structure_tests.py
     trust_store_check.py
     platform_capability_check.py
     dns_lab_harness.py
@@ -159,6 +155,22 @@ MITM-DomainFronting/
       route_rule_linter.py
       trust_assistant.py
 
+  tests/
+    python/
+      browser_probe_semantics_test.py
+      config_src_merge_test.py
+      dns_lab_harness_tests.py
+      failure_classifier_tests.py
+      gui_readiness_tests.py
+      health_policy_tests.py
+      path_scorer_tests.py
+      protocol_policy_tests.py
+      provider_policy_validator_tests.py
+      readiness_tests.py
+      repository_structure_tests.py
+      route_policy_tests.py
+      rust_core_tests.py
+
   .github/
     ISSUE_TEMPLATE/
       bug.yml
@@ -175,7 +187,8 @@ MITM-DomainFronting/
 |---|---|---|---|
 | `Xray-config/` | Keeps the current simple import flow | No workflow disruption | Main config remains obvious |
 | `docs/` | Keeps explanations out of the JSON | Easier troubleshooting | Lower duplicate issue volume |
-| `scripts/` | Local checks before users open issues | Faster diagnosis | Reproducible reports |
+| `scripts/` | Operator commands, diagnostics, builders, and app entrypoints | Faster diagnosis | Reproducible reports |
+| `tests/` | Regression and structure checks | Stable releases | Cleaner command surface |
 | `configs/` | Structured compatibility and protocol facts | Clear expectations | Easier updates without rewriting README |
 | `.github/` | Issue and CI hygiene | Better bug reports | Fewer unsafe or incomplete reports |
 

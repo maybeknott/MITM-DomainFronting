@@ -2,6 +2,8 @@
 """Regression tests for advisory path scorer."""
 from __future__ import annotations
 
+import _path  # noqa: F401
+
 from path_scorer import aggregate_provider_rankings, build_advisory
 
 

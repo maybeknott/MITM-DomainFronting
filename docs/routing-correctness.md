@@ -108,7 +108,7 @@ python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json
 - Local inbounds are loopback-bound or are reported as a high-priority warning.
 - Static non-catchall CIDRs are listed in the documented rationale set.
 
-`python scripts/route_policy_tests.py` should verify:
+`python tests/python/route_policy_tests.py` should verify:
 
 - The base config keeps its documented direct global catch-all.
 - Profile configs have exactly one explicit UDP/443 policy rule.
