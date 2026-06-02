@@ -5,6 +5,8 @@ pub struct TlsObservation {
     pub ja4_string: String,
     pub alpn: String,
     pub h2_settings_ids: Vec<u16>,
+    pub h2_settings_values: Vec<(u16, u32)>,
+    pub tls_extension_order: Vec<u16>,
     pub grease_structurally_valid: bool,
 }
 
@@ -15,6 +17,8 @@ pub struct ExpectedTlsProfile {
     pub expected_ja4_string: String,
     pub expected_alpn: String,
     pub expected_h2_settings_ids: Vec<u16>,
+    pub expected_h2_settings_values: Vec<(u16, u32)>,
+    pub expected_tls_extension_order: Vec<u16>,
     pub require_grease_validity: bool,
 }
 
@@ -58,10 +62,35 @@ pub fn evaluate_profile(
     // green-light a profile whose reordered SETTINGS would be flagged in the
     // wild, giving a false sense of evasion fidelity. Compare the exact ordered
     // sequence so the harness fails closed on any reordering or duplication.
-    if observed.h2_settings_ids != expected.expected_h2_settings_ids {
+    if !expected.expected_h2_settings_ids.is_empty()
+        && observed.h2_settings_ids != expected.expected_h2_settings_ids
+    {
         failures.push(format!(
             "h2_settings_mismatch expected={:?} observed={:?}",
             expected.expected_h2_settings_ids, observed.h2_settings_ids
+        ));
+    }
+
+    // Some fingerprinters also incorporate SETTINGS values (id:value pairs) in
+    // addition to order. Keep this optional for backwards compatibility: an
+    // empty expected vector means "not checked".
+    if !expected.expected_h2_settings_values.is_empty()
+        && observed.h2_settings_values != expected.expected_h2_settings_values
+    {
+        failures.push(format!(
+            "h2_settings_values_mismatch expected={:?} observed={:?}",
+            expected.expected_h2_settings_values, observed.h2_settings_values
+        ));
+    }
+
+    // TLS extension type order is a primary ClientHello fingerprint axis (JA3).
+    // Optional for backwards compatibility: an empty expected vector means skip.
+    if !expected.expected_tls_extension_order.is_empty()
+        && observed.tls_extension_order != expected.expected_tls_extension_order
+    {
+        failures.push(format!(
+            "tls_extension_order_mismatch expected={:?} observed={:?}",
+            expected.expected_tls_extension_order, observed.tls_extension_order
         ));
     }
 
@@ -87,6 +116,8 @@ mod tests {
             ja4_string: "t13d1516h2_8daaf6152771_02713d6af862".to_string(),
             alpn: "h2".to_string(),
             h2_settings_ids: vec![1, 3, 4, 6],
+            h2_settings_values: vec![],
+            tls_extension_order: vec![],
             grease_structurally_valid: true,
         };
         let expected = ExpectedTlsProfile {
@@ -97,6 +128,8 @@ mod tests {
             // Must match the observed order exactly: SETTINGS order is part of
             // the HTTP/2 fingerprint.
             expected_h2_settings_ids: vec![1, 3, 4, 6],
+            expected_h2_settings_values: vec![],
+            expected_tls_extension_order: vec![],
             require_grease_validity: true,
         };
         let result = evaluate_profile(&observed, &expected);
@@ -115,6 +148,8 @@ mod tests {
             ja4_string: "ja4".to_string(),
             alpn: "h2".to_string(),
             h2_settings_ids: vec![1, 3, 4, 6],
+            h2_settings_values: vec![],
+            tls_extension_order: vec![],
             grease_structurally_valid: true,
         };
         let expected = ExpectedTlsProfile {
@@ -123,6 +158,8 @@ mod tests {
             expected_ja4_string: "ja4".to_string(),
             expected_alpn: "h2".to_string(),
             expected_h2_settings_ids: vec![6, 4, 1, 3],
+            expected_h2_settings_values: vec![],
+            expected_tls_extension_order: vec![],
             require_grease_validity: true,
         };
         let result = evaluate_profile(&observed, &expected);
@@ -141,6 +178,8 @@ mod tests {
             ja4_string: "ja4-a".to_string(),
             alpn: "http/1.1".to_string(),
             h2_settings_ids: vec![1, 2],
+            h2_settings_values: vec![],
+            tls_extension_order: vec![],
             grease_structurally_valid: false,
         };
         let expected = ExpectedTlsProfile {
@@ -149,6 +188,8 @@ mod tests {
             expected_ja4_string: "ja4-b".to_string(),
             expected_alpn: "h2".to_string(),
             expected_h2_settings_ids: vec![1, 3],
+            expected_h2_settings_values: vec![],
+            expected_tls_extension_order: vec![],
             require_grease_validity: true,
         };
         let result = evaluate_profile(&observed, &expected);
@@ -170,5 +211,65 @@ mod tests {
             .iter()
             .any(|f| f.starts_with("h2_settings_mismatch")));
         assert!(result.failures.iter().any(|f| f == "grease_invalid"));
+    }
+
+    #[test]
+    fn regression_fails_when_h2_settings_values_diverge() {
+        let observed = TlsObservation {
+            ja3_string: "x".to_string(),
+            ja3_hash_md5: "hash".to_string(),
+            ja4_string: "ja4".to_string(),
+            alpn: "h2".to_string(),
+            h2_settings_ids: vec![1, 3, 4, 6],
+            h2_settings_values: vec![(1, 100), (3, 0), (4, 1), (6, 262144)],
+            tls_extension_order: vec![],
+            grease_structurally_valid: true,
+        };
+        let expected = ExpectedTlsProfile {
+            profile_name: "values-mismatch".to_string(),
+            expected_ja3_hash_md5: "hash".to_string(),
+            expected_ja4_string: "ja4".to_string(),
+            expected_alpn: "h2".to_string(),
+            expected_h2_settings_ids: vec![],
+            expected_h2_settings_values: vec![(1, 100), (3, 0), (4, 0), (6, 262144)],
+            expected_tls_extension_order: vec![],
+            require_grease_validity: true,
+        };
+        let result = evaluate_profile(&observed, &expected);
+        assert!(!result.passed);
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("h2_settings_values_mismatch")));
+    }
+
+    #[test]
+    fn regression_fails_when_tls_extension_order_diverges() {
+        let observed = TlsObservation {
+            ja3_string: "x".to_string(),
+            ja3_hash_md5: "hash".to_string(),
+            ja4_string: "ja4".to_string(),
+            alpn: "h2".to_string(),
+            h2_settings_ids: vec![],
+            h2_settings_values: vec![],
+            tls_extension_order: vec![0, 11, 10, 35],
+            grease_structurally_valid: true,
+        };
+        let expected = ExpectedTlsProfile {
+            profile_name: "extorder-mismatch".to_string(),
+            expected_ja3_hash_md5: "hash".to_string(),
+            expected_ja4_string: "ja4".to_string(),
+            expected_alpn: "h2".to_string(),
+            expected_h2_settings_ids: vec![],
+            expected_h2_settings_values: vec![],
+            expected_tls_extension_order: vec![0, 10, 11, 35],
+            require_grease_validity: true,
+        };
+        let result = evaluate_profile(&observed, &expected);
+        assert!(!result.passed);
+        assert!(result
+            .failures
+            .iter()
+            .any(|f| f.starts_with("tls_extension_order_mismatch")));
     }
 }

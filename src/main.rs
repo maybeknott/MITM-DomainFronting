@@ -177,12 +177,13 @@ fn handle_client(mut socket: TcpStream, handshake_timeout_ms: u64) -> Result<(),
             .join(",")
     };
     println!(
-        "clienthello parsed sni={} alpn={} versions={:?} sigalgs={} groups={} raw_len={}",
+        "clienthello parsed sni={} alpn={} versions={:?} sigalgs={} groups={} extorder={:?} raw_len={}",
         info.sni.as_deref().unwrap_or("<none>"),
         alpn_display,
         info.supported_versions,
         info.signature_algorithms.len(),
         info.supported_groups.len(),
+        info.extension_order,
         info.raw_len
     );
 

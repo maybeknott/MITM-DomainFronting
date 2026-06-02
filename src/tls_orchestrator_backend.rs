@@ -92,6 +92,7 @@ mod tests {
             supported_versions: vec![0x0304],
             signature_algorithms: vec![0x0403],
             supported_groups: vec![0x001d],
+            extension_order: Vec::new(),
             raw_len: 64,
         }
     }

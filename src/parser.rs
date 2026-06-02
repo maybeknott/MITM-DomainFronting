@@ -15,6 +15,7 @@ pub struct ClientHelloInfo {
     pub supported_versions: Vec<u16>,
     pub signature_algorithms: Vec<u16>,
     pub supported_groups: Vec<u16>,
+    pub extension_order: Vec<u16>,
     pub raw_len: usize,
 }
 
@@ -238,6 +239,7 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
     let mut supported_versions: Vec<u16> = Vec::new();
     let mut signature_algorithms: Vec<u16> = Vec::new();
     let mut supported_groups: Vec<u16> = Vec::new();
+    let mut extension_order: Vec<u16> = Vec::new();
 
     if reader.remaining() > 0 {
         let extensions_len = reader.read_u16()? as usize;
@@ -259,6 +261,7 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
                 return Err(ParserError::DuplicateExtension(ext_type));
             }
             seen_types.push(ext_type);
+            extension_order.push(ext_type);
             match ext_type {
                 0x0000 => {
                     sni = parse_sni(ext_payload)?;
@@ -267,13 +270,13 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
                     alpn = parse_alpn(ext_payload)?;
                 }
                 0x002b => {
-                    supported_versions = parse_u16_vector_with_u8_len(ext_payload)?;
+                    supported_versions = parse_u16_vector(LenPrefix::U8, ext_payload)?;
                 }
                 0x000d => {
-                    signature_algorithms = parse_u16_vector_with_u16_len(ext_payload)?;
+                    signature_algorithms = parse_u16_vector(LenPrefix::U16, ext_payload)?;
                 }
                 0x000a => {
-                    supported_groups = parse_u16_vector_with_u16_len(ext_payload)?;
+                    supported_groups = parse_u16_vector(LenPrefix::U16, ext_payload)?;
                 }
                 _ => {}
             }
@@ -286,6 +289,7 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
         supported_versions,
         signature_algorithms,
         supported_groups,
+        extension_order,
         raw_len: 4 + declared_len,
     })
 }
@@ -328,24 +332,18 @@ fn parse_alpn(data: &[u8]) -> Result<Vec<Vec<u8>>, ParserError> {
     Ok(protocols)
 }
 
-fn parse_u16_vector_with_u16_len(data: &[u8]) -> Result<Vec<u16>, ParserError> {
-    let mut reader = Reader::new(data);
-    let len = reader.read_u16()? as usize;
-    if !len.is_multiple_of(2) {
-        return Err(ParserError::Invalid("u16 vector length must be even"));
-    }
-    let list = reader.read_slice(len)?;
-    let mut list_reader = Reader::new(list);
-    let mut out = Vec::new();
-    while list_reader.remaining() > 0 {
-        out.push(list_reader.read_u16()?);
-    }
-    Ok(out)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LenPrefix {
+    U8,
+    U16,
 }
 
-fn parse_u16_vector_with_u8_len(data: &[u8]) -> Result<Vec<u16>, ParserError> {
+fn parse_u16_vector(prefix: LenPrefix, data: &[u8]) -> Result<Vec<u16>, ParserError> {
     let mut reader = Reader::new(data);
-    let len = reader.read_u8()? as usize;
+    let len = match prefix {
+        LenPrefix::U8 => reader.read_u8()? as usize,
+        LenPrefix::U16 => reader.read_u16()? as usize,
+    };
     if !len.is_multiple_of(2) {
         return Err(ParserError::Invalid("u16 vector length must be even"));
     }
@@ -429,6 +427,10 @@ mod tests {
         assert_eq!(parsed.supported_versions, vec![0x0304, 0x0303]);
         assert_eq!(parsed.signature_algorithms, vec![0x0403, 0x0804]);
         assert_eq!(parsed.supported_groups, vec![0x001d, 0x0017]);
+        assert_eq!(
+            parsed.extension_order,
+            vec![0x0000, 0x0010, 0x002b, 0x000d, 0x000a]
+        );
         assert_eq!(parsed.raw_len, hello.len());
     }
 

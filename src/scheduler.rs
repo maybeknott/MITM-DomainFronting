@@ -61,6 +61,60 @@ pub struct Selection {
     pub reason: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ScoreBreakdown {
+    pub success_rate: f64,
+    pub confidence_bonus: f64,
+    pub latency_penalty: f64,
+    pub in_flight_penalty: f64,
+    pub circuit_penalty: f64,
+}
+
+impl ScoreBreakdown {
+    pub fn total(&self) -> f64 {
+        self.success_rate + self.confidence_bonus
+            - self.latency_penalty
+            - self.in_flight_penalty
+            - self.circuit_penalty
+    }
+
+    pub fn render(&self) -> String {
+        format!(
+            "success={:.3} conf={:.3} latency=-{:.3} inflight=-{:.3} circuit=-{:.3} score={:.3}",
+            self.success_rate,
+            self.confidence_bonus,
+            self.latency_penalty,
+            self.in_flight_penalty,
+            self.circuit_penalty,
+            self.total()
+        )
+    }
+}
+
+fn splitmix64(mut x: u64) -> u64 {
+    x = x.wrapping_add(0x9e3779b97f4a7c15);
+    let mut z = x;
+    z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+    z ^ (z >> 31)
+}
+
+fn circuit_backoff_ms(
+    circuit_base_ms: u64,
+    arm_index: usize,
+    consecutive_failures: u32,
+    now_ms: u64,
+) -> u64 {
+    let multiplier = 1_u64 << consecutive_failures.min(6);
+    let base = circuit_base_ms.saturating_mul(multiplier);
+    let seed = now_ms ^ ((arm_index as u64) << 32) ^ ((consecutive_failures as u64) << 16);
+    let mixed = splitmix64(seed);
+    // Spread retries across arms/time without external RNG or test flakiness.
+    // Percent jitter in [75, 125] (±25% band).
+    let jitter_pct = 75_u64 + (mixed % 51);
+    base.saturating_mul(jitter_pct).saturating_div(100).max(1)
+}
+
 pub struct PathScheduler {
     arms: Vec<ArmStats>,
     window_limit: usize,
@@ -81,8 +135,8 @@ impl PathScheduler {
         }
     }
 
-    pub fn begin_request(&mut self, now_ms: u64) -> Option<Selection> {
-        let selection = self.select_foreground(now_ms)?;
+    pub fn begin_request(&mut self, _now_ms: u64) -> Option<Selection> {
+        let selection = self.select_foreground()?;
         self.arms[selection.arm_index].in_flight =
             self.arms[selection.arm_index].in_flight.saturating_add(1);
         Some(selection)
@@ -121,29 +175,41 @@ impl PathScheduler {
 
         arm.consecutive_failures = arm.consecutive_failures.saturating_add(1);
         arm.state = if arm.consecutive_failures >= 3 {
-            let multiplier = 1_u64 << arm.consecutive_failures.min(6);
-            arm.open_until_ms =
-                now_ms.saturating_add(self.circuit_base_ms.saturating_mul(multiplier));
+            let backoff_ms = circuit_backoff_ms(
+                self.circuit_base_ms,
+                arm_index,
+                arm.consecutive_failures,
+                now_ms,
+            );
+            arm.open_until_ms = now_ms.saturating_add(backoff_ms);
             ArmState::OpenCircuit
         } else {
             ArmState::Degraded
         };
     }
 
-    pub fn select_foreground(&self, now_ms: u64) -> Option<Selection> {
+    pub fn select_foreground(&self) -> Option<Selection> {
         let mut best: Option<Selection> = None;
         for (idx, arm) in self.arms.iter().enumerate() {
-            if arm.state == ArmState::OpenCircuit && now_ms < arm.open_until_ms {
+            // Foreground selection must not route around the circuit breaker.
+            // Recovery happens through a single half-open probe only.
+            if arm.state == ArmState::OpenCircuit {
                 continue;
             }
             if arm.state == ArmState::HalfOpen {
                 continue;
             }
-            let score = self.score_arm(arm);
+            let breakdown = self.score_arm(arm);
+            let score = breakdown.total();
             let selection = Selection {
                 arm_index: idx,
                 score,
-                reason: format!("state={:?} samples={}", arm.state, arm.samples.len()),
+                reason: format!(
+                    "state={:?} samples={} {}",
+                    arm.state,
+                    arm.samples.len(),
+                    breakdown.render()
+                ),
             };
             if best
                 .as_ref()
@@ -180,9 +246,16 @@ impl PathScheduler {
         self.arms.get(arm_index)
     }
 
-    fn score_arm(&self, arm: &ArmStats) -> f64 {
+    pub fn score_arm(&self, arm: &ArmStats) -> ScoreBreakdown {
         if arm.samples.is_empty() {
-            return 1.0 - (arm.in_flight as f64 * 0.05);
+            let in_flight_penalty = arm.in_flight as f64 * 0.05;
+            return ScoreBreakdown {
+                success_rate: 1.0,
+                confidence_bonus: 0.0,
+                latency_penalty: 0.0,
+                in_flight_penalty,
+                circuit_penalty: 0.0,
+            };
         }
 
         let sample_count = arm.samples.len() as f64;
@@ -219,7 +292,13 @@ impl PathScheduler {
             0.0
         };
 
-        success_rate + confidence_bonus - latency_penalty - in_flight_penalty - circuit_penalty
+        ScoreBreakdown {
+            success_rate,
+            confidence_bonus,
+            latency_penalty,
+            in_flight_penalty,
+            circuit_penalty,
+        }
     }
 }
 
@@ -266,6 +345,19 @@ mod tests {
     }
 
     #[test]
+    fn selection_reason_includes_score_breakdown() {
+        let mut scheduler = PathScheduler::new(1, 8, 1_000);
+        scheduler.finish_request(0, 100, true, None, Some(50), None);
+        let selection = scheduler.begin_request(200).expect("selection");
+        assert!(selection.reason.contains("success="));
+        assert!(selection.reason.contains("conf="));
+        assert!(selection.reason.contains("latency=-"));
+        assert!(selection.reason.contains("inflight=-"));
+        assert!(selection.reason.contains("circuit=-"));
+        assert!(selection.reason.contains("score="));
+    }
+
+    #[test]
     fn sample_window_is_bounded_and_evicts_oldest() {
         let window = 4;
         let mut scheduler = PathScheduler::new(1, window, 100);
@@ -307,13 +399,40 @@ mod tests {
             scheduler.finish_request(1, 100 + i, false, Some(FailurePhase::Dns), None, None);
         }
 
-        let slow = scheduler.score_arm(scheduler.arm(0).expect("arm0"));
-        let fast = scheduler.score_arm(scheduler.arm(1).expect("arm1"));
+        let slow = scheduler.score_arm(scheduler.arm(0).expect("arm0")).total();
+        let fast = scheduler.score_arm(scheduler.arm(1).expect("arm1")).total();
         assert!(
             fast > slow,
             "fast arm must outrank slow arm (fast={} slow={})",
             fast,
             slow
         );
+    }
+
+    #[test]
+    fn circuit_backoff_jitter_stays_within_band_and_is_deterministic() {
+        let base = 1_000_u64;
+        let failures = 3_u32;
+        let now_ms = 123_456_u64;
+        let multiplier = 1_u64 << failures.min(6);
+        let unjittered = base * multiplier;
+
+        let a = circuit_backoff_ms(base, 0, failures, now_ms);
+        let b = circuit_backoff_ms(base, 0, failures, now_ms);
+        assert_eq!(a, b, "same inputs must yield deterministic backoff");
+        assert!(
+            a >= unjittered * 75 / 100 && a <= unjittered * 125 / 100,
+            "backoff must stay within ±25% jitter band"
+        );
+    }
+
+    #[test]
+    fn circuit_backoff_jitter_decorrelates_across_arms() {
+        let base = 1_000_u64;
+        let failures = 4_u32;
+        let now_ms = 999_u64;
+        let a0 = circuit_backoff_ms(base, 0, failures, now_ms);
+        let a1 = circuit_backoff_ms(base, 1, failures, now_ms);
+        assert_ne!(a0, a1, "different arms should not share identical backoff");
     }
 }
