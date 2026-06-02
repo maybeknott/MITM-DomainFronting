@@ -48,30 +48,37 @@ _HOST_PYTHON_CACHE: tuple[float, list[str] | None] = (0.0, None)
 XRAY_VERSION_CACHE_SECONDS = 60.0
 _XRAY_VERSION_CACHE: tuple[float, Path | None, str] = (0.0, None, "Unknown")
 
+# Design system (v1.3.2 visual refresh)
 COLORS = {
-    "bg": "#f3f6fa",
+    "bg": "#eef2f8",
     "panel": "#ffffff",
-    "panel_alt": "#f7f9fc",
-    "panel_soft": "#edf2f7",
-    "ink": "#0f172a",
-    "muted": "#5f6f84",
-    "muted_soft": "#94a3b8",
-    "line": "#d8e0eb",
-    "blue": "#0f66e8",
-    "blue_dark": "#0b4db8",
-    "blue_soft": "#eaf3ff",
-    "violet": "#4f46e5",
-    "violet_soft": "#eef2ff",
-    "green": "#0f9f6e",
-    "green_soft": "#eafaf3",
-    "amber": "#b26a00",
-    "amber_soft": "#fffbeb",
-    "red": "#dc2626",
-    "red_soft": "#fee2e2",
+    "panel_alt": "#f6f8fc",
+    "panel_soft": "#eef2f8",
+    "ink": "#101828",
+    "ink_soft": "#344054",
+    "muted": "#667085",
+    "muted_soft": "#98a2b3",
+    "line": "#e4e9f2",
+    "line_strong": "#d3dbe8",
+    "shadow": "#dbe2ee",
+    "blue": "#2563eb",
+    "blue_dark": "#1d4ed8",
+    "blue_soft": "#eaf1ff",
+    "blue_ring": "#bcd2ff",
+    "violet": "#6d4ce0",
+    "violet_soft": "#f0ecfe",
+    "cyan": "#0ea5b7",
+    "green": "#15a36a",
+    "green_soft": "#e6f7ef",
+    "amber": "#b45309",
+    "amber_soft": "#fef6e7",
+    "red": "#d92d20",
+    "red_soft": "#fdeceb",
     "sidebar": "#ffffff",
-    "sidebar_active": "#eef4ff",
-    "sidebar_line": "#d8e0eb",
-    "rail": "#f8fbff",
+    "sidebar_active": "#eaf1ff",
+    "sidebar_hover": "#f4f7fc",
+    "sidebar_line": "#e8edf5",
+    "rail": "#f7f9fd",
 }
 
 
@@ -643,8 +650,8 @@ class App(tk.Tk):
         self.fonts = self._build_fonts()
         self._app_icon_image: tk.PhotoImage | None = None
         self._set_window_icon()
-        self.geometry(f"{self._scaled(1260)}x{self._scaled(790)}")
-        self.minsize(self._scaled(980), self._scaled(620))
+        self.geometry(f"{self._scaled(1320)}x{self._scaled(820)}")
+        self.minsize(self._scaled(1040), self._scaled(640))
         self.configure(bg=COLORS["bg"])
         self.current_process_label = tk.StringVar(value="Ready")
         self.profile_offset = tk.StringVar(value="100")
@@ -788,16 +795,43 @@ class App(tk.Tk):
     def _scaled(self, value: int) -> int:
         return max(1, int(value * self.scaling_factor))
 
+    def _preferred_font_family(self) -> str:
+        if os.name == "nt":
+            preferred = ("Segoe UI Variable Display", "Segoe UI", "Tahoma")
+        else:
+            preferred = ("Inter", "Helvetica Neue", "DejaVu Sans", "Helvetica")
+        try:
+            from tkinter import font as tkfont
+
+            available = {name.lower() for name in tkfont.families(self)}
+            for candidate in preferred:
+                if candidate.lower() in available:
+                    return candidate
+        except Exception:
+            pass
+        return preferred[-1]
+
     def _build_fonts(self) -> dict[str, tuple[str, int, str]]:
-        family = "Segoe UI" if os.name == "nt" else "Helvetica"
-        code_family = "Consolas" if os.name == "nt" else "Courier"
+        family = self._preferred_font_family()
+        code_family = "Consolas" if os.name == "nt" else "DejaVu Sans Mono"
+        try:
+            from tkinter import font as tkfont
+
+            if code_family.lower() not in {n.lower() for n in tkfont.families(self)}:
+                code_family = "Courier"
+        except Exception:
+            code_family = "Consolas" if os.name == "nt" else "Courier"
         return {
-            "h1": (family, self._scaled(18), "bold"),
+            "display": (family, self._scaled(19), "bold"),
+            "h1": (family, self._scaled(15), "bold"),
             "h2": (family, self._scaled(12), "bold"),
+            "h3": (family, self._scaled(10), "bold"),
+            "metric": (family, self._scaled(14), "bold"),
             "body": (family, self._scaled(9), "normal"),
             "body_bold": (family, self._scaled(9), "bold"),
             "caption": (family, self._scaled(8), "normal"),
             "caption_bold": (family, self._scaled(8), "bold"),
+            "micro": (family, self._scaled(8), "bold"),
             "code": (code_family, self._scaled(9), "normal"),
         }
 
@@ -1151,15 +1185,106 @@ class App(tk.Tk):
             style.layout("Sidebar.TNotebook.Tab", [])
         except tk.TclError:
             pass
-        style.configure("Accent.TButton", background=COLORS["blue"], foreground="#ffffff", padding=(self._scaled(11), self._scaled(7)), borderwidth=0)
-        style.map("Accent.TButton", background=[("active", COLORS["blue_dark"])])
-        style.configure("Soft.TButton", background="#eaf1fb", foreground=COLORS["blue_dark"], padding=(self._scaled(11), self._scaled(7)), borderwidth=0)
-        style.map("Soft.TButton", background=[("active", "#dbeafe")])
-        style.configure("Danger.TButton", background="#fee2e2", foreground=COLORS["red"], padding=(self._scaled(11), self._scaled(7)), borderwidth=0)
-        style.map("Danger.TButton", background=[("active", "#fecaca")])
-        style.configure("Warning.TButton", background="#fef3c7", foreground=COLORS["amber"], padding=(self._scaled(11), self._scaled(7)), borderwidth=0)
-        style.map("Warning.TButton", background=[("active", "#fde68a")])
-        style.configure("TEntry", fieldbackground="#ffffff", bordercolor=COLORS["line"], padding=6)
+        btn_pad = (self._scaled(13), self._scaled(8))
+        style.configure(
+            "Accent.TButton",
+            background=COLORS["blue"],
+            foreground="#ffffff",
+            padding=btn_pad,
+            borderwidth=0,
+            focuscolor=COLORS["blue"],
+            font=self.fonts["body_bold"],
+        )
+        style.map(
+            "Accent.TButton",
+            background=[("pressed", COLORS["blue_dark"]), ("active", COLORS["blue_dark"]), ("disabled", "#c7d2e6")],
+            foreground=[("disabled", "#eef2f8")],
+        )
+        style.configure(
+            "Soft.TButton",
+            background=COLORS["blue_soft"],
+            foreground=COLORS["blue_dark"],
+            padding=btn_pad,
+            borderwidth=0,
+            focuscolor=COLORS["blue_soft"],
+            font=self.fonts["body_bold"],
+        )
+        style.map("Soft.TButton", background=[("pressed", "#d8e6ff"), ("active", "#dbe9ff")])
+        style.configure(
+            "Ghost.TButton",
+            background=COLORS["panel"],
+            foreground=COLORS["ink_soft"],
+            padding=btn_pad,
+            borderwidth=1,
+            bordercolor=COLORS["line_strong"],
+            relief="solid",
+            focuscolor=COLORS["panel"],
+            font=self.fonts["body_bold"],
+        )
+        style.map(
+            "Ghost.TButton",
+            background=[("active", COLORS["panel_alt"]), ("pressed", COLORS["panel_soft"])],
+            bordercolor=[("active", COLORS["blue_ring"])],
+        )
+        style.configure(
+            "Danger.TButton",
+            background=COLORS["red_soft"],
+            foreground=COLORS["red"],
+            padding=btn_pad,
+            borderwidth=0,
+            focuscolor=COLORS["red_soft"],
+            font=self.fonts["body_bold"],
+        )
+        style.map("Danger.TButton", background=[("pressed", "#fbd5d2"), ("active", "#fbdedb")])
+        style.configure(
+            "Warning.TButton",
+            background=COLORS["amber_soft"],
+            foreground=COLORS["amber"],
+            padding=btn_pad,
+            borderwidth=0,
+            focuscolor=COLORS["amber_soft"],
+            font=self.fonts["body_bold"],
+        )
+        style.map("Warning.TButton", background=[("pressed", "#fbe8c6"), ("active", "#fcecd0")])
+        style.configure(
+            "TEntry",
+            fieldbackground="#ffffff",
+            bordercolor=COLORS["line_strong"],
+            lightcolor=COLORS["line_strong"],
+            darkcolor=COLORS["line_strong"],
+            insertcolor=COLORS["ink"],
+            padding=self._scaled(7),
+        )
+        style.map("TEntry", bordercolor=[("focus", COLORS["blue"])], lightcolor=[("focus", COLORS["blue"])])
+        style.configure(
+            "TCombobox",
+            fieldbackground="#ffffff",
+            background="#ffffff",
+            bordercolor=COLORS["line_strong"],
+            arrowcolor=COLORS["muted"],
+            padding=self._scaled(5),
+        )
+        style.map("TCombobox", bordercolor=[("focus", COLORS["blue"])], fieldbackground=[("readonly", "#ffffff")])
+        style.configure("TCheckbutton", background=COLORS["panel"], foreground=COLORS["ink_soft"], focuscolor=COLORS["panel"])
+        style.map("TCheckbutton", background=[("active", COLORS["panel"])])
+        style.configure(
+            "TProgressbar",
+            background=COLORS["blue"],
+            troughcolor=COLORS["panel_soft"],
+            bordercolor=COLORS["panel_soft"],
+            lightcolor=COLORS["blue"],
+            darkcolor=COLORS["blue"],
+            thickness=self._scaled(6),
+        )
+        style.configure(
+            "Vertical.TScrollbar",
+            background=COLORS["line_strong"],
+            troughcolor=COLORS["panel"],
+            bordercolor=COLORS["panel"],
+            arrowcolor=COLORS["muted"],
+            width=self._scaled(11),
+        )
+        style.map("Vertical.TScrollbar", background=[("active", COLORS["muted_soft"])])
         style.configure("TLabelframe", background=COLORS["panel"], bordercolor=COLORS["line"], relief="solid")
         style.configure("TLabelframe.Label", background=COLORS["panel"], foreground=COLORS["ink"], font=self.fonts["body_bold"])
 
@@ -1179,11 +1304,11 @@ class App(tk.Tk):
         sidebar.grid_propagate(False)
 
         brand = tk.Frame(sidebar, bg=COLORS["sidebar"])
-        brand.pack(fill="x", padx=self._scaled(14), pady=(self._scaled(18), self._scaled(10)))
-        mark = tk.Frame(brand, bg=COLORS["blue_soft"], width=self._scaled(42), height=self._scaled(42), highlightbackground="#bfdbfe", highlightthickness=1)
-        mark.pack(side="left", padx=(0, self._scaled(10)))
+        brand.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(20), self._scaled(8)))
+        mark = tk.Frame(brand, bg=COLORS["blue"], width=self._scaled(40), height=self._scaled(40))
+        mark.pack(side="left", padx=(0, self._scaled(11)))
         mark.pack_propagate(False)
-        self._icon_canvas(mark, "shield_globe", COLORS["blue_dark"], 36, COLORS["blue_soft"]).pack(expand=True)
+        self._icon_canvas(mark, "shield_globe", "#ffffff", 32, COLORS["blue"]).pack(expand=True)
         brand_text = tk.Frame(brand, bg=COLORS["sidebar"])
         brand_text.pack(side="left", fill="x", expand=True)
         tk.Label(brand_text, text="MITM", bg=COLORS["sidebar"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(fill="x")
@@ -1194,40 +1319,48 @@ class App(tk.Tk):
             bg=COLORS["sidebar"],
             fg=COLORS["muted"],
             font=self.fonts["caption"],
-            wraplength=self._scaled(178),
+            wraplength=self._scaled(186),
             justify="left",
             anchor="w",
-        ).pack(fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(12)))
-        tk.Frame(sidebar, bg=COLORS["sidebar_line"], height=1).pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(6)))
+        ).pack(fill="x", padx=self._scaled(18), pady=(self._scaled(6), self._scaled(14)))
+        tk.Frame(sidebar, bg=COLORS["sidebar_line"], height=1).pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
         nav_holder = tk.Frame(sidebar, bg=COLORS["sidebar"])
-        nav_holder.pack(fill="x", padx=self._scaled(10), pady=(0, self._scaled(10)))
+        nav_holder.pack(fill="both", expand=True, padx=self._scaled(6), pady=(0, self._scaled(10)))
+
+        footer_block = tk.Frame(sidebar, bg=COLORS["sidebar"])
+        footer_block.pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(16)))
+        tk.Frame(footer_block, bg=COLORS["sidebar_line"], height=1).pack(fill="x", pady=(0, self._scaled(10)))
+        ready_row = tk.Frame(footer_block, bg=COLORS["sidebar"])
+        ready_row.pack(fill="x")
+        dot = tk.Canvas(ready_row, width=self._scaled(10), height=self._scaled(10), bg=COLORS["sidebar"], highlightthickness=0)
+        dot.create_oval(self._scaled(1), self._scaled(1), self._scaled(9), self._scaled(9), fill=COLORS["green"], outline=COLORS["green"])
+        dot.pack(side="left", padx=(0, self._scaled(7)))
         tk.Label(
-            sidebar,
+            ready_row,
             textvariable=self.current_process_label,
             bg=COLORS["sidebar"],
-            fg=COLORS["green"],
-            font=self.fonts["caption"],
-            wraplength=self._scaled(170),
-            justify="left",
-        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(6), self._scaled(14)))
+            fg=COLORS["ink_soft"],
+            font=self.fonts["caption_bold"],
+            anchor="w",
+        ).pack(side="left", fill="x", expand=True)
         tk.Label(
-            sidebar,
+            ready_row,
             text=APP_VERSION,
             bg=COLORS["sidebar"],
             fg=COLORS["muted"],
             font=self.fonts["caption_bold"],
-            anchor="w",
-        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(0, self._scaled(2)))
+            anchor="e",
+        ).pack(side="right")
         tk.Label(
-            sidebar,
-            text="F5 refresh | Ctrl+K find | Ctrl+L logs | Ctrl+B focus",
+            footer_block,
+            text="F5 refresh  ·  Ctrl+K find  ·  Ctrl+L logs  ·  Ctrl+B focus",
             bg=COLORS["sidebar"],
-            fg=COLORS["muted"],
+            fg=COLORS["muted_soft"],
             font=self.fonts["caption"],
-            wraplength=self._scaled(170),
+            wraplength=self._scaled(180),
             justify="left",
             anchor="w",
-        ).pack(side="bottom", fill="x", padx=self._scaled(16), pady=(self._scaled(8), 0))
+        ).pack(fill="x", pady=(self._scaled(8), 0))
 
         content = tk.Frame(root, bg=COLORS["bg"])
         content.grid(row=0, column=1, sticky="nsew")
@@ -1235,11 +1368,19 @@ class App(tk.Tk):
         self._build_telemetry_rail(root)
 
         header = tk.Frame(content, bg=COLORS["bg"])
-        header.pack(fill="x", padx=self._scaled(16), pady=(self._scaled(8), self._scaled(4)))
-        tk.Label(header, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", fill="x", expand=True)
-        self.header_status_label = tk.Label(header, textvariable=self.overall_status, bg=COLORS["blue_soft"], fg=COLORS["blue"], font=self.fonts["caption_bold"], padx=self._scaled(9), pady=self._scaled(3))
-        self.header_status_label.pack(side="left", padx=(0, self._scaled(8)))
-        self.task_progress = ttk.Progressbar(header, mode="indeterminate", length=self._scaled(82))
+        header.pack(fill="x", padx=self._scaled(20), pady=(self._scaled(14), self._scaled(8)))
+        tk.Label(header, textvariable=self.screen_title, bg=COLORS["bg"], fg=COLORS["ink"], font=self.fonts["h1"], anchor="w").pack(side="left", fill="x", expand=True)
+        self.header_status_label = tk.Label(
+            header,
+            textvariable=self.overall_status,
+            bg=COLORS["blue_soft"],
+            fg=COLORS["blue"],
+            font=self.fonts["micro"],
+            padx=self._scaled(11),
+            pady=self._scaled(4),
+        )
+        self.header_status_label.pack(side="left", padx=(0, self._scaled(10)))
+        self.task_progress = ttk.Progressbar(header, mode="indeterminate", length=self._scaled(82), style="TProgressbar")
         self.task_progress.pack(side="left")
 
         self.banner_slot = tk.Frame(content, bg=COLORS["bg"])
@@ -1357,7 +1498,10 @@ class App(tk.Tk):
         network = self._rail_panel(rail, "Live Telemetry", "network")
         live_row = tk.Frame(network, bg=COLORS["panel"])
         live_row.pack(fill="x", pady=(0, self._scaled(8)))
-        tk.Label(live_row, textvariable=self.auto_refresh_state, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption_bold"], anchor="w").pack(side="left", fill="x", expand=True)
+        tk.Label(live_row, textvariable=self.auto_refresh_state, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
+        live_dot = tk.Canvas(live_row, width=self._scaled(8), height=self._scaled(8), bg=COLORS["panel"], highlightthickness=0)
+        live_dot.create_oval(self._scaled(1), self._scaled(1), self._scaled(7), self._scaled(7), fill=COLORS["green"], outline=COLORS["green"])
+        live_dot.pack(side="right", padx=(self._scaled(5), 0))
         tk.Label(live_row, text="Live", bg=COLORS["panel"], fg=COLORS["green"], font=self.fonts["caption_bold"]).pack(side="right")
         self._telemetry_metric(network, "down", "Downlink", self.network_down_rate, COLORS["blue"])
         self._telemetry_metric(network, "up", "Uplink", self.network_up_rate, COLORS["blue"])
@@ -1379,16 +1523,47 @@ class App(tk.Tk):
         ).pack(fill="x", pady=(0, self._scaled(9)))
         for line in ("No data collection", "No telemetry export", "All processing is local"):
             item = tk.Frame(privacy, bg=COLORS["panel"])
-            item.pack(fill="x", pady=(0, self._scaled(5)))
-            tk.Label(item, text="OK", bg=COLORS["green_soft"], fg=COLORS["green"], font=self.fonts["caption_bold"], padx=5, pady=1).pack(side="left", padx=(0, self._scaled(7)))
-            tk.Label(item, text=line, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
+            item.pack(fill="x", pady=(0, self._scaled(6)))
+            check = tk.Canvas(item, width=self._scaled(16), height=self._scaled(16), bg=COLORS["panel"], highlightthickness=0)
+            check.create_oval(self._scaled(1), self._scaled(1), self._scaled(15), self._scaled(15), fill=COLORS["green_soft"], outline=COLORS["green_soft"])
+            check.create_line(
+                self._scaled(5), self._scaled(8), self._scaled(7), self._scaled(10), self._scaled(11), self._scaled(5),
+                fill=COLORS["green"], width=max(1, self._scaled(2)), capstyle="round", joinstyle="round",
+            )
+            check.pack(side="left", padx=(0, self._scaled(8)))
+            tk.Label(item, text=line, bg=COLORS["panel"], fg=COLORS["ink_soft"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
 
         view = self._rail_panel(rail, "Quick Actions", "bolt")
-        for label, command in (("Open Logs", self.toggle_output_drawer), ("Find Action", self.show_command_palette), ("Reset Statistics", self.clear_telemetry), ("Refresh", self.refresh_status)):
+        for index, (label, command) in enumerate(
+            (
+                ("Open Logs", self.toggle_output_drawer),
+                ("Find Action", self.show_command_palette),
+                ("Reset Statistics", self.clear_telemetry),
+                ("Refresh", self.refresh_status),
+            )
+        ):
+            if index:
+                tk.Frame(view, bg=COLORS["line"], height=1).pack(fill="x", pady=(0, self._scaled(2)))
             row = tk.Frame(view, bg=COLORS["panel"], cursor="hand2")
-            row.pack(fill="x", pady=(0, self._scaled(6)))
-            tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], anchor="w", cursor="hand2").pack(side="left", fill="x", expand=True)
-            tk.Label(row, text=">", bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["body_bold"], cursor="hand2").pack(side="right")
+            row.pack(fill="x", pady=(0, self._scaled(2)))
+            name = tk.Label(
+                row, text=label, bg=COLORS["panel"], fg=COLORS["ink_soft"], font=self.fonts["caption_bold"],
+                anchor="w", cursor="hand2", padx=self._scaled(4), pady=self._scaled(5),
+            )
+            name.pack(side="left", fill="x", expand=True)
+            chevron = tk.Label(row, text="\u203a", bg=COLORS["panel"], fg=COLORS["muted_soft"], font=self.fonts["h3"], cursor="hand2", padx=self._scaled(4))
+            chevron.pack(side="right")
+            kids = (name, chevron)
+
+            def make_hover(widgets: tuple[tk.Label, ...], bg: str) -> Callable[[tk.Event | None], None]:
+                def handler(_event: tk.Event | None = None) -> None:
+                    row.configure(bg=bg)
+                    for child in widgets:
+                        child.configure(bg=bg)
+                return handler
+
+            row.bind("<Enter>", make_hover(kids, COLORS["panel_alt"]))
+            row.bind("<Leave>", make_hover(kids, COLORS["panel"]))
             row.bind("<Button-1>", lambda _event, action=command: action())
             for child in row.winfo_children():
                 child.bind("<Button-1>", lambda _event, action=command: action())
@@ -1530,20 +1705,34 @@ class App(tk.Tk):
             "About": "info",
         }
         row = tk.Frame(parent, bg=COLORS["sidebar"], cursor="hand2")
-        row.pack(fill="x", padx=self._scaled(3), pady=self._scaled(2))
-        rail = tk.Frame(row, bg=COLORS["sidebar"], width=self._scaled(4))
-        rail.pack(side="left", fill="y", padx=(0, self._scaled(5)))
-        icon = self._icon_canvas(row, icon_map.get(text, "info"), COLORS["muted"], 24, COLORS["sidebar"])
-        icon.pack(side="left", padx=(self._scaled(10), self._scaled(8)), pady=self._scaled(7))
-        label = tk.Label(row, text=text, bg=COLORS["sidebar"], fg=COLORS["ink"], font=self.fonts["body_bold"], anchor="w", cursor="hand2")
-        label.pack(side="left", fill="x", expand=True, pady=self._scaled(7))
+        row.pack(fill="x", padx=self._scaled(6), pady=self._scaled(1))
+        rail = tk.Frame(row, bg=COLORS["sidebar"], width=self._scaled(3))
+        rail.pack(side="left", fill="y", padx=(0, self._scaled(6)))
+        icon = self._icon_canvas(row, icon_map.get(text, "info"), COLORS["muted"], 22, COLORS["sidebar"])
+        icon.pack(side="left", padx=(self._scaled(8), self._scaled(9)), pady=self._scaled(8))
+        label = tk.Label(row, text=text, bg=COLORS["sidebar"], fg=COLORS["ink_soft"], font=self.fonts["body_bold"], anchor="w", cursor="hand2")
+        label.pack(side="left", fill="x", expand=True, pady=self._scaled(8))
 
         def select(_event: tk.Event | None = None) -> str:
             self._select_workspace(target)
             return "break"
 
+        def on_enter(_event: tk.Event | None = None) -> None:
+            if getattr(row, "_nav_active", False):
+                return
+            for widget in (row, label, icon):
+                widget.configure(bg=COLORS["sidebar_hover"])
+
+        def on_leave(_event: tk.Event | None = None) -> None:
+            if getattr(row, "_nav_active", False):
+                return
+            for widget in (row, label, icon):
+                widget.configure(bg=COLORS["sidebar"])
+
         for widget in (row, rail, icon, label):
             widget.bind("<Button-1>", select)
+            widget.bind("<Enter>", on_enter)
+            widget.bind("<Leave>", on_leave)
         self.nav_button_widgets[text] = (row, label, icon, rail)
 
     def _select_workspace(self, frame: tk.Frame) -> None:
@@ -1828,8 +2017,9 @@ class App(tk.Tk):
         for name, button in self.nav_button_widgets.items():
             is_active = name == active_name
             row, label, icon, rail = button
+            row._nav_active = is_active  # type: ignore[attr-defined]
             bg = COLORS["sidebar_active"] if is_active else COLORS["sidebar"]
-            fg = COLORS["blue_dark"] if is_active else COLORS["ink"]
+            fg = COLORS["blue_dark"] if is_active else COLORS["ink_soft"]
             row.configure(bg=bg)
             label.configure(bg=bg, fg=fg)
             icon.configure(bg=bg)
@@ -1916,8 +2106,8 @@ class App(tk.Tk):
     def _tab(self) -> tk.Frame:
         page = tk.Frame(self.tabs, bg=COLORS["panel"])
         canvas = tk.Canvas(page, bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
-        scrollbar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview)
-        inner = tk.Frame(canvas, bg=COLORS["panel"], padx=self._scaled(14), pady=self._scaled(12))
+        scrollbar = ttk.Scrollbar(page, orient="vertical", command=canvas.yview, style="Vertical.TScrollbar")
+        inner = tk.Frame(canvas, bg=COLORS["panel"], padx=self._scaled(18), pady=self._scaled(16))
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
@@ -2030,14 +2220,28 @@ class App(tk.Tk):
             return "bolt"
         return "info"
 
+    @staticmethod
+    def _delegate_geometry(inner: tk.Widget, shell: tk.Widget) -> None:
+        for method in (
+            "pack", "grid", "place", "pack_forget", "grid_forget",
+            "place_forget", "pack_info", "grid_info", "place_info",
+        ):
+            target = getattr(shell, method, None)
+            if target is not None:
+                setattr(inner, method, target)
+
     def _card(self, parent: tk.Widget, title: str) -> tk.Frame:
-        frame = tk.Frame(parent, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        shell = tk.Frame(parent, bg=COLORS["shadow"])
+        frame = tk.Frame(shell, bg=COLORS["panel"], highlightbackground=COLORS["line"], highlightthickness=1)
+        frame.pack(fill="both", expand=True, pady=(0, self._scaled(1)))
+        self._delegate_geometry(frame, shell)
         header = tk.Frame(frame, bg=COLORS["panel"])
-        header.pack(fill="x", padx=12, pady=(10, 4))
-        self._icon_canvas(header, self._icon_for_title(title), COLORS["blue"], 22, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(8)))
+        header.pack(fill="x", padx=self._scaled(14), pady=(self._scaled(12), self._scaled(6)))
+        self._icon_canvas(header, self._icon_for_title(title), COLORS["blue"], 22, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(9)))
         tk.Label(header, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["h2"], anchor="w").pack(side="left", fill="x", expand=True)
         if self._help_key(title) in self.help_topics:
             ttk.Button(header, text="Help", style="Soft.TButton", command=lambda key=self._help_key(title): self.show_help_topic(key)).pack(side="right")
+        tk.Frame(frame, bg=COLORS["line"], height=1).pack(fill="x", padx=self._scaled(14), pady=(0, self._scaled(4)))
         return frame
 
     def _help_key(self, raw: str) -> str:
@@ -2045,10 +2249,10 @@ class App(tk.Tk):
 
     def _info_strip(self, parent: tk.Widget, title: str, text: str, tone: str = "info") -> tk.Frame:
         palette = {
-            "info": ("#eff6ff", "#bfdbfe", "#1e40af"),
-            "success": ("#f0fdf4", "#bbf7d0", "#166534"),
-            "warning": ("#fffbeb", "#fde68a", "#92400e"),
-        }.get(tone, ("#eff6ff", "#bfdbfe", "#1e40af"))
+            "info": (COLORS["blue_soft"], COLORS["blue_ring"], COLORS["blue_dark"]),
+            "success": (COLORS["green_soft"], "#bbe9d3", "#0c7a4f"),
+            "warning": (COLORS["amber_soft"], "#f3d9a6", COLORS["amber"]),
+        }.get(tone, (COLORS["blue_soft"], COLORS["blue_ring"], COLORS["blue_dark"]))
         bg, border, fg = palette
         strip = tk.Frame(parent, bg=bg, highlightbackground=border, highlightthickness=1)
         head = tk.Frame(strip, bg=bg)
@@ -2153,6 +2357,37 @@ class App(tk.Tk):
         row.pack(fill="x", padx=16, pady=(4, 6))
         tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["muted"], width=12, anchor="w").pack(side="left")
         ttk.Entry(row, textvariable=variable).pack(side="left", fill="x", expand=True)
+
+    def _pill_palette(self, tone: str) -> tuple[str, str]:
+        return {
+            "pass": (COLORS["green_soft"], COLORS["green"]),
+            "warn": (COLORS["amber_soft"], COLORS["amber"]),
+            "fail": (COLORS["red_soft"], COLORS["red"]),
+            "info": (COLORS["blue_soft"], COLORS["blue"]),
+            "neutral": (COLORS["panel_soft"], COLORS["muted"]),
+        }.get(tone, (COLORS["blue_soft"], COLORS["blue"]))
+
+    def _pill_glyph(self, tone: str) -> str:
+        return {"pass": "\u2714", "warn": "\u26a0", "fail": "\u2715", "info": "\u2022", "neutral": "\u2022"}.get(tone, "\u2022")
+
+    def status_pill(self, parent: tk.Widget, text: str, tone: str = "neutral", glyph: bool = True) -> tk.Label:
+        bg, fg = self._pill_palette(tone)
+        label = tk.Label(
+            parent,
+            text=(f"{self._pill_glyph(tone)}  {text}" if glyph else text),
+            bg=bg, fg=fg, font=self.fonts["micro"],
+            padx=self._scaled(9), pady=self._scaled(3), anchor="center",
+        )
+        label._pill_glyph_on = glyph  # type: ignore[attr-defined]
+        return label
+
+    def set_pill(self, label: tk.Label, text: str, tone: str) -> None:
+        bg, fg = self._pill_palette(tone)
+        show_glyph = bool(getattr(label, "_pill_glyph_on", True))
+        label.configure(
+            text=(f"{self._pill_glyph(tone)}  {text}" if show_glyph else text),
+            bg=bg, fg=fg,
+        )
 
     def _status_chip(self, parent: tk.Widget, name: str) -> tk.Label:
         box = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
@@ -2405,19 +2640,50 @@ class App(tk.Tk):
         ).pack(anchor="w")
         return tile
 
+    def _step_circle(self, parent: tk.Widget, number: str, done: bool, active: bool) -> tk.Canvas:
+        d = self._scaled(26)
+        canvas = tk.Canvas(parent, width=d, height=d, bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
+        pad = self._scaled(2)
+        if done or active:
+            canvas.create_oval(pad, pad, d - pad, d - pad, fill=COLORS["blue"], outline=COLORS["blue"])
+            if done:
+                canvas.create_line(
+                    d * 0.30, d * 0.52, d * 0.44, d * 0.66, d * 0.72, d * 0.34,
+                    fill="#ffffff", width=max(2, self._scaled(2)), capstyle="round", joinstyle="round",
+                )
+            else:
+                canvas.create_text(d / 2, d / 2 + self._scaled(1), text=number, fill="#ffffff", font=self.fonts["micro"])
+        else:
+            canvas.create_oval(pad, pad, d - pad, d - pad, fill=COLORS["panel_soft"], outline=COLORS["line_strong"])
+            canvas.create_text(d / 2, d / 2 + self._scaled(1), text=number, fill=COLORS["muted"], font=self.fonts["micro"])
+        return canvas
+
     def _workflow_rail(self, parent: tk.Widget, steps: list[tuple[str, str, str]]) -> tk.Frame:
         rail = tk.Frame(parent, bg=COLORS["panel"])
         for index, (number, title, detail) in enumerate(steps):
+            done = index < 2
+            active = index == 2
+            reached = index <= 2
             if index:
-                tk.Frame(rail, bg=COLORS["line"], height=1, width=self._scaled(42)).pack(side="left", fill="x", expand=True, padx=self._scaled(4), pady=(self._scaled(22), 0))
+                connector = COLORS["blue_ring"] if index <= 2 else COLORS["line_strong"]
+                tk.Frame(rail, bg=connector, height=self._scaled(2), width=self._scaled(42)).pack(
+                    side="left", fill="x", expand=True, padx=self._scaled(4), pady=(self._scaled(18), 0)
+                )
             item = tk.Frame(rail, bg=COLORS["panel"])
             item.pack(side="left", fill="both", expand=True, padx=self._scaled(2))
             top = tk.Frame(item, bg=COLORS["panel"])
             top.pack(fill="x", pady=(self._scaled(5), self._scaled(4)))
-            circle = tk.Label(top, text=number, bg=COLORS["blue"] if index < 3 else COLORS["panel_soft"], fg="#ffffff" if index < 3 else COLORS["ink"], font=self.fonts["caption_bold"], width=3, padx=2, pady=5)
-            circle.pack(side="left", padx=(0, self._scaled(8)))
-            tk.Label(top, text=title, bg=COLORS["panel"], fg=COLORS["blue_dark"] if index < 3 else COLORS["ink"], font=self.fonts["body_bold"], anchor="w").pack(side="left", fill="x", expand=True)
-            tk.Label(item, text=detail, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(170), justify="left", anchor="nw").pack(fill="x", padx=(self._scaled(38), 0), pady=(0, self._scaled(4)))
+            self._step_circle(top, number, done, active).pack(side="left", padx=(0, self._scaled(9)))
+            tk.Label(
+                top, text=title, bg=COLORS["panel"],
+                fg=COLORS["blue_dark"] if reached else COLORS["muted"],
+                font=self.fonts["body_bold"], anchor="w",
+            ).pack(side="left", fill="x", expand=True)
+            tk.Label(
+                item, text=detail, bg=COLORS["panel"], fg=COLORS["muted"],
+                font=self.fonts["caption"], wraplength=self._scaled(180),
+                justify="left", anchor="nw",
+            ).pack(fill="x", padx=(self._scaled(35), 0), pady=(0, self._scaled(4)))
         return rail
 
     def _build_start_here(self) -> None:
@@ -3822,15 +4088,17 @@ class App(tk.Tk):
     def _show_remediation_banner(self, level: str, code: str, message: str, action_text: str, action: Callable[[], None]) -> None:
         self._clear_remediation_banner()
         palette = {
-            "fail": ("#fee2e2", "#fca5a5", "#991b1b", COLORS["red"]),
-            "warn": ("#fffbeb", "#fde68a", "#92400e", COLORS["amber"]),
-            "info": ("#eff6ff", "#bfdbfe", "#1e40af", COLORS["blue"]),
-        }.get(level, ("#eff6ff", "#bfdbfe", "#1e40af", COLORS["blue"]))
-        bg, border, fg, button_bg = palette
+            "fail": (COLORS["red_soft"], "#f6c4bf", "#9a2018", COLORS["red"], "shield"),
+            "warn": (COLORS["amber_soft"], "#f3d9a6", COLORS["amber"], COLORS["amber"], "info"),
+            "info": (COLORS["blue_soft"], COLORS["blue_ring"], COLORS["blue_dark"], COLORS["blue"], "info"),
+        }.get(level, (COLORS["blue_soft"], COLORS["blue_ring"], COLORS["blue_dark"], COLORS["blue"], "info"))
+        bg, border, fg, button_bg, icon = palette
         banner = tk.Frame(self.banner_slot, bg=bg, highlightbackground=border, highlightthickness=1)
         banner.pack(fill="x")
+        tk.Frame(banner, bg=button_bg, width=self._scaled(4)).pack(side="left", fill="y")
+        self._icon_canvas(banner, icon, button_bg, 22, bg).pack(side="left", padx=(self._scaled(12), 0), pady=self._scaled(10))
         text_block = tk.Frame(banner, bg=bg)
-        text_block.pack(side="left", fill="x", expand=True, padx=self._scaled(14), pady=self._scaled(10))
+        text_block.pack(side="left", fill="x", expand=True, padx=self._scaled(12), pady=self._scaled(10))
         tk.Label(text_block, text=f"{code}: {message}", bg=bg, fg=fg, font=self.fonts["body_bold"], anchor="w", justify="left", wraplength=self._scaled(680)).pack(fill="x")
         tk.Label(text_block, text="This is advisory; no system trust store or proxy setting is changed silently.", bg=bg, fg=fg, font=self.fonts["caption"], anchor="w", justify="left").pack(fill="x", pady=(self._scaled(2), 0))
         tk.Button(
@@ -4159,9 +4427,13 @@ class App(tk.Tk):
         status_text = {"pass": "Ready", "warn": "Needs Attention", "fail": "Blocked"}.get(level, "Checking")
         self.overall_status.set(status_text)
         self.overall_detail.set(detail)
-        status_bg = {"pass": "#dcfce7", "warn": "#fef3c7", "fail": "#fee2e2"}.get(level, "#dbeafe")
+        status_bg = {
+            "pass": COLORS["green_soft"],
+            "warn": COLORS["amber_soft"],
+            "fail": COLORS["red_soft"],
+        }.get(level, COLORS["blue_soft"])
         status_fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"]}.get(level, COLORS["blue"])
-        self.header_status_label.configure(bg=status_bg, fg=status_fg)
+        self.header_status_label.configure(bg=status_bg, fg=status_fg, font=self.fonts["micro"])
         if level != self.last_status_level:
             self.record_telemetry("status_changed", level, detail, {"previous": self.last_status_level})
             self.last_status_level = level
