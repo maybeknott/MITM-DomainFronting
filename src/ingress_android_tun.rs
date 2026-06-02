@@ -1,6 +1,4 @@
-use std::collections::VecDeque;
-
-use crate::ingress::{IngressError, PacketIngress, PacketRef};
+use crate::ingress::{BatchPacketBuffer, IngressError, PacketIngress, PacketRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AndroidTunAvailability {
@@ -30,10 +28,7 @@ impl Default for AndroidTunOptions {
 pub struct AndroidTunIngress {
     availability: AndroidTunAvailability,
     tun_fd: Option<i32>,
-    max_packet_size: usize,
-    rx_queue: VecDeque<Vec<u8>>,
-    tx_queue: VecDeque<Vec<u8>>,
-    last_batch: Vec<Vec<u8>>,
+    buffer: BatchPacketBuffer,
 }
 
 impl AndroidTunIngress {
@@ -50,10 +45,7 @@ impl AndroidTunIngress {
         Self {
             availability,
             tun_fd: options.tun_fd,
-            max_packet_size: options.max_packet_size.max(256),
-            rx_queue: VecDeque::new(),
-            tx_queue: VecDeque::new(),
-            last_batch: Vec::new(),
+            buffer: BatchPacketBuffer::new(options.max_packet_size),
         }
     }
 
@@ -79,17 +71,11 @@ impl AndroidTunIngress {
     }
 
     pub fn inject_rx_packet_for_test(&mut self, packet: Vec<u8>) -> Result<(), IngressError> {
-        if packet.is_empty() || packet.len() > self.max_packet_size {
-            return Err(IngressError::Unsupported(
-                "android_tun packet size is invalid for configured MTU budget",
-            ));
-        }
-        self.rx_queue.push_back(packet);
-        Ok(())
+        self.buffer.push_rx(packet)
     }
 
     pub fn take_tx_packet_for_test(&mut self) -> Option<Vec<u8>> {
-        self.tx_queue.pop_front()
+        self.buffer.pop_tx()
     }
 
     fn ensure_enabled(&self) -> Result<(), IngressError> {
@@ -99,52 +85,20 @@ impl AndroidTunIngress {
         Ok(())
     }
 
-    fn packet_from_last_batch(&self, packet: PacketRef) -> Result<&[u8], IngressError> {
-        let index = packet.offset / self.max_packet_size;
-        if index >= self.last_batch.len() {
-            return Err(IngressError::Unsupported(
-                "packet reference is outside batch window",
-            ));
-        }
-        let data = &self.last_batch[index];
-        if data.len() != packet.len {
-            return Err(IngressError::Unsupported(
-                "packet reference length mismatch in android_tun batch",
-            ));
-        }
-        Ok(data)
-    }
+    //
+    // Note: packet reference validation and batching lives in `BatchPacketBuffer`
+    // so all datagram ingress backends share identical semantics.
 }
 
 impl PacketIngress for AndroidTunIngress {
     fn recv_batch(&mut self, out: &mut [PacketRef]) -> Result<usize, IngressError> {
         self.ensure_enabled()?;
-        if out.is_empty() {
-            return Ok(0);
-        }
-        self.last_batch.clear();
-        let mut count = 0_usize;
-        while count < out.len() {
-            let Some(packet) = self.rx_queue.pop_front() else {
-                break;
-            };
-            let offset = count * self.max_packet_size;
-            out[count] = PacketRef::new(offset, packet.len())?;
-            self.last_batch.push(packet);
-            count += 1;
-        }
-        Ok(count)
+        self.buffer.fill_batch(out)
     }
 
     fn send_batch(&mut self, packets: &[PacketRef]) -> Result<usize, IngressError> {
         self.ensure_enabled()?;
-        let mut sent = 0_usize;
-        for packet in packets {
-            let bytes = self.packet_from_last_batch(*packet)?;
-            self.tx_queue.push_back(bytes.to_vec());
-            sent += 1;
-        }
-        Ok(sent)
+        self.buffer.send_batch(packets)
     }
 }
 
