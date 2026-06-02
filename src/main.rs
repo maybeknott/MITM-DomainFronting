@@ -9,7 +9,7 @@ use mitm_stream_core::backend_runtime::{
 };
 use mitm_stream_core::cert_cache::ProviderFamily;
 use mitm_stream_core::ingress::StreamIngress;
-use mitm_stream_core::ja3::compute_ja3;
+use mitm_stream_core::ja3::{compute_ja3, self_audit, Ja3SelfAudit};
 use mitm_stream_core::parser::{read_client_hello_info, ParserError};
 use mitm_stream_core::tls_orchestrator::{
     orchestrate_tls_session, RoutePlan, TlsFallbackMode, TlsOrchestrationInput,
@@ -203,19 +203,18 @@ fn handle_client(mut socket: TcpStream, handshake_timeout_ms: u64) -> Result<(),
     // (`MITM_STREAM_EXPECTED_JA3`), compare it against what we actually observed
     // and warn loudly on divergence. A mismatch means our presented fingerprint
     // is drifting from the target browser — an evasion regression the operator
-    // must see, not a silent failure.
-    if let Some(expected_ja3) = std::env::var("MITM_STREAM_EXPECTED_JA3")
-        .ok()
-        .map(|value| value.trim().to_ascii_lowercase())
-        .filter(|value| !value.is_empty())
-    {
-        if ja3.ja3_hash_md5 == expected_ja3 {
-            println!("ja3 self-audit: match (hash={})", ja3.ja3_hash_md5);
-        } else {
+    // must see, not a silent failure. Comparison logic lives in `ja3` for unit tests.
+    let expected_ja3 = std::env::var("MITM_STREAM_EXPECTED_JA3").ok();
+    match self_audit(&ja3.ja3_hash_md5, expected_ja3.as_deref()) {
+        Ja3SelfAudit::NotConfigured => {}
+        Ja3SelfAudit::Match { hash } => {
+            println!("ja3 self-audit: match (hash={})", hash);
+        }
+        Ja3SelfAudit::Mismatch { expected, observed } => {
             eprintln!(
                 "warning: ja3 self-audit MISMATCH expected={} observed={} — presented \
                  fingerprint diverges from the pinned browser profile",
-                expected_ja3, ja3.ja3_hash_md5
+                expected, observed
             );
         }
     }

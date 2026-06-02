@@ -23,6 +23,31 @@ pub fn compute_ja3(hello: &ClientHelloInfo) -> Ja3Fingerprint {
     }
 }
 
+/// Outcome of comparing an observed JA3 hash against an operator-pinned expected hash.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Ja3SelfAudit {
+    NotConfigured,
+    Match { hash: String },
+    Mismatch { expected: String, observed: String },
+}
+
+/// Compare `observed` against optional `expected` JA3 MD5 (trimmed, case-insensitive).
+pub fn self_audit(observed: &str, expected: Option<&str>) -> Ja3SelfAudit {
+    let expected = match expected {
+        Some(value) => value.trim().to_ascii_lowercase(),
+        None => return Ja3SelfAudit::NotConfigured,
+    };
+    if expected.is_empty() {
+        return Ja3SelfAudit::NotConfigured;
+    }
+    let observed = observed.trim().to_ascii_lowercase();
+    if observed == expected {
+        Ja3SelfAudit::Match { hash: observed }
+    } else {
+        Ja3SelfAudit::Mismatch { expected, observed }
+    }
+}
+
 /// RFC 8701 GREASE: both bytes equal and each has low nibble `0xA`.
 pub fn is_grease(value: u16) -> bool {
     let hi = (value >> 8) as u8;
@@ -214,6 +239,35 @@ mod tests {
     fn md5_matches_known_vectors() {
         assert_eq!(md5_hex(b""), "d41d8cd98f00b204e9800998ecf8427e");
         assert_eq!(md5_hex(b"abc"), "900150983cd24fb0d6963f7d28e17f72");
+    }
+
+    #[test]
+    fn self_audit_reports_not_configured_for_absent_or_empty_expected() {
+        assert_eq!(self_audit("abc", None), Ja3SelfAudit::NotConfigured);
+        assert_eq!(self_audit("abc", Some("")), Ja3SelfAudit::NotConfigured);
+        assert_eq!(self_audit("abc", Some("   ")), Ja3SelfAudit::NotConfigured);
+    }
+
+    #[test]
+    fn self_audit_matches_case_insensitively_and_trims() {
+        let hash = "d41d8cd98f00b204e9800998ecf8427e";
+        assert_eq!(
+            self_audit(hash, Some(&format!("  {} ", hash.to_uppercase()))),
+            Ja3SelfAudit::Match {
+                hash: hash.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn self_audit_flags_divergence_as_mismatch() {
+        assert_eq!(
+            self_audit("observedhash", Some("expectedhash")),
+            Ja3SelfAudit::Mismatch {
+                expected: "expectedhash".to_string(),
+                observed: "observedhash".to_string(),
+            }
+        );
     }
 
     #[test]

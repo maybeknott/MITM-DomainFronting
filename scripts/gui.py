@@ -2514,16 +2514,16 @@ class App(tk.Tk):
     def _dashboard_stat_card(self, parent: tk.Widget, key: str, title: str, value: str, tone: str = "blue", icon: str = "shield") -> tk.Frame:
         card = tk.Frame(parent, bg=COLORS["panel"])
         body = tk.Frame(card, bg=COLORS["panel"])
-        body.pack(side="left", fill="both", expand=True, padx=self._scaled(13), pady=self._scaled(12))
-        icon_widget = self._icon_canvas(body, icon, COLORS[tone] if tone in COLORS else COLORS["blue"], 36, COLORS["panel"])
-        icon_widget.pack(side="left", padx=(0, self._scaled(11)))
+        body.pack(side="left", fill="both", expand=True, padx=self._scaled(12), pady=self._scaled(11))
+        icon_widget = self._icon_canvas(body, icon, COLORS[tone] if tone in COLORS else COLORS["blue"], 30, COLORS["panel"])
+        icon_widget.pack(side="left", padx=(0, self._scaled(9)), anchor="n", pady=(self._scaled(1), 0))
         text = tk.Frame(body, bg=COLORS["panel"])
         text.pack(side="left", fill="both", expand=True)
-        title_label = tk.Label(text, text=title, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], anchor="w")
+        title_label = tk.Label(text, text=title.upper(), bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["micro"], anchor="w")
         title_label.pack(fill="x")
-        value_label = tk.Label(text, text=value, bg=COLORS["panel"], fg=COLORS[tone] if tone in COLORS else COLORS["blue"], font=self.fonts["body_bold"], anchor="w", wraplength=self._scaled(180), justify="left")
-        value_label.pack(fill="x", pady=(3, 0))
-        tk.Frame(card, bg=COLORS["line"], width=1).pack(side="right", fill="y", pady=self._scaled(10))
+        value_label = tk.Label(text, text=value, bg=COLORS["panel"], fg=COLORS[tone] if tone in COLORS else COLORS["blue"], font=self.fonts["h3"], anchor="w", wraplength=self._scaled(150), justify="left")
+        value_label.pack(fill="x", pady=(self._scaled(2), 0))
+        tk.Frame(card, bg=COLORS["line"], width=1).pack(side="right", fill="y", pady=self._scaled(11))
         self.dashboard_stat_labels[key] = (title_label, value_label, icon_widget)
         return card
 
@@ -2533,7 +2533,7 @@ class App(tk.Tk):
             return
         title_label, value_label, icon_widget = labels
         color = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
-        title_label.configure(text=title)
+        title_label.configure(text=title.upper())
         value_label.configure(text=value, fg=color)
         self._set_icon_color(icon_widget, color)
 
@@ -4110,8 +4110,10 @@ class App(tk.Tk):
             activebackground=COLORS["blue_dark"] if button_bg == COLORS["blue"] else button_bg,
             activeforeground="#ffffff",
             relief="flat",
-            padx=self._scaled(12),
-            pady=self._scaled(7),
+            borderwidth=0,
+            cursor="hand2",
+            padx=self._scaled(14),
+            pady=self._scaled(8),
             font=self.fonts["body_bold"],
         ).pack(side="right", padx=self._scaled(14), pady=self._scaled(10))
         self.active_banner = banner
