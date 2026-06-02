@@ -61,18 +61,15 @@ jobs:
 
       - name: Publish GUI build to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
-          $checksum = "$zip.sha256"
-          if (-not (Test-Path $zip)) { throw "Missing release zip: $zip" }
-          if (-not (Test-Path $checksum)) { throw "Missing release checksum: $checksum" }
-          gh release view $tag *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "MITM-DomainFronting $tag" --notes "Download the Windows app bundle asset below. GitHub also shows automatic source-code archives for every tag; those are not the final product package."
-          }
-          gh release edit $tag --title "MITM-DomainFronting $tag" --notes "Download the Windows app bundle asset below. GitHub also shows automatic source-code archives for every tag; those are not the final product package."
-          gh release upload $tag $zip $checksum --clobber
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: MITM-DomainFronting ${{ github.ref_name }}
+          body: |
+            Download the Windows app bundle asset below.
+
+            GitHub also shows automatic source-code archives for every tag; those are not the final product package.
+          files: |
+            dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip
+            dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip.sha256
+          fail_on_unmatched_files: true
