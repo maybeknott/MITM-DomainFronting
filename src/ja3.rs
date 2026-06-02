@@ -105,10 +105,11 @@ fn join_u16_filtered(values: &[u16]) -> String {
 }
 
 fn md5_hex(data: &[u8]) -> String {
+    use std::fmt::Write as _;
     let digest = md5(data);
     let mut out = String::with_capacity(32);
     for byte in digest {
-        out.push_str(&format!("{:02x}", byte));
+        let _ = write!(out, "{byte:02x}");
     }
     out
 }

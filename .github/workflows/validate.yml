@@ -108,6 +108,8 @@ jobs:
       - name: Validate health policy recommendations
         run: |
           python scripts/health_policy_tests.py
+          python scripts/readiness_tests.py
+          python scripts/gui_readiness_tests.py
 
       - name: Validate transport experiment manifest
         run: |

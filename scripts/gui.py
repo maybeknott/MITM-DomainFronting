@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 import webbrowser
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -25,6 +26,7 @@ from typing import Callable, Iterable
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from core.gui_readiness import GuiReadinessCache, primary_action_spec, readiness_snapshot_fields
 from core.process_supervisor import ProcessSupervisor
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
@@ -705,6 +707,7 @@ class App(tk.Tk):
         self.network_up_rate = tk.StringVar(value="Measuring")
         self.network_total = tk.StringVar(value="Measuring")
         self.network_duration = tk.StringVar(value="0s")
+        self.network_runtime_hint = tk.StringVar(value="Core not active")
         self.telemetry_connections = tk.StringVar(value="0")
         self.telemetry_requests = tk.StringVar(value="0")
         self.telemetry_blocked = tk.StringVar(value="0")
@@ -719,6 +722,7 @@ class App(tk.Tk):
         self.status_refresh_count = 0
         self._status_loop_running = False
         self._primary_action: Callable[[], None] = self.run_beginner_setup_check
+        self.readiness_cache = GuiReadinessCache(root=ROOT, cert_path=CERT, key_path=KEY)
         self._proxy_active_since: float | None = None
         self._network_baseline: tuple[float, int, int, str] | None = None
         self._network_last: tuple[float, int, int, str] | None = None
@@ -735,7 +739,9 @@ class App(tk.Tk):
         self.network_mode_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.traffic_summary_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.sparkline_canvases: dict[str, tk.Canvas] = {}
-        self.sparkline_phase = 0
+        self.sparkline_history: dict[str, deque[float]] = {
+            key: deque(maxlen=20) for key in ("down", "up", "connections", "requests", "blocked")
+        }
         self.nav_button_widgets: dict[str, tuple[tk.Frame, tk.Label, tk.Canvas, tk.Frame]] = {}
         self.tab_pages: dict[str, tk.Frame] = {}
         self.tab_canvases: dict[str, tk.Canvas] = {}
@@ -998,7 +1004,9 @@ class App(tk.Tk):
             ),
             "live_network": (
                 "Live Network\n\n"
-                "Shown in the right telemetry rail. It samples local system network counters during the GUI auto-refresh loop: download rate, upload rate, total traffic since the GUI opened, and how long the local core has been active.\n\n"
+                "Shown in the right telemetry rail. Running Time at the top tracks how long the local core session has been active. "
+                "Each live metric includes a small inline sparkline beside its value, sampled from local counters during the GUI auto-refresh loop: "
+                "download rate, upload rate, connections, requests, and blocked events.\n\n"
                 "Privacy boundary:\n"
                 "These are byte counters from the operating system. The GUI does not inspect payloads, request bodies, cookies, or browser history."
             ),
@@ -1495,6 +1503,27 @@ class App(tk.Tk):
         rail.grid(row=0, column=2, sticky="nsew")
         rail.grid_propagate(False)
 
+        runtime = self._rail_panel(rail, "Running Time", "clock")
+        runtime_value = tk.Label(
+            runtime,
+            textvariable=self.network_duration,
+            bg=COLORS["panel"],
+            fg=COLORS["green"],
+            font=self.fonts["metric"],
+            anchor="w",
+        )
+        runtime_value.pack(fill="x", pady=(0, self._scaled(2)))
+        tk.Label(
+            runtime,
+            textvariable=self.network_runtime_hint,
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            font=self.fonts["caption"],
+            anchor="w",
+            wraplength=self._scaled(220),
+            justify="left",
+        ).pack(fill="x")
+
         network = self._rail_panel(rail, "Live Telemetry", "network")
         live_row = tk.Frame(network, bg=COLORS["panel"])
         live_row.pack(fill="x", pady=(0, self._scaled(8)))
@@ -1588,35 +1617,71 @@ class App(tk.Tk):
         row.pack(fill="x", pady=(0, self._scaled(7)))
         self._icon_canvas(row, self._icon_for_title(label), color, 17, COLORS["panel"]).pack(side="left", padx=(0, self._scaled(7)))
         tk.Label(row, text=label, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
-        tk.Label(row, textvariable=variable, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], width=12, anchor="e").pack(side="left", padx=(self._scaled(4), self._scaled(6)))
-        canvas = tk.Canvas(row, width=self._scaled(58), height=self._scaled(22), bg=COLORS["panel"], highlightthickness=0, borderwidth=0)
-        canvas.pack(side="right")
+        inline = tk.Frame(row, bg=COLORS["panel"])
+        inline.pack(side="right")
+        canvas = tk.Canvas(
+            inline,
+            width=self._scaled(52),
+            height=self._scaled(18),
+            bg=COLORS["panel"],
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        canvas.pack(side="left", padx=(0, self._scaled(6)))
         setattr(canvas, "_spark_color", color)
         self.sparkline_canvases[key] = canvas
+        tk.Label(
+            inline,
+            textvariable=variable,
+            bg=COLORS["panel"],
+            fg=color,
+            font=self.fonts["caption_bold"],
+            width=10,
+            anchor="e",
+        ).pack(side="left")
+
+    def _sparkline_push(self, key: str, value: float) -> None:
+        history = self.sparkline_history.setdefault(key, deque(maxlen=20))
+        history.append(max(0.0, float(value)))
+
+    def _refresh_sparkline_samples(self) -> None:
+        down_rate, up_rate = self._network_last_rates
+        self._sparkline_push("down", down_rate)
+        self._sparkline_push("up", up_rate)
+        self._sparkline_push("connections", float(self.stream_count))
+        events = self._telemetry_events()
+        fail_count = sum(1 for item in events if str(item.get("status", "")).lower() in {"fail", "blocked", "error"})
+        self._sparkline_push("requests", float(len(events)))
+        self._sparkline_push("blocked", float(fail_count))
 
     def _draw_sparklines(self) -> None:
-        self.sparkline_phase = (self.sparkline_phase + 1) % 24
-        patterns = {
-            "down": [9, 12, 10, 15, 13, 17, 14, 19, 16, 21],
-            "up": [15, 13, 17, 12, 18, 15, 20, 14, 19, 17],
-            "connections": [12, 14, 13, 16, 12, 18, 13, 15, 12, 17],
-            "requests": [18, 15, 20, 14, 16, 19, 13, 18, 16, 21],
-            "blocked": [16, 18, 15, 19, 14, 17, 13, 16, 15, 18],
-        }
+        self._refresh_sparkline_samples()
         for key, canvas in self.sparkline_canvases.items():
             canvas.delete("all")
-            width = max(1, int(canvas.winfo_width() or self._scaled(58)))
-            height = max(1, int(canvas.winfo_height() or self._scaled(22)))
+            width = max(1, int(canvas.winfo_width() or self._scaled(52)))
+            height = max(1, int(canvas.winfo_height() or self._scaled(18)))
             color = str(getattr(canvas, "_spark_color", COLORS["blue"]))
-            values = patterns.get(key, patterns["down"])
-            rotated = values[self.sparkline_phase % len(values):] + values[: self.sparkline_phase % len(values)]
-            step = width / max(1, len(rotated) - 1)
+            values = list(self.sparkline_history.get(key, ()))
+            if len(values) < 2:
+                baseline = height - 2
+                canvas.create_line(0, baseline, width, baseline, fill=COLORS["line"], width=1)
+                continue
+            lo = min(values)
+            hi = max(values)
+            span = hi - lo or 1.0
+            pad = max(2, self._scaled(2))
+            step = width / max(1, len(values) - 1)
             points: list[float] = []
-            for index, value in enumerate(rotated):
-                points.extend([index * step, max(2, height - value)])
+            for index, value in enumerate(values):
+                norm = (value - lo) / span
+                y = height - pad - norm * max(1.0, height - (2 * pad))
+                points.extend([index * step, y])
+            fill_points = list(points)
+            fill_points.extend([width, height, 0, height])
+            canvas.create_polygon(*fill_points, fill=color, stipple="gray25", outline="")
             if len(points) >= 4:
                 canvas.create_line(*points, fill=color, width=max(1, self._scaled(2)), smooth=True)
-            baseline = height - 2
+            baseline = height - 1
             canvas.create_line(0, baseline, width, baseline, fill=COLORS["line"], width=1)
 
     def _build_menu(self) -> None:
@@ -2083,6 +2148,25 @@ class App(tk.Tk):
             bg, active = palette
             self.primary_action_button.configure(bg=bg, activebackground=active)
 
+    def _set_readiness_primary_action(self, snapshot: dict[str, object]) -> None:
+        action = str(snapshot.get("readiness_next_action") or "Run Check Setup")
+        detail = str(snapshot.get("readiness_next_action_detail") or "Run the shared readiness probe.")
+        spec = primary_action_spec(action)
+        command_map: dict[str, Callable[[], None]] = {
+            "browser_tab": lambda: self._select_workspace(self.browser_tab),
+            "certificates_tab": lambda: self._select_workspace(self.certs_tab),
+            "check_setup": self.run_beginner_setup_check,
+            "config_folder": lambda: self.open_path(ROOT / "Xray-config"),
+            "download_xray": self.download_xray,
+            "generate_ca": self.generate_ca,
+            "generate_profiles": self.generate_standard_profiles,
+            "health_tab": lambda: self._select_workspace(self.health_tab),
+            "install_page_tools": self.install_diagnostics_dependencies,
+            "page_check": self.run_browser_diagnostics,
+            "start_core": self.connect_xray,
+        }
+        self._set_primary_action(spec.button, detail, command_map.get(spec.target, self.run_beginner_setup_check), spec.tone)
+
     def _build_metrics_bar(self, parent: tk.Widget) -> None:
         bar = tk.Frame(parent, bg=COLORS["bg"])
         bar.pack(fill="x", padx=self._scaled(16), pady=(0, self._scaled(8)))
@@ -2523,6 +2607,11 @@ class App(tk.Tk):
         title_label.pack(fill="x")
         value_label = tk.Label(text, text=value, bg=COLORS["panel"], fg=COLORS[tone] if tone in COLORS else COLORS["blue"], font=self.fonts["h3"], anchor="w", wraplength=self._scaled(150), justify="left")
         value_label.pack(fill="x", pady=(self._scaled(2), 0))
+        value_label.bind(
+            "<Configure>",
+            lambda event, lbl=value_label: lbl.configure(wraplength=max(self._scaled(72), event.width - self._scaled(2))),
+            add="+",
+        )
         tk.Frame(card, bg=COLORS["line"], width=1).pack(side="right", fill="y", pady=self._scaled(11))
         self.dashboard_stat_labels[key] = (title_label, value_label, icon_widget)
         return card
@@ -3030,6 +3119,7 @@ class App(tk.Tk):
     def validation_commands(self) -> list[CommandSpec]:
         return [
             CommandSpec("Validate Config", "Static validation for primary config.", tuple(py_script("validate_config.py", str(CONFIG)))),
+            CommandSpec("Readiness State", "Shared ProjectState probe used by Dashboard and CLI.", tuple(py_script("core/readiness.py", "--config", str(CONFIG), "--cert", str(CERT), "--key", str(KEY), "--json"))),
             CommandSpec("Static Preflight", "Local preflight without cert/runtime/DNS requirements.", tuple(py_script("preflight.py", "--config", str(CONFIG), "--no-dns", "--skip-cert", "--skip-runtime"))),
             CommandSpec("Metadata", "Provider/profile/health metadata checks.", tuple(py_script("validate_metadata.py"))),
             CommandSpec("Route Tests", "Route order, references, and policy tests.", tuple(py_script("route_policy_tests.py"))),
@@ -3089,7 +3179,7 @@ class App(tk.Tk):
         ttk.Button(search_body, text="Clear", style="Soft.TButton", command=lambda: self.command_search.set("")).pack(side="left", padx=(8, 0))
         self.command_search.trace_add("write", lambda *_args: self._render_validation_commands())
 
-        starter_labels = {"Validate Config", "Static Preflight", "Health Probe", "Secret Scan"}
+        starter_labels = {"Validate Config", "Readiness State", "Static Preflight", "Health Probe", "Secret Scan"}
         self.validation_starter_labels = starter_labels
         self.validation_starter_container = tk.Frame(self.validation_tab, bg=COLORS["panel"])
         self.validation_starter_container.pack(fill="x")
@@ -3698,36 +3788,47 @@ class App(tk.Tk):
         host_python = find_host_python()
         runtime = xray_runtime_status()
         local_xray = runtime["executable"]
-        loopback_open = port_accepts_loopback(proxy_port)
+        readiness = self.readiness_cache.get(selected_config)
+        readiness_port = int(readiness.listener_port) if readiness else proxy_port
+        loopback_open = bool(readiness and readiness.listener_status == "open") or port_accepts_loopback(proxy_port)
         listener_info = listener_process_info(proxy_port) if loopback_open else {"pid": "", "name": "", "endpoint": ""}
         gui_pid = str(self.xray_process.pid) if self._xray_running_from_gui() and self.xray_process is not None else ""
-        listener_pid = str(listener_info.get("pid", ""))
-        core_owner = "app" if gui_pid and listener_pid == gui_pid else "external" if loopback_open else "none"
+        listener_pid = str(readiness.listener_pid if readiness else listener_info.get("pid", ""))
+        readiness_owner = readiness.xray_owner if readiness else ""
+        core_owner = "app" if gui_pid and listener_pid == gui_pid else readiness_owner or ("external" if loopback_open else "none")
+        listener_endpoint = (
+            f"{readiness.listener_host}:{readiness.listener_port}"
+            if readiness and readiness.listener_host
+            else str(listener_info.get("endpoint", ""))
+        )
         browser_cfg = read_browser_integration()
         proxy_state = system_proxy_status()
         tun_enabled = config_has_tun(selected_config)
-        return {
+        snapshot = {
             "config_exists": CONFIG.exists(),
-            "selected_config_exists": selected_config.exists(),
-            "cert_exists": CERT.exists(),
-            "key_exists": KEY.exists(),
+            "selected_config_exists": bool(readiness.config_ok) if readiness else selected_config.exists(),
+            "cert_exists": bool(readiness.cert_exists) if readiness else CERT.exists(),
+            "key_exists": bool(readiness.key_exists) if readiness else KEY.exists(),
             "profile_count": len(profiles),
             "loopback_10808_open": loopback_open,
-            "proxy_port": proxy_port,
+            "proxy_port": readiness_port,
             "proxy_listen": str(proxy_endpoint.get("listen") or "127.0.0.1"),
             "proxy_protocol": str(proxy_endpoint.get("protocol") or "mixed"),
             "proxy_tag": str(proxy_endpoint.get("tag") or "mixed-in"),
             "xray_started_by_gui": self._xray_running_from_gui(),
-            "xray_local": bool(local_xray),
-            "xray_runtime_ready": bool(runtime["ready"]),
-            "xray_path": short_path(local_xray) if local_xray else "",
-            "xray_version": xray_core_version(local_xray if isinstance(local_xray, Path) else None),
+            "xray_local": bool(readiness.xray_path) if readiness else bool(local_xray),
+            "xray_runtime_ready": bool(readiness.xray_available) if readiness else bool(runtime["ready"]),
+            "xray_path": short_path(Path(readiness.xray_path)) if readiness and readiness.xray_path else short_path(local_xray) if local_xray else "",
+            "xray_version": readiness.xray_version if readiness else xray_core_version(local_xray if isinstance(local_xray, Path) else None),
             "xray_geoip": bool(runtime["geoip_exists"]),
             "xray_geosite": bool(runtime["geosite_exists"]),
             "core_owner": core_owner,
             "listener_pid": listener_pid,
-            "listener_name": str(listener_info.get("name", "")),
-            "listener_endpoint": str(listener_info.get("endpoint", "")),
+            "listener_name": readiness.listener_process_name if readiness else str(listener_info.get("name", "")),
+            "listener_path": readiness.listener_process_path if readiness else "",
+            "listener_endpoint": listener_endpoint,
+            "listener_exposure": readiness.listener_exposure if readiness else "unknown",
+            "listener_status": readiness.listener_status if readiness else "unknown",
             "system_proxy_status": proxy_state["status"],
             "system_proxy_detail": proxy_state["detail"],
             "system_proxy_level": proxy_state["level"],
@@ -3739,15 +3840,29 @@ class App(tk.Tk):
             "stealth_script": (SCRIPTS / "browser_stealth.py").exists(),
             "geodata_lock": (ROOT / "release-geodata-lock.json").exists(),
         }
+        snapshot.update(readiness_snapshot_fields(readiness, self.readiness_cache.error))
+        if readiness is None:
+            snapshot["profiles_present"] = len(profiles) >= 4
+        return snapshot
 
     def _status_level(self, snapshot: dict[str, object]) -> tuple[str, str]:
         proxy_endpoint = f"{snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}"
+        if snapshot.get("readiness_error"):
+            return "warn", f"Shared readiness state could not refresh: {snapshot.get('readiness_error')}"
+        if snapshot.get("listener_exposure") == "exposed":
+            return "fail", "Unsafe external listener is exposed on a non-loopback interface."
         if not snapshot["selected_config_exists"]:
             return "fail", "Primary config is missing."
         if not snapshot["cert_exists"] or not snapshot["key_exists"]:
             return "warn", "Generate local CA files before browser MITM testing."
+        if snapshot.get("cert_key_match") == "mismatch":
+            return "fail", "Certificate and private key do not match."
         if not snapshot["loopback_10808_open"]:
             return "warn", f"No local core is listening on {proxy_endpoint}. Start Core or open v2rayN."
+        if snapshot.get("key_permission_status") == "broad":
+            return "warn", "Local CA private key permissions appear broader than recommended."
+        if snapshot.get("trust_status") not in {"pass", "not_supported", "skipped"}:
+            return "warn", "Local CA trust is not matched in the target trust store."
         if not snapshot["diagnostics_script"] or not snapshot["stealth_script"]:
             return "warn", "Browser check scripts are missing."
         return "pass", f"Ready for browser testing through {proxy_endpoint}."
@@ -3756,7 +3871,7 @@ class App(tk.Tk):
         self._set_readiness_item(
             "config",
             "Ready" if snapshot["selected_config_exists"] else "Missing",
-            f"{short_path(selected_config)}" if snapshot["selected_config_exists"] else "Selected config was not found.",
+            f"{short_path(selected_config)}; {snapshot.get('config_remarks') or 'remarks unknown'}" if snapshot["selected_config_exists"] else "Selected config was not found or did not validate.",
             "pass" if snapshot["selected_config_exists"] else "fail",
         )
         self._set_readiness_item(
@@ -3766,26 +3881,57 @@ class App(tk.Tk):
             "pass" if snapshot["xray_runtime_ready"] else "warn",
         )
         cert_ready = bool(snapshot["cert_exists"] and snapshot["key_exists"])
+        cert_issue = str(snapshot.get("cert_key_match") or "unknown")
+        trust_status = str(snapshot.get("trust_status") or "unknown")
+        if not cert_ready:
+            cert_status = "Missing"
+            cert_detail = "Generate Local CA; install trust manually."
+            cert_level = "warn"
+        elif cert_issue == "mismatch":
+            cert_status = "Mismatch"
+            cert_detail = "Certificate and private key do not match; regenerate the local CA."
+            cert_level = "fail"
+        elif trust_status not in {"pass", "not_supported", "skipped"}:
+            cert_status = "Trust check"
+            cert_detail = f"Files match, but trust is {trust_status}. The app never installs trust silently."
+            cert_level = "warn"
+        else:
+            cert_status = "Ready"
+            cert_detail = "Certificate/key pair and trust check are acceptable."
+            cert_level = "pass"
         self._set_readiness_item(
             "cert",
-            "Ready" if cert_ready else "Missing",
-            "crt and key are present locally." if cert_ready else "Generate Local CA; install trust manually.",
-            "pass" if cert_ready else "warn",
+            cert_status,
+            cert_detail,
+            cert_level,
         )
         listener_ready = bool(snapshot["loopback_10808_open"])
-        if snapshot.get("core_owner") == "app":
+        exposure = str(snapshot.get("listener_exposure") or "unknown")
+        if exposure == "exposed":
+            process = str(snapshot.get("listener_name") or "external process")
+            pid = str(snapshot.get("listener_pid") or "")
+            listener_detail = f"{process}" + (f" PID {pid}" if pid else "") + f" is bound to {snapshot.get('listener_endpoint') or 'a non-loopback address'}."
+            listener_status = "Exposed"
+            listener_level = "fail"
+        elif snapshot.get("core_owner") == "app":
             listener_detail = "Started by this app."
+            listener_status = "Running"
+            listener_level = "pass"
         elif snapshot.get("core_owner") == "external":
             process = str(snapshot.get("listener_name") or "external process")
             pid = str(snapshot.get("listener_pid") or "")
             listener_detail = f"External core active: {process}" + (f" (PID {pid})" if pid else "")
+            listener_status = "Running"
+            listener_level = "pass"
         else:
             listener_detail = f"No listener detected on {snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}."
+            listener_status = "Stopped"
+            listener_level = "warn"
         self._set_readiness_item(
             "listener",
-            "Running" if listener_ready else "Stopped",
+            listener_status if listener_ready else "Stopped",
             listener_detail,
-            "pass" if listener_ready else "warn",
+            listener_level if listener_ready else "warn",
         )
 
     def _update_runtime_items(self, snapshot: dict[str, object]) -> None:
@@ -3812,9 +3958,12 @@ class App(tk.Tk):
     def _update_dashboard_stats(self, snapshot: dict[str, object], level: str, status_text: str) -> None:
         proxy_endpoint = f"{snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}"
         owner = str(snapshot.get("core_owner") or "none")
+        exposure = str(snapshot.get("listener_exposure") or "unknown")
         core_state = (
             f"Running ({snapshot.get('xray_version')})"
             if owner == "app"
+            else f"External exposed: {snapshot.get('listener_name') or 'detected'}"
+            if owner == "external" and exposure == "exposed"
             else f"External: {snapshot.get('listener_name') or 'detected'}"
             if owner == "external"
             else f"Ready ({snapshot.get('xray_version')})"
@@ -3822,8 +3971,8 @@ class App(tk.Tk):
             else "Missing files"
         )
         self._set_dashboard_stat("system", "System status", status_text, level)
-        self._set_dashboard_stat("core", "Xray Core", core_state, "pass" if owner in {"app", "external"} or snapshot.get("xray_runtime_ready") else "warn")
-        self._set_dashboard_stat("proxy", "Local proxy", proxy_endpoint, "pass" if snapshot.get("loopback_10808_open") else "warn")
+        self._set_dashboard_stat("core", "Xray Core", core_state, "fail" if exposure == "exposed" else "pass" if owner in {"app", "external"} or snapshot.get("xray_runtime_ready") else "warn")
+        self._set_dashboard_stat("proxy", "Local proxy", proxy_endpoint, "fail" if exposure == "exposed" else "pass" if snapshot.get("loopback_10808_open") else "warn")
         self._set_dashboard_stat("dns", "DNS", self.dns_resolvers.get().strip() or "Default resolvers", "info")
         self._set_dashboard_stat("uptime", "Uptime", self.network_duration.get(), "pass" if snapshot.get("loopback_10808_open") else "info")
         self.core_version_text.set(f"Xray Core: {core_state}")
@@ -3835,11 +3984,12 @@ class App(tk.Tk):
     def _update_network_mode_items(self, snapshot: dict[str, object]) -> None:
         proxy_endpoint = f"{snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}"
         proxy_url = self.browser_proxy.get().strip() or f"socks5://{browser_proxy_host(snapshot.get('proxy_listen'))}:{snapshot.get('proxy_port')}"
+        exposure = str(snapshot.get("listener_exposure") or "unknown")
         self._set_mode_item(
             "local_proxy",
-            "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
-            f"Browser checks use {proxy_url}. Selected config exposes {snapshot.get('proxy_protocol')} on {proxy_endpoint}.",
-            "pass" if snapshot.get("loopback_10808_open") else "warn",
+            "Exposed" if exposure == "exposed" else "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
+            f"Browser checks use {proxy_url}. Selected config expects {snapshot.get('proxy_protocol')} on {proxy_endpoint}.",
+            "fail" if exposure == "exposed" else "pass" if snapshot.get("loopback_10808_open") else "warn",
         )
         owner = str(snapshot.get("core_owner") or "none")
         if owner == "app":
@@ -3847,9 +3997,15 @@ class App(tk.Tk):
             external_detail = "This app launched the core and can stop it safely."
             external_level = "pass"
         elif owner == "external":
-            external_status = "External"
-            external_detail = f"{snapshot.get('listener_name') or 'External process'} owns {snapshot.get('listener_endpoint') or proxy_endpoint}. Stop it in that app, not here."
-            external_level = "info"
+            process = snapshot.get("listener_name") or "External process"
+            pid = f" PID {snapshot.get('listener_pid')}" if snapshot.get("listener_pid") else ""
+            path = f" Path: {snapshot.get('listener_path')}" if snapshot.get("listener_path") else ""
+            external_status = "Exposed" if exposure == "exposed" else "External"
+            external_detail = (
+                f"{process}{pid} owns {snapshot.get('listener_endpoint') or proxy_endpoint}.{path} "
+                + ("Change that client's inbound listen address to 127.0.0.1." if exposure == "exposed" else "Stop it in that app, not here.")
+            )
+            external_level = "fail" if exposure == "exposed" else "info"
         else:
             external_status = "None"
             external_detail = "No external v2rayN/Xray listener is detected on the selected local port."
@@ -3883,13 +4039,13 @@ class App(tk.Tk):
             "browser_path",
             "Explicit Proxy",
             f"{proxy_url}",
-            "pass" if snapshot.get("loopback_10808_open") else "warn",
+            "fail" if exposure == "exposed" else "pass" if snapshot.get("loopback_10808_open") else "warn",
         )
         self._set_traffic_summary(
             "core_owner",
             owner_value,
             owner_detail,
-            "pass" if owner == "app" else "info" if owner == "external" else "warn",
+            "fail" if exposure == "exposed" else "pass" if owner == "app" else "info" if owner == "external" else "warn",
         )
         self._set_traffic_summary(
             "system_route",
@@ -3905,9 +4061,9 @@ class App(tk.Tk):
         )
         self._set_mode_item(
             "browser_proxy",
-            "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
+            "Exposed" if exposure == "exposed" else "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
             proxy_url,
-            "pass" if snapshot.get("loopback_10808_open") else "warn",
+            "fail" if exposure == "exposed" else "pass" if snapshot.get("loopback_10808_open") else "warn",
         )
         self._set_mode_item(
             "browser_dns",
@@ -3917,9 +4073,9 @@ class App(tk.Tk):
         )
         self._set_mode_item(
             "browser_https",
-            "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
+            "Blocked" if exposure == "exposed" else "Ready" if snapshot.get("loopback_10808_open") else "Waiting",
             "Run Check to confirm TLS through the proxy.",
-            "pass" if snapshot.get("loopback_10808_open") else "warn",
+            "fail" if exposure == "exposed" else "pass" if snapshot.get("loopback_10808_open") else "warn",
         )
         self._set_mode_item(
             "browser_result",
@@ -3934,9 +4090,11 @@ class App(tk.Tk):
             if self._proxy_active_since is None:
                 self._proxy_active_since = now
             self.network_duration.set(format_duration(now - self._proxy_active_since))
+            self.network_runtime_hint.set("Core session active on local proxy")
         else:
             self._proxy_active_since = None
             self.network_duration.set("0s")
+            self.network_runtime_hint.set("Core not active")
         self._set_dashboard_stat("uptime", "Uptime", self.network_duration.get(), "pass" if proxy_active else "info")
 
         if now < self._network_next_poll:
@@ -3995,7 +4153,14 @@ class App(tk.Tk):
             self.diagnostic_detail.set(str(self.last_command_failure.get("summary", detail)))
             self.diagnostic_action.set(f"Suggested fix: {advice}")
             return
-        if not snapshot["selected_config_exists"]:
+        if snapshot.get("listener_exposure") == "exposed":
+            process = str(snapshot.get("listener_name") or "external Xray/v2rayN")
+            pid = f" PID {snapshot.get('listener_pid')}" if snapshot.get("listener_pid") else ""
+            path = f" Path: {snapshot.get('listener_path')}" if snapshot.get("listener_path") else ""
+            self.diagnostic_title.set("Unsafe listener exposed")
+            self.diagnostic_detail.set(f"{process}{pid} is listening on {snapshot.get('listener_endpoint') or 'a non-loopback address'}.{path}")
+            self.diagnostic_action.set("Configure that external client inbound listen address to 127.0.0.1, then refresh status.")
+        elif not snapshot["selected_config_exists"]:
             self.diagnostic_title.set("Primary configuration is missing")
             self.diagnostic_detail.set("The selected Xray config could not be found, so core launch and checks cannot continue.")
             self.diagnostic_action.set("Open the Xray-config folder or run Repair Setup after restoring repository files.")
@@ -4021,8 +4186,8 @@ class App(tk.Tk):
             self.diagnostic_action.set("Run Page Check. If a site still fails, run Health Probe and Copy Issue Summary.")
         else:
             self.diagnostic_title.set("Setup needs attention")
-            self.diagnostic_detail.set(detail)
-            self.diagnostic_action.set("Run Check Setup, then follow the first failed step in the Checks output.")
+            self.diagnostic_detail.set(str(snapshot.get("readiness_next_action_detail") or detail))
+            self.diagnostic_action.set(f"Next: {snapshot.get('readiness_next_action') or 'Run Check Setup'}.")
 
     def _failure_advice(self, label: str, code: int, output: str) -> tuple[str, str]:
         lowered = output.lower()
@@ -4124,7 +4289,17 @@ class App(tk.Tk):
             self.active_banner = None
 
     def _update_remediation_banner(self, snapshot: dict[str, object], level: str) -> None:
-        if not snapshot["selected_config_exists"]:
+        if snapshot.get("listener_exposure") == "exposed":
+            process = str(snapshot.get("listener_name") or "external Xray/v2rayN")
+            endpoint = str(snapshot.get("listener_endpoint") or "0.0.0.0")
+            self._show_remediation_banner(
+                "fail",
+                "LISTENER-EXPOSED",
+                f"{process} is bound to {endpoint}; expected 127.0.0.1 only.",
+                "Open Health",
+                lambda: self._select_workspace(self.health_tab),
+            )
+        elif not snapshot["selected_config_exists"]:
             self._show_remediation_banner("fail", "CONFIG-MISSING", "Primary configuration is missing.", "Open Xray-config", lambda: self.open_path(ROOT / "Xray-config"))
         elif not snapshot["xray_runtime_ready"] and not snapshot["loopback_10808_open"]:
             self._show_remediation_banner("warn", "CORE-MISSING", "Bundled Xray Core files are missing or incomplete.", "Download Xray Core", self.download_xray)
@@ -4183,6 +4358,8 @@ class App(tk.Tk):
             except OSError as exc:
                 messagebox.showerror("Clear activity history failed", str(exc))
                 return
+        for history in self.sparkline_history.values():
+            history.clear()
         self._update_telemetry_labels(None)
         self._append_output("\nCleared local GUI activity history.\n")
 
@@ -4439,45 +4616,44 @@ class App(tk.Tk):
         if level != self.last_status_level:
             self.record_telemetry("status_changed", level, detail, {"previous": self.last_status_level})
             self.last_status_level = level
-        if self._xray_running_from_gui():
+        exposure = str(snapshot.get("listener_exposure") or "unknown")
+        if exposure == "exposed":
+            external_name = str(snapshot.get("listener_name") or "external core")
+            self.connection_state.set(f"Unsafe external listener: {external_name}")
+            self.simple_next_step.set("Fix the external Xray/v2rayN inbound binding to 127.0.0.1 before treating the setup as ready.")
+            self.connection_label.configure(fg=COLORS["red"])
+        elif self._xray_running_from_gui():
             self.connection_state.set("App core running")
             self.simple_next_step.set("Bundled Xray Core is running from this app. Test the browser, then review Health if anything fails.")
             self.connection_label.configure(fg=COLORS["green"])
-            self._set_primary_action("Run Page Check", "App-launched core is active. Test the browser path through the local listener.", self.run_browser_diagnostics, "green")
         elif loopback_open:
             external_name = str(snapshot.get("listener_name") or "external core")
             self.connection_state.set(f"External core active: {external_name}")
             self.simple_next_step.set(f"A local core is already listening on {snapshot.get('proxy_listen')}:{snapshot.get('proxy_port')}. The app will use it for Page Check and will not stop it.")
             self.connection_label.configure(fg=COLORS["green"])
-            self._set_primary_action("Run Page Check", "An external local core is active. Verify browser behavior next.", self.run_browser_diagnostics, "green")
         else:
             self.connection_state.set("No core listening")
             self.simple_next_step.set("Run Check Setup, then Start Core or open v2rayN before testing the browser.")
             self.connection_label.configure(fg=COLORS["amber"])
-            if not snapshot["selected_config_exists"]:
-                self._set_primary_action("Open Config Folder", "Selected config is missing. Restore it before launching the core.", lambda: self.open_path(ROOT / "Xray-config"), "red")
-            elif not snapshot["xray_runtime_ready"]:
-                self._set_primary_action("Download Xray Core", "Bundled Xray Core files are missing or incomplete.", self.download_xray, "amber")
-            elif not cert_ok:
-                self._set_primary_action("Generate Local CA", "Certificate files are missing. Create your local CA before browser MITM tests.", self.generate_ca, "amber")
-            else:
-                self._set_primary_action("Start Core", "Setup looks close. Start bundled Xray Core, then run a page check.", self.connect_xray, "blue")
+        self._set_readiness_primary_action(snapshot)
         if self.last_command_failure:
             self._set_primary_action("Run Health Probe", "A recent command needs attention. Collect a redacted health snapshot next.", self.run_health_probe, "amber")
         if hasattr(self, "metric_tunnel_label"):
             if self._xray_running_from_gui():
                 self.metric_tunnel_label.configure(text="ACTIVE", fg=COLORS["green"])
+            elif exposure == "exposed":
+                self.metric_tunnel_label.configure(text="EXPOSED", fg=COLORS["red"])
             elif loopback_open:
                 self.metric_tunnel_label.configure(text="EXTERNAL", fg=COLORS["green"])
             else:
                 self.metric_tunnel_label.configure(text="OFFLINE", fg=COLORS["amber"])
             self.metric_stream_label.configure(text=f"{self.stream_count} Seen")
-            next_text = "Browser test" if loopback_open and cert_ok else "Generate CA" if not cert_ok else "Start Core"
-            self.metric_next_label.configure(text=next_text, fg=COLORS["blue"] if loopback_open else COLORS["amber"])
+            next_text = str(snapshot.get("readiness_next_action") or "Check Setup")
+            self.metric_next_label.configure(text=next_text, fg=COLORS["red"] if exposure == "exposed" else COLORS["blue"] if loopback_open else COLORS["amber"])
             self.metric_refresh_label.configure(text=f"{STATUS_REFRESH_MS // 1000}s / {self.status_refresh_count}", fg=COLORS["blue"])
         if hasattr(self, "proxy_control_status_label"):
-            proxy_state = "Running" if loopback_open else "Stopped"
-            proxy_level = "pass" if loopback_open else "warn"
+            proxy_state = "Exposed" if exposure == "exposed" else "Running" if loopback_open else "Stopped"
+            proxy_level = "fail" if exposure == "exposed" else "pass" if loopback_open else "warn"
             pill_bg = {"pass": COLORS["green_soft"], "warn": COLORS["amber_soft"], "fail": COLORS["red_soft"], "info": COLORS["blue_soft"]}.get(proxy_level, COLORS["panel_soft"])
             pill_fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(proxy_level, COLORS["muted"])
             self.proxy_control_status_label.configure(text=proxy_state, bg=pill_bg, fg=pill_fg)
@@ -4491,9 +4667,15 @@ class App(tk.Tk):
         if "Setup" in self.status_chip_labels:
             self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
         if "Core" in self.status_chip_labels:
-            self._set_label_state(self.status_chip_labels["Core"], "Running" if loopback_open else "Stopped", "pass" if loopback_open else "warn")
+            self._set_label_state(
+                self.status_chip_labels["Core"],
+                "Exposed" if exposure == "exposed" else "Running" if loopback_open else "Stopped",
+                "fail" if exposure == "exposed" else "pass" if loopback_open else "warn",
+            )
         if "Certificate" in self.status_chip_labels:
-            self._set_label_state(self.status_chip_labels["Certificate"], "Ready" if cert_ok else "Missing", "pass" if cert_ok else "warn")
+            cert_level = "fail" if snapshot.get("cert_key_match") == "mismatch" else "warn" if snapshot.get("trust_status") not in {"pass", "not_supported", "skipped"} else "pass"
+            cert_text = "Mismatch" if snapshot.get("cert_key_match") == "mismatch" else "Trust check" if cert_ok and cert_level == "warn" else "Ready" if cert_ok else "Missing"
+            self._set_label_state(self.status_chip_labels["Certificate"], cert_text, cert_level if cert_ok else "warn")
         browser_ok = bool(snapshot["diagnostics_script"] and snapshot["stealth_script"])
         if "Browser" in self.status_chip_labels:
             self._set_label_state(self.status_chip_labels["Browser"], "Ready" if browser_ok else "Missing tools", "pass" if browser_ok else "warn")
@@ -5181,6 +5363,8 @@ def self_test() -> int:
         SCRIPTS / "decision_report.py",
         SCRIPTS / "path_scorer.py",
         SCRIPTS / "path_scorer_tests.py",
+        SCRIPTS / "gui_readiness_tests.py",
+        SCRIPTS / "readiness_tests.py",
         SCRIPTS / "rust_core_tests.py",
         SCRIPTS / "browser_common.py",
         SCRIPTS / "browser_diagnostics.py",
@@ -5210,8 +5394,10 @@ def self_test() -> int:
         SCRIPTS / "protocol_smoke.py",
         SCRIPTS / "core" / "__init__.py",
         SCRIPTS / "core" / "failure_classifier.py",
+        SCRIPTS / "core" / "gui_readiness.py",
         SCRIPTS / "core" / "provider_policy.py",
         SCRIPTS / "core" / "process_supervisor.py",
+        SCRIPTS / "core" / "readiness.py",
         SCRIPTS / "core" / "route_rule_linter.py",
         SCRIPTS / "core" / "trust_assistant.py",
         ROOT / "configs" / "health-checks.yml",

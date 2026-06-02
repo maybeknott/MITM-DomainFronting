@@ -11,6 +11,8 @@ from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent
 SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
 # A "check" is (label, callable -> exit_code). The callable runs the underlying
 # work and returns a process-style exit code (0 == ok). Keeping checks as small
@@ -34,6 +36,21 @@ def run_script(script: Path, args: List[str]) -> int:
     return subprocess.run(
         [sys.executable, str(script), *args], cwd=str(ROOT), check=False
     ).returncode
+
+
+def run_probe(args: argparse.Namespace) -> int:
+    from core.readiness import build_project_state, emit_json, emit_text
+
+    state = build_project_state(
+        root=ROOT,
+        config_path=Path(args.config),
+        cert_path=Path(args.cert),
+        key_path=Path(args.key),
+        skip_trust=args.skip_trust,
+        skip_runtime=args.skip_runtime,
+    )
+    print(emit_json(state) if args.json or not sys.stdout.isatty() else emit_text(state))
+    return 2 if state.overall == "fail" else 0
 
 
 def _script_check(label: str, script_name: str, args: Optional[List[str]] = None) -> Check:
@@ -177,6 +194,8 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
             _script_check("failure classifier tests", "failure_classifier_tests.py"),
             _script_check("path scorer tests", "path_scorer_tests.py"),
             _script_check("health policy tests", "health_policy_tests.py"),
+            _script_check("readiness state tests", "readiness_tests.py"),
+            _script_check("gui readiness bridge tests", "gui_readiness_tests.py"),
             _script_check("dns lab harness tests", "dns_lab_harness_tests.py"),
             _script_check("transport experiments", "transport_experiment_validate.py"),
             _script_check("config-src validate", "config_src_validate.py", ["--run-steps"]),
@@ -210,7 +229,7 @@ def main() -> int:
             "  python main.py audit       # fast static config/route/governance checks\n"
             "  python main.py test        # full offline suite (mirrors CI)\n"
             "  python main.py gui         # launch the desktop control center\n"
-            "  python main.py probe       # local redacted health probe\n"
+            "  python main.py probe       # shared local readiness state\n"
             "  python main.py trust       # advisory trust-store setup instructions\n\n"
             "Tips:\n"
             "  * 'audit --keep-going' reports every problem in one pass.\n"
@@ -256,7 +275,13 @@ def main() -> int:
         action="store_true",
         help="fail (instead of skip) when the Rust toolchain (cargo) is unavailable",
     )
-    sub.add_parser("probe", help="run the local redacted health probe")
+    probe_parser = sub.add_parser("probe", help="emit the shared local readiness state")
+    probe_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json", help="config to inspect")
+    probe_parser.add_argument("--cert", default="Xray-config/mycert.crt", help="local CA certificate to inspect")
+    probe_parser.add_argument("--key", default="Xray-config/mycert.key", help="local CA private key to inspect")
+    probe_parser.add_argument("--skip-trust", action="store_true", help="skip local trust-store matching")
+    probe_parser.add_argument("--skip-runtime", action="store_true", help="skip live listener/process checks")
+    probe_parser.add_argument("--json", action="store_true", help="emit JSON even in an interactive terminal")
     sub.add_parser("preflight", help="run local preflight checks")
     sub.add_parser("trust", help="print advisory trust-store setup instructions")
     args, unknown = parser.parse_known_args()
@@ -266,7 +291,10 @@ def main() -> int:
     if args.command == "gui":
         return run_script(SCRIPTS / "gui.py", unknown)
     if args.command == "probe":
-        return run_script(SCRIPTS / "health_probe.py", unknown)
+        if unknown:
+            print("unrecognized probe arguments: " + " ".join(unknown))
+            return 2
+        return run_probe(args)
     if args.command == "preflight":
         return run_script(SCRIPTS / "preflight.py", unknown)
     if args.command == "trust":
