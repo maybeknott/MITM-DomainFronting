@@ -55,7 +55,10 @@ Current scope:
 
 7. **ALPN policy lock baseline**
    - Local ALPN can only be selected from client-offered and provider-allowed values
-   - Forced modes fail when the upstream result conflicts
+   - Forced modes (`force_http11`, `force_h2`) fail when the upstream result conflicts
+   - `reject_mismatch` mode clones the upstream selection but fails closed when it
+     diverges from the client's most-preferred (first-offered) protocol, so the
+     MITM never silently downgrades the client's top ALPN preference
    - Missing upstream selection is reported as a policy error
 
 8. **HTTP/2 coalescing guard baseline**

@@ -118,8 +118,27 @@ pub fn normalize_authority(authority: &str) -> Result<String, CoalescingError> {
     if value.is_empty() {
         return Err(CoalescingError::EmptyAuthority);
     }
+    // IPv6 literal: keep the bracketed host but strip an optional `:port` suffix
+    // so `[::1]:443` and `[::1]:8443` normalize to the same origin host, matching
+    // the port-stripping behavior of the hostname/IPv4 path below.
     if value.starts_with('[') {
-        return Ok(value);
+        let Some(close) = value.find(']') else {
+            return Err(CoalescingError::EmptyAuthority);
+        };
+        let host = &value[..=close];
+        // Anything after `]` must be empty or a valid `:port`.
+        let rest = &value[close + 1..];
+        if !rest.is_empty() {
+            match rest.strip_prefix(':') {
+                Some(port) if port.parse::<u16>().is_ok() => {}
+                _ => return Err(CoalescingError::EmptyAuthority),
+            }
+        }
+        if host.len() <= 2 {
+            // "[]" has no host between the brackets.
+            return Err(CoalescingError::EmptyAuthority);
+        }
+        return Ok(host.to_string());
     }
     let host = value
         .rsplit_once(':')
@@ -141,6 +160,39 @@ mod tests {
             normalize_authority("Example.COM:443").expect("authority"),
             "example.com"
         );
+    }
+
+    #[test]
+    fn normalizes_ipv6_authority_and_strips_port() {
+        assert_eq!(
+            normalize_authority("[::1]:443").expect("authority"),
+            "[::1]"
+        );
+        assert_eq!(
+            normalize_authority("[2001:DB8::1]").expect("authority"),
+            "[2001:db8::1]"
+        );
+        // Same IPv6 host on different ports must coalesce to one origin host.
+        assert_eq!(
+            normalize_authority("[::1]:443").unwrap(),
+            normalize_authority("[::1]:8443").unwrap()
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_ipv6_authority() {
+        assert!(matches!(
+            normalize_authority("[::1"),
+            Err(CoalescingError::EmptyAuthority)
+        ));
+        assert!(matches!(
+            normalize_authority("[]"),
+            Err(CoalescingError::EmptyAuthority)
+        ));
+        assert!(matches!(
+            normalize_authority("[::1]:notaport"),
+            Err(CoalescingError::EmptyAuthority)
+        ));
     }
 
     #[test]
