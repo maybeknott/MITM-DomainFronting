@@ -145,6 +145,15 @@ impl CooperativeOverlay {
         chunk: DownstreamChunk<'_>,
         authenticator: &A,
     ) -> Result<AcceptedChunk, OverlayError> {
+        // Authenticate before revealing anything about session state or limits.
+        // `verify_chunk` only needs the session id, sequence, and token (not an
+        // existing session), so checking it first means an unauthenticated peer
+        // always sees `AuthFailed` and cannot probe which session ids exist
+        // (UnknownSession) or learn the payload limit (PayloadTooLarge). This
+        // keeps the unauthenticated attack/probing surface minimal (fail-closed).
+        if !authenticator.verify_chunk(chunk.session_id, chunk.sequence, chunk.auth_token) {
+            return Err(OverlayError::AuthFailed);
+        }
         if chunk.payload.len() > self.max_payload_len {
             return Err(OverlayError::PayloadTooLarge {
                 limit: self.max_payload_len,
@@ -154,9 +163,6 @@ impl CooperativeOverlay {
         let Some(session) = self.sessions.get_mut(&chunk.session_id) else {
             return Err(OverlayError::UnknownSession);
         };
-        if !authenticator.verify_chunk(chunk.session_id, chunk.sequence, chunk.auth_token) {
-            return Err(OverlayError::AuthFailed);
-        }
         if chunk.sequence < session.next_sequence {
             return Err(OverlayError::ReplayDetected {
                 expected: session.next_sequence,
@@ -281,6 +287,45 @@ mod tests {
             )
             .expect_err("open should fail without auth");
         assert_eq!(err, OverlayError::AuthFailed);
+    }
+
+    #[test]
+    fn unauthenticated_chunk_reveals_nothing_about_session_state() {
+        // An unauthenticated peer must always see AuthFailed first, never the
+        // more revealing UnknownSession or PayloadTooLarge, so it cannot probe
+        // which session ids exist or learn the payload limit.
+        let mut overlay = CooperativeOverlay::new(8, 5_000, 4);
+        let auth = StaticAuthenticator;
+
+        // Unknown session + bad token => AuthFailed, not UnknownSession.
+        let unknown = overlay
+            .accept_chunk(
+                DownstreamChunk {
+                    session_id: session_id(99),
+                    sequence: 0,
+                    payload: b"x",
+                    auth_token: b"wrong",
+                    now_ms: 100,
+                },
+                &auth,
+            )
+            .expect_err("unauthenticated chunk must fail");
+        assert_eq!(unknown, OverlayError::AuthFailed);
+
+        // Oversized payload + bad token => AuthFailed, not PayloadTooLarge.
+        let oversized = overlay
+            .accept_chunk(
+                DownstreamChunk {
+                    session_id: session_id(99),
+                    sequence: 0,
+                    payload: b"way too long",
+                    auth_token: b"wrong",
+                    now_ms: 100,
+                },
+                &auth,
+            )
+            .expect_err("unauthenticated oversized chunk must fail");
+        assert_eq!(oversized, OverlayError::AuthFailed);
     }
 
     #[test]
