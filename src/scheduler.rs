@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FailurePhase {
     Dns,
@@ -29,7 +31,10 @@ pub struct Sample {
 #[derive(Debug, Clone)]
 pub struct ArmStats {
     pub state: ArmState,
-    pub samples: Vec<Sample>,
+    /// Bounded ring buffer of recent samples. A `VecDeque` keeps window
+    /// eviction O(1) (`pop_front`) instead of the O(n) shift a `Vec::remove(0)`
+    /// incurs on every request once the window is full.
+    pub samples: VecDeque<Sample>,
     pub in_flight: u32,
     pub consecutive_failures: u32,
     pub open_until_ms: u64,
@@ -40,7 +45,7 @@ impl ArmStats {
     fn new(window_limit: usize) -> Self {
         Self {
             state: ArmState::Healthy,
-            samples: Vec::with_capacity(window_limit),
+            samples: VecDeque::with_capacity(window_limit),
             in_flight: 0,
             consecutive_failures: 0,
             open_until_ms: 0,
@@ -97,9 +102,9 @@ impl PathScheduler {
         };
         arm.in_flight = arm.in_flight.saturating_sub(1);
         if arm.samples.len() == self.window_limit {
-            arm.samples.remove(0);
+            arm.samples.pop_front();
         }
-        arm.samples.push(Sample {
+        arm.samples.push_back(Sample {
             timestamp_ms: now_ms,
             phase,
             latency_ms,
@@ -248,6 +253,20 @@ mod tests {
         assert_eq!(scheduler.arm(0).expect("arm").state, ArmState::HalfOpen);
         scheduler.finish_request(0, 1_010, true, None, Some(80), Some(10_000));
         assert_eq!(scheduler.arm(0).expect("arm").state, ArmState::Healthy);
+    }
+
+    #[test]
+    fn sample_window_is_bounded_and_evicts_oldest() {
+        let window = 4;
+        let mut scheduler = PathScheduler::new(1, window, 100);
+        for i in 0..20 {
+            scheduler.finish_request(0, 100 + i, true, None, Some(i as u32), None);
+        }
+        let arm = scheduler.arm(0).expect("arm");
+        assert_eq!(arm.samples.len(), window, "window must stay bounded");
+        // Oldest entries are evicted, so the retained latencies are the last four.
+        let latencies: Vec<u32> = arm.samples.iter().filter_map(|s| s.latency_ms).collect();
+        assert_eq!(latencies, vec![16, 17, 18, 19]);
     }
 
     #[test]
