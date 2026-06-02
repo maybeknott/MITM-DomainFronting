@@ -317,6 +317,11 @@ fn parse_alpn(data: &[u8]) -> Result<Vec<Vec<u8>>, ParserError> {
     let mut protocols = Vec::new();
     while list_reader.remaining() > 0 {
         let len = list_reader.read_u8()? as usize;
+        if len == 0 {
+            return Err(ParserError::Invalid(
+                "ALPN protocol name length must be >= 1",
+            ));
+        }
         let value = list_reader.read_slice(len)?;
         protocols.push(value.to_vec());
     }
@@ -478,6 +483,22 @@ mod tests {
     fn rejects_truncated_hello() {
         let hello = vec![0x01, 0x00, 0x00, 0x05, 0x03];
         let err = parse_client_hello_handshake(&hello).expect_err("must reject truncated");
+        assert!(matches!(err, ParserError::Invalid(_)));
+    }
+
+    #[test]
+    fn rejects_empty_alpn_protocol_name() {
+        // RFC 7301: ProtocolName<1..2^8-1>; zero-length names are invalid.
+        // ALPN extension payload:
+        // - list_len (u16) = 1
+        // - protocol len (u8) = 0
+        let alpn_ext = [0x00, 0x01, 0x00];
+        let mut extensions = Vec::new();
+        extensions.extend_from_slice(&0x0010_u16.to_be_bytes());
+        extensions.extend_from_slice(&(alpn_ext.len() as u16).to_be_bytes());
+        extensions.extend_from_slice(&alpn_ext);
+        let hello = client_hello_with_extensions(&extensions);
+        let err = parse_client_hello_handshake(&hello).expect_err("empty ALPN name must fail");
         assert!(matches!(err, ParserError::Invalid(_)));
     }
 

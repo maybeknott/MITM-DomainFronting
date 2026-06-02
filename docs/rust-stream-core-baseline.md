@@ -40,6 +40,8 @@ Current scope:
      vars (`MITM_STREAM_HANDSHAKE_TIMEOUT_MS`, `MITM_STREAM_TIMEOUT_MS`), and
      unrecognized boolean values (`MITM_STREAM_ALLOW_POLICY_INFERENCE`) emit a
      warning and fall back to the documented default
+   - Packet backend MTU budget is configurable via `MITM_STREAM_MAX_PACKET_SIZE`
+     (default `2048`); invalid values warn and fall back to the default
 
 2. **Milestone 5: bounded cert cache**
    - Bounded positive cache with per-provider and global caps

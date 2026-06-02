@@ -55,6 +55,22 @@ fn parse_millis(value: &str) -> Result<u64, ()> {
     value.trim().parse::<u64>().map_err(|_| ())
 }
 
+fn env_usize(name: &str, default: usize) -> usize {
+    match std::env::var(name) {
+        Ok(value) => match value.trim().parse::<usize>() {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                eprintln!(
+                    "warning: {} is not a valid usize ({:?}); using default {}",
+                    name, value, default
+                );
+                default
+            }
+        },
+        Err(_) => default,
+    }
+}
+
 /// Resolve a boolean-flavored env var, treating `true`/`1`/`yes`/`on`
 /// (case-insensitive) as true, `false`/`0`/`no`/`off` as false, and warning on
 /// anything else before falling back to `default`.
@@ -101,12 +117,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok()
         .and_then(|value| value.parse::<i32>().ok());
     let xdp_interface = std::env::var("MITM_STREAM_XDP_IFACE").ok();
+    let max_packet_size = env_usize(
+        "MITM_STREAM_MAX_PACKET_SIZE",
+        mitm_stream_core::backend_runtime::DEFAULT_MAX_PACKET_SIZE,
+    );
 
     let mut runtime = build_runtime_backend(BackendRuntimeOptions {
         listen_addr: listen_addr.clone(),
         preference,
         android_tun_fd,
         xdp_interface,
+        max_packet_size,
         ..BackendRuntimeOptions::default()
     })?;
     println!(

@@ -105,7 +105,7 @@ impl CoalescingController {
         if let Some(oldest) = self
             .sessions
             .iter()
-            .min_by_key(|(_, session)| session.last_seen_ms)
+            .min_by(|(k1, v1), (k2, v2)| (v1.last_seen_ms, k1).cmp(&(v2.last_seen_ms, k2)))
             .map(|(session_id, _)| *session_id)
         {
             self.sessions.remove(&oldest);
@@ -140,10 +140,19 @@ pub fn normalize_authority(authority: &str) -> Result<String, CoalescingError> {
         }
         return Ok(host.to_string());
     }
-    let host = value
-        .rsplit_once(':')
-        .and_then(|(host, port)| port.parse::<u16>().ok().map(|_| host))
-        .unwrap_or(&value);
+    // If a port suffix is present, require it to be a valid u16. This mirrors
+    // the strictness of the IPv6 branch above and prevents oddities like
+    // `example.com:` (empty port) from being treated as a distinct origin key.
+    let host = match value.rsplit_once(':') {
+        Some((host, port)) => {
+            if port.parse::<u16>().is_ok() {
+                host
+            } else {
+                return Err(CoalescingError::EmptyAuthority);
+            }
+        }
+        None => &value,
+    };
     if host.is_empty() {
         return Err(CoalescingError::EmptyAuthority);
     }
@@ -160,6 +169,21 @@ mod tests {
             normalize_authority("Example.COM:443").expect("authority"),
             "example.com"
         );
+    }
+
+    #[test]
+    fn host_without_port_is_unchanged() {
+        assert_eq!(
+            normalize_authority("example.com").expect("authority"),
+            "example.com"
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_port_suffix() {
+        assert!(normalize_authority("example.com:").is_err());
+        assert!(normalize_authority("example.com:99999").is_err());
+        assert!(normalize_authority(":99999").is_err());
     }
 
     #[test]

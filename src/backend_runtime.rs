@@ -8,6 +8,8 @@ use crate::ingress_xdp_gateway::{
     LinuxGatewayXdpIngress, XdpGatewayAvailability, XdpGatewayOptions,
 };
 
+pub const DEFAULT_MAX_PACKET_SIZE: usize = 2_048;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendPreference {
     Auto,
@@ -47,6 +49,7 @@ pub struct BackendRuntimeOptions {
     pub preference: BackendPreference,
     pub android_tun_fd: Option<i32>,
     pub xdp_interface: Option<String>,
+    pub max_packet_size: usize,
 }
 
 impl Default for BackendRuntimeOptions {
@@ -57,6 +60,7 @@ impl Default for BackendRuntimeOptions {
             preference: BackendPreference::Auto,
             android_tun_fd: None,
             xdp_interface: None,
+            max_packet_size: DEFAULT_MAX_PACKET_SIZE,
         }
     }
 }
@@ -103,7 +107,7 @@ pub fn build_runtime_backend(
             let backend = AndroidTunIngress::new(AndroidTunOptions {
                 enabled: true,
                 tun_fd: options.android_tun_fd,
-                max_packet_size: 2_048,
+                max_packet_size: options.max_packet_size,
             });
             match backend.availability() {
                 AndroidTunAvailability::Enabled => {
@@ -122,7 +126,7 @@ pub fn build_runtime_backend(
             let backend = LinuxGatewayXdpIngress::new(XdpGatewayOptions {
                 enabled: true,
                 interface_name: options.xdp_interface,
-                max_packet_size: 2_048,
+                max_packet_size: options.max_packet_size,
             });
             match backend.availability() {
                 XdpGatewayAvailability::Enabled => {
@@ -142,7 +146,7 @@ pub fn build_runtime_backend(
                 let backend = AndroidTunIngress::new(AndroidTunOptions {
                     enabled: true,
                     tun_fd: Some(fd),
-                    max_packet_size: 2_048,
+                    max_packet_size: options.max_packet_size,
                 });
                 if matches!(backend.availability(), AndroidTunAvailability::Enabled) {
                     selected = BackendPreference::AndroidTun;
@@ -158,7 +162,7 @@ pub fn build_runtime_backend(
                 let backend = LinuxGatewayXdpIngress::new(XdpGatewayOptions {
                     enabled: true,
                     interface_name: options.xdp_interface,
-                    max_packet_size: 2_048,
+                    max_packet_size: options.max_packet_size,
                 });
                 if matches!(backend.availability(), XdpGatewayAvailability::Enabled) {
                     selected = BackendPreference::GatewayXdp;
@@ -225,5 +229,23 @@ mod tests {
         .expect("runtime");
         assert_eq!(runtime.selected, BackendPreference::Loopback);
         assert!(runtime.packet_backend.is_none());
+    }
+
+    #[test]
+    fn default_options_use_named_packet_size_constant() {
+        let options = BackendRuntimeOptions::default();
+        assert_eq!(options.max_packet_size, DEFAULT_MAX_PACKET_SIZE);
+    }
+
+    #[test]
+    fn custom_packet_size_is_preserved_through_builder() {
+        let options = BackendRuntimeOptions {
+            listen_addr: "127.0.0.1:0".to_string(),
+            preference: BackendPreference::Loopback,
+            max_packet_size: 1234,
+            ..BackendRuntimeOptions::default()
+        };
+        let runtime = build_runtime_backend(options).expect("runtime");
+        assert_eq!(runtime.selected, BackendPreference::Loopback);
     }
 }
