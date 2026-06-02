@@ -9,6 +9,7 @@ use mitm_stream_core::backend_runtime::{
 };
 use mitm_stream_core::cert_cache::ProviderFamily;
 use mitm_stream_core::ingress::StreamIngress;
+use mitm_stream_core::ja3::compute_ja3;
 use mitm_stream_core::parser::{read_client_hello_info, ParserError};
 use mitm_stream_core::tls_orchestrator::{
     orchestrate_tls_session, RoutePlan, TlsFallbackMode, TlsOrchestrationInput,
@@ -182,16 +183,42 @@ fn handle_client(mut socket: TcpStream, handshake_timeout_ms: u64) -> Result<(),
         .map(|ext| format!("{:#06x}", ext))
         .collect::<Vec<_>>()
         .join(",");
+    let ja3 = compute_ja3(&info);
     println!(
-        "clienthello parsed sni={} alpn={} versions={:?} sigalgs={} groups={} extorder=[{}] raw_len={}",
+        "clienthello parsed sni={} alpn={} versions={:?} ciphers={} sigalgs={} groups={} extorder=[{}] ja3={} ja3_md5={} raw_len={}",
         info.sni.as_deref().unwrap_or("<none>"),
         alpn_display,
         info.supported_versions,
+        info.cipher_suites.len(),
         info.signature_algorithms.len(),
         info.supported_groups.len(),
         ext_order_display,
+        ja3.ja3_string,
+        ja3.ja3_hash_md5,
         info.raw_len
     );
+
+    // Optional runtime fingerprint self-audit. When the operator pins the JA3
+    // hash a genuine client of the impersonated browser would present
+    // (`MITM_STREAM_EXPECTED_JA3`), compare it against what we actually observed
+    // and warn loudly on divergence. A mismatch means our presented fingerprint
+    // is drifting from the target browser — an evasion regression the operator
+    // must see, not a silent failure.
+    if let Some(expected_ja3) = std::env::var("MITM_STREAM_EXPECTED_JA3")
+        .ok()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+    {
+        if ja3.ja3_hash_md5 == expected_ja3 {
+            println!("ja3 self-audit: match (hash={})", ja3.ja3_hash_md5);
+        } else {
+            eprintln!(
+                "warning: ja3 self-audit MISMATCH expected={} observed={} — presented \
+                 fingerprint diverges from the pinned browser profile",
+                expected_ja3, ja3.ja3_hash_md5
+            );
+        }
+    }
 
     let route = RoutePlan {
         provider_family: parse_provider_family(),

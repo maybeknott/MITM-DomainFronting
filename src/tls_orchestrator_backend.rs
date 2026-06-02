@@ -93,6 +93,8 @@ mod tests {
             signature_algorithms: vec![0x0403],
             supported_groups: vec![0x001d],
             extension_order: Vec::new(),
+            cipher_suites: Vec::new(),
+            ec_point_formats: Vec::new(),
             raw_len: 64,
         }
     }

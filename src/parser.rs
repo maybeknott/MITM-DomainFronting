@@ -16,6 +16,8 @@ pub struct ClientHelloInfo {
     pub signature_algorithms: Vec<u16>,
     pub supported_groups: Vec<u16>,
     pub extension_order: Vec<u16>,
+    pub cipher_suites: Vec<u16>,
+    pub ec_point_formats: Vec<u8>,
     pub raw_len: usize,
 }
 
@@ -229,7 +231,12 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
             "cipher suite vector length must be even",
         ));
     }
-    reader.skip(cipher_suites_len)?;
+    let cipher_suite_bytes = reader.read_slice(cipher_suites_len)?;
+    let mut cipher_suites: Vec<u16> = Vec::with_capacity(cipher_suites_len / 2);
+    let mut cs_reader = Reader::new(cipher_suite_bytes);
+    while cs_reader.remaining() > 0 {
+        cipher_suites.push(cs_reader.read_u16()?);
+    }
 
     let compression_methods_len = reader.read_u8()? as usize;
     reader.skip(compression_methods_len)?;
@@ -240,6 +247,7 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
     let mut signature_algorithms: Vec<u16> = Vec::new();
     let mut supported_groups: Vec<u16> = Vec::new();
     let mut extension_order: Vec<u16> = Vec::new();
+    let mut ec_point_formats: Vec<u8> = Vec::new();
 
     if reader.remaining() > 0 {
         let extensions_len = reader.read_u16()? as usize;
@@ -278,6 +286,11 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
                 0x000a => {
                     supported_groups = parse_u16_vector(LenPrefix::U16, ext_payload)?;
                 }
+                0x000b => {
+                    let mut pf_reader = Reader::new(ext_payload);
+                    let pf_len = pf_reader.read_u8()? as usize;
+                    ec_point_formats = pf_reader.read_slice(pf_len)?.to_vec();
+                }
                 _ => {}
             }
         }
@@ -290,6 +303,8 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
         signature_algorithms,
         supported_groups,
         extension_order,
+        cipher_suites,
+        ec_point_formats,
         raw_len: 4 + declared_len,
     })
 }
@@ -431,6 +446,8 @@ mod tests {
             parsed.extension_order,
             vec![0x0000, 0x0010, 0x002b, 0x000d, 0x000a]
         );
+        assert_eq!(parsed.cipher_suites, vec![0x1301]);
+        assert!(parsed.ec_point_formats.is_empty());
         assert_eq!(parsed.raw_len, hello.len());
     }
 

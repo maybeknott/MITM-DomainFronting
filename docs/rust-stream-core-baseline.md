@@ -42,6 +42,12 @@ Current scope:
      warning and fall back to the documented default
    - Packet backend MTU budget is configurable via `MITM_STREAM_MAX_PACKET_SIZE`
      (default `2048`); invalid values warn and fall back to the default
+   - The observed JA3 fingerprint (string + MD5 hash, GREASE-stripped per
+     RFC 8701) is computed from each `ClientHello` and logged. Setting
+     `MITM_STREAM_EXPECTED_JA3` to the JA3 MD5 hash a genuine client of the
+     impersonated browser would present enables a runtime self-audit: a match
+     is logged, and any divergence warns loudly on stderr so a drifting
+     presented fingerprint is surfaced rather than silently tolerated
 
 2. **Milestone 5: bounded cert cache**
    - Bounded positive cache with per-provider and global caps
@@ -49,8 +55,12 @@ Current scope:
    - Negative cache (`mark_denied` / `denied_reason`)
 
 3. **Milestone 6: TLS regression harness baseline**
-   - JA3 / JA4 / ALPN / H2-settings / GREASE checks
+   - JA3 / JA4 / ALPN / H2-settings (ordered id *and* id:value) / TLS
+     extension-order / GREASE checks
    - Explicit mismatch reporting
+   - `observation_from_client_hello` bridges a parsed `ClientHello` into a
+     `TlsObservation` (computing JA3 via the dependency-free `ja3` module), so
+     the same harness used in tests can self-audit the live runtime fingerprint
 
 4. **Milestone 7: adaptive path scheduler baseline**
    - Foreground selection avoids open circuits

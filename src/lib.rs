@@ -7,6 +7,7 @@ pub mod ingress;
 pub mod ingress_android_tun;
 pub mod ingress_loopback;
 pub mod ingress_xdp_gateway;
+pub mod ja3;
 pub mod parser;
 pub mod regression_harness;
 pub mod scheduler;

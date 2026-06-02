@@ -104,6 +104,35 @@ pub fn evaluate_profile(
     }
 }
 
+/// Build a [`TlsObservation`] from a parsed ClientHello for runtime self-audit.
+pub fn observation_from_client_hello(hello: &crate::parser::ClientHelloInfo) -> TlsObservation {
+    let ja3 = crate::ja3::compute_ja3(hello);
+    let alpn = hello
+        .alpn
+        .first()
+        .map(|proto| String::from_utf8_lossy(proto).into_owned())
+        .unwrap_or_default();
+    TlsObservation {
+        ja3_string: ja3.ja3_string,
+        ja3_hash_md5: ja3.ja3_hash_md5,
+        ja4_string: String::new(),
+        alpn,
+        h2_settings_ids: Vec::new(),
+        h2_settings_values: Vec::new(),
+        tls_extension_order: hello.extension_order.clone(),
+        grease_structurally_valid: !looks_like_malformed_grease(&hello.extension_order),
+    }
+}
+
+/// Detect extension types that mimic GREASE shape (low nibble `0xA` on both bytes) but are not valid GREASE.
+pub fn looks_like_malformed_grease(extension_order: &[u16]) -> bool {
+    extension_order.iter().copied().any(|ext| {
+        let hi = (ext >> 8) as u8;
+        let lo = (ext & 0xff) as u8;
+        (hi & 0x0f) == 0x0a && (lo & 0x0f) == 0x0a && hi != lo
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,5 +300,64 @@ mod tests {
             .failures
             .iter()
             .any(|f| f.starts_with("tls_extension_order_mismatch")));
+    }
+
+    #[test]
+    fn malformed_grease_does_not_flag_supported_groups_extension() {
+        assert!(!looks_like_malformed_grease(&[0x000a]));
+        assert!(looks_like_malformed_grease(&[0x0a1a]));
+    }
+
+    #[test]
+    fn observation_from_client_hello_populates_ja3_and_extension_order() {
+        use crate::parser::ClientHelloInfo;
+
+        let hello = ClientHelloInfo {
+            sni: None,
+            alpn: vec![b"h2".to_vec()],
+            supported_versions: vec![0x0304],
+            signature_algorithms: Vec::new(),
+            supported_groups: vec![0x001d],
+            extension_order: vec![0x0000, 0x0010],
+            cipher_suites: vec![0x1301],
+            ec_point_formats: vec![0],
+            raw_len: 0,
+        };
+        let obs = observation_from_client_hello(&hello);
+        assert_eq!(obs.ja3_string, "772,4865,0-16,29,0");
+        assert_eq!(obs.ja3_hash_md5.len(), 32);
+        assert_eq!(obs.alpn, "h2");
+        assert_eq!(obs.tls_extension_order, vec![0x0000, 0x0010]);
+        assert!(obs.grease_structurally_valid);
+    }
+
+    #[test]
+    fn self_audit_round_trip_via_evaluate_profile() {
+        use crate::parser::ClientHelloInfo;
+
+        let hello = ClientHelloInfo {
+            sni: None,
+            alpn: vec![b"h2".to_vec()],
+            supported_versions: vec![0x0304],
+            signature_algorithms: Vec::new(),
+            supported_groups: vec![0x001d],
+            extension_order: vec![0x0000, 0x0010],
+            cipher_suites: vec![0x1301],
+            ec_point_formats: vec![0],
+            raw_len: 0,
+        };
+        let observed = observation_from_client_hello(&hello);
+        let expected = ExpectedTlsProfile {
+            profile_name: "live".to_string(),
+            expected_ja3_hash_md5: observed.ja3_hash_md5.clone(),
+            expected_ja4_string: String::new(),
+            expected_alpn: "h2".to_string(),
+            expected_h2_settings_ids: vec![],
+            expected_h2_settings_values: vec![],
+            expected_tls_extension_order: vec![0x0000, 0x0010],
+            require_grease_validity: true,
+        };
+        let result = evaluate_profile(&observed, &expected);
+        assert!(result.passed, "{:?}", result.failures);
     }
 }
