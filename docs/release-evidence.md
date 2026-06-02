@@ -24,7 +24,14 @@ python scripts/config_src_validate.py --run-steps
 python scripts/transport_experiment_validate.py
 python scripts/geodata_pin.py --verify
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
+python main.py release-check
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
+```
+
+For GUI release assets, also attach the ZIP verifier result:
+
+```sh
+python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256 --json
 ```
 
 See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) for scenario matrix and attach list.

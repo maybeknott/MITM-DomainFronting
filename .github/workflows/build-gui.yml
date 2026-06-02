@@ -48,6 +48,14 @@ jobs:
           "$($hash.Hash)  $(Split-Path $zip -Leaf)" | Set-Content -Encoding ascii "$zip.sha256"
           Get-ChildItem dist -Filter "MITM-DomainFronting-Control-Center-*.zip*" | Format-Table -AutoSize
 
+      - name: Verify release artifact contents
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if (-not $tag) { $tag = "dev" }
+          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
+          python main.py release-check --zip $zip --checksum "$zip.sha256"
+
       - name: Upload GUI build artifact
         if: always()
         uses: actions/upload-artifact@v4

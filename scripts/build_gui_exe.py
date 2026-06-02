@@ -19,14 +19,13 @@ APP_ICON = ROOT / "assets" / "app-icon.ico"
 
 EXCLUDED_TRACKED_PREFIXES = (
     ".github/",
-    "patches/",
     "xray/",
     "Xray-config/xray/",
 )
 EXCLUDED_TRACKED_FILES = {
     ".gitignore",
 }
-FALLBACK_DIRS = ("scripts", "configs", "docs", "providers", "Xray-config", "config-src", "assets")
+FALLBACK_DIRS = ("scripts", "tests", "configs", "docs", "providers", "Xray-config", "config-src", "assets")
 RUNTIME_DIRS = ("xray",)
 FALLBACK_TOP_FILES = (
     "README.md",

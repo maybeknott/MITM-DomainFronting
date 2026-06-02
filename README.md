@@ -177,7 +177,9 @@ Firefox -> Settings -> About Firefox -> پنج بار روی لوگو بزنید
 - `Xray-config/mycert.crt` و `Xray-config/mycert.key`: گواهی و کلید شخصی شما؛ این فایل‌ها local هستند و نباید commit شوند.
 - `scripts/gui.py`: مرکز کنترل گرافیکی برای راه‌اندازی، تست، تعمیر و گزارش محلی.
 - `scripts/`: ابزارهای validate، preflight، health، DNS، route، browser و release.
+- `tests/python/`: تست‌های رگرسیون و ساختار پروژه.
 - `docs/`: راهنماهای جزئی‌تر درباره گواهی، مرورگر، DNS، پروفایل‌ها، سازگاری پلتفرم، release و عیب‌یابی.
+- `ROADMAP.md`: وضعیت کارهای انجام‌شده و شکاف‌های باقی‌مانده.
 - `.local-state/`: گزارش‌ها و تاریخچه محلی برنامه؛ خروجی پشتیبانی است و نباید بدون بازبینی ارسال شود.
 
 ## بررسی و عیب‌یابی محلی
@@ -218,8 +220,11 @@ py -3 scripts\lab_evidence_validate.py lab-evidence.bundle.json
 
 ## راهنماهای تکمیلی
 
+- شروع سریع فارسی: `docs/fa/quick-start.md`
 - راهنمای GUI: `docs/gui.md`
 - یکپارچه‌سازی Chromium: `docs/chromium-integration.md`
+- نقشه نگه‌داری: `docs/reference/maintainer-map.md`
+- مرز فایل‌های منبع و تولیدی: `docs/reference/generated-files.md`
 - چرخه عمر گواهی: `docs/certificate-lifecycle.md`
 - عیب‌یابی و preflight: `docs/preflight-and-diagnostics.md`
 - پروفایل‌های عملیاتی: `docs/operating-profiles.md`

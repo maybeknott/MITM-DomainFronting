@@ -54,7 +54,14 @@ python scripts/build_config.py --check-runtime-sync --generate-profiles --check-
 python tests/python/health_policy_tests.py
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 python scripts/lab_evidence_validate.py lab-evidence.bundle.json
+python main.py release-check
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --skip-xray-test
+```
+
+For a packaged Windows ZIP, verify artifact shape before publishing:
+
+```bash
+python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256
 ```
 
 To pin geodata for a release after downloading Xray locally:

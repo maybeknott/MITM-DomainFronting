@@ -14,6 +14,7 @@ MITM-DomainFronting/
   CHANGELOG.md
   SUPPORT_MATRIX.md
   KNOWN_ISSUES.md
+  ROADMAP.md
   build_gui_exe.bat
   bootstrap.py
   main.py
@@ -46,6 +47,17 @@ MITM-DomainFronting/
     mycert.key                 # local only, ignored by git
 
   docs/
+    adr/
+      0001-xray-as-runtime.md
+      0002-no-silent-trust-install.md
+      0003-browser-proxy-first.md
+      0004-ja3-oracle-honesty.md
+      0005-local-source-labeled-telemetry.md
+    fa/
+      quick-start.md
+    reference/
+      generated-files.md
+      maintainer-map.md
     architecture.md
     routing-correctness.md
     dns-resilience.md
@@ -147,7 +159,9 @@ MITM-DomainFronting/
     config_src_build.py
     config_src_merge.py
     lab_evidence_run.py
+    release_check.py
     transport_experiment_validate.py
+    verify_release_artifact.py
     launch_browser_mitm.ps1
     core/
       __init__.py
