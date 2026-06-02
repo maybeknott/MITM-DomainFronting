@@ -22,6 +22,7 @@ pub enum ParserError {
     ClientHelloTooLarge(usize),
     Invalid(&'static str),
     InvalidSniUtf8,
+    DuplicateExtension(u16),
 }
 
 impl fmt::Display for ParserError {
@@ -41,6 +42,9 @@ impl fmt::Display for ParserError {
             }
             ParserError::Invalid(reason) => write!(f, "invalid client hello: {}", reason),
             ParserError::InvalidSniUtf8 => write!(f, "invalid utf-8 server name"),
+            ParserError::DuplicateExtension(ext_type) => {
+                write!(f, "duplicate TLS extension {:#06x}", ext_type)
+            }
         }
     }
 }
@@ -207,6 +211,11 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
         let extensions_len = reader.read_u16()? as usize;
         let extensions = reader.read_slice(extensions_len)?;
         let mut ext_reader = Reader::new(extensions);
+        // RFC 8446 4.2: "There MUST NOT be more than one extension of the same
+        // type." Rejecting duplicates removes a silent ambiguity (some fields
+        // previously kept the first occurrence, others the last) and surfaces a
+        // malformed/anomalous ClientHello instead of guessing.
+        let mut seen_types: Vec<u16> = Vec::new();
         while ext_reader.remaining() > 0 {
             if ext_reader.remaining() < 4 {
                 return Err(ParserError::Invalid("truncated extension header"));
@@ -214,8 +223,12 @@ pub fn parse_client_hello_handshake(handshake: &[u8]) -> Result<ClientHelloInfo,
             let ext_type = ext_reader.read_u16()?;
             let ext_len = ext_reader.read_u16()? as usize;
             let ext_payload = ext_reader.read_slice(ext_len)?;
+            if seen_types.contains(&ext_type) {
+                return Err(ParserError::DuplicateExtension(ext_type));
+            }
+            seen_types.push(ext_type);
             match ext_type {
-                0x0000 if sni.is_none() => {
+                0x0000 => {
                     sni = parse_sni(ext_payload)?;
                 }
                 0x0010 => {
@@ -380,6 +393,53 @@ mod tests {
         assert_eq!(parsed.signature_algorithms, vec![0x0403, 0x0804]);
         assert_eq!(parsed.supported_groups, vec![0x001d, 0x0017]);
         assert_eq!(parsed.raw_len, hello.len());
+    }
+
+    /// Builds a ClientHello whose extensions block is exactly `extensions`,
+    /// wrapping it with valid record/handshake/body framing.
+    fn client_hello_with_extensions(extensions: &[u8]) -> Vec<u8> {
+        let mut body = Vec::new();
+        body.extend_from_slice(&[0x03, 0x03]); // version
+        body.extend_from_slice(&[0_u8; 32]); // random
+        body.push(0x00); // session_id_len
+        body.extend_from_slice(&[0x00, 0x02, 0x13, 0x01]); // one cipher suite
+        body.extend_from_slice(&[0x01, 0x00]); // one compression method
+        body.extend_from_slice(&(extensions.len() as u16).to_be_bytes());
+        body.extend_from_slice(extensions);
+
+        let mut hello = vec![
+            HANDSHAKE_TYPE_CLIENT_HELLO,
+            ((body.len() >> 16) & 0xff) as u8,
+            ((body.len() >> 8) & 0xff) as u8,
+            (body.len() & 0xff) as u8,
+        ];
+        hello.extend_from_slice(&body);
+        hello
+    }
+
+    fn supported_groups_ext() -> Vec<u8> {
+        let mut e = Vec::new();
+        e.extend_from_slice(&0x000a_u16.to_be_bytes()); // type
+        e.extend_from_slice(&0x0004_u16.to_be_bytes()); // ext_len
+        e.extend_from_slice(&[0x00, 0x02, 0x00, 0x17]); // list_len + one group
+        e
+    }
+
+    #[test]
+    fn rejects_duplicate_extension() {
+        let mut extensions = supported_groups_ext();
+        extensions.extend_from_slice(&supported_groups_ext()); // duplicate 0x000a
+        let hello = client_hello_with_extensions(&extensions);
+        let err =
+            parse_client_hello_handshake(&hello).expect_err("must reject duplicate extension");
+        assert!(matches!(err, ParserError::DuplicateExtension(0x000a)));
+    }
+
+    #[test]
+    fn accepts_single_occurrence_of_each_extension() {
+        let hello = client_hello_with_extensions(&supported_groups_ext());
+        let parsed = parse_client_hello_handshake(&hello).expect("single extension parses");
+        assert_eq!(parsed.supported_groups, vec![0x0017]);
     }
 
     #[test]
