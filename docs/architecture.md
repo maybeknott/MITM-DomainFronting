@@ -49,6 +49,27 @@ generate cert -> install cert -> import config -> run client -> use browser
 
 Add maintainability around that path through docs and scripts, not through a complex runtime architecture.
 
+## Rust core (`src/`): validation library, not a data plane
+
+The `src/*.rs` tree is named like a proxy engine (ingress traits, a
+`handle_client` loop, a TLS orchestrator, a scheduler), but it is **not** on the
+live traffic path. It parses ClientHellos, models ALPN/JA3/routing policy, and
+runs a self-audit/regression harness. It does not forward bytes to the internet
+and does not hand traffic to Xray over SOCKS5.
+
+```text
+Xray  = data plane (proxy, routing, MITM, domain-fronting, uTLS) — see ADR-0001
+Rust  = parse / classify / model / self-audit around Xray's config and behavior
+        (no upstream dialing, no raw-packet manipulation, no eBPF on egress)
+```
+
+Integration between the two is **config + evidence**, never an in-band byte
+handoff. See `docs/adr/0007-rust-core-is-validation-not-data-plane.md` for the
+full boundary, including why packet-injection / SNI-spoofing / "Rust as egress
+engine" proposals are out of scope. Process lifetime (running the Rust self-audit
+alongside Xray) is handled by `scripts/core/process_supervisor.py`, which already
+provides atomic kill-on-close containment without changing the byte path.
+
 ## Diagnostic and governance layer
 
 Local validation sits beside the runtime graph. Nothing in this layer uploads telemetry or changes runtime config automatically. The GUI may write local-only operational telemetry under `.local-state/` for status history, command durations, and redacted troubleshooting evidence.

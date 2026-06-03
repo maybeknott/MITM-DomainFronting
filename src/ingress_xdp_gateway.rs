@@ -1,3 +1,11 @@
+//! Model/fixture for an XDP-style batch packet ingress.
+//!
+//! NOTE: This is a validation model, not a loaded eBPF/XDP program on the live
+//! egress path. The Rust core is a validation library, not the data plane — see
+//! `docs/adr/0007-rust-core-is-validation-not-data-plane.md` and ADR-0001. Do
+//! not wire raw-packet manipulation or kernel programs in here; the data plane
+//! is Xray.
+
 use crate::ingress::{BatchPacketBuffer, IngressError, PacketIngress, PacketRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
