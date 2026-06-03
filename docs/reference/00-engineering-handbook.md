@@ -18,6 +18,44 @@ no doc generator.
 | **Name the live owner** | State whether **Xray**, **Python**, or **Rust (validation)** owns behavior |
 | **Minimal cross-refs** | One link to the canonical doc per topic |
 
+## Bounded tiered rigor (RFC 2119)
+
+Normative language in `docs/reference/` uses [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) keywords.
+Every **MUST** / **MUST NOT** is tagged with an implementation **tier** and, where applicable, a
+threat traceability ID from [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceability IDs.
+
+| Tier | Keywords | Meaning |
+|---|---|---|
+| **SHIPPED** | MUST, MUST NOT | True in the current baseline; cite path + validation command |
+| **POLICY** | MUST, MUST NOT | Architectural boundary (applies now and to future code) |
+| **TARGET** | SHALL, SHOULD | Track A/B/C/D roadmap; open item in `03` §4 |
+| **REJECTED** | MUST NOT | Forbidden pattern; see `01` §7 and `02` ADR-0007/0008 |
+
+**Traceability tag format:** `[Mitigates: TM-NN — short title]`
+
+### Component boundary matrix
+
+```text
++-----------------------------------------------------------------------------------+
+| Layer              | Language / artifact        | Tier     | Live egress?        |
++--------------------+---------------------------+----------+---------------------+
+| Live data plane    | xray/xray.exe (Go)        | SHIPPED  | YES — sole path     |
+| Control plane      | Python (scripts/, GUI)    | SHIPPED  | NO                  |
+| Validation harness | Rust (mitm_stream_core)   | SHIPPED  | NO (lab/CI only)    |
++-----------------------------------------------------------------------------------+
+```
+
+**Interaction rules (POLICY):**
+
+- Python **MUST** launch and supervise Xray; it **MUST NOT** terminate or rewrite live TLS bytes.
+- Rust **MAY** parse configs and ClientHello fixtures offline; it **MUST NOT** be wired as inline
+  production egress (ADR-0007). `[Mitigates: TM-10 — Parallel Rust data plane]`
+- Cross-layer integration is **config-and-evidence** (JSON, tests, PCAP), not in-band byte handoff.
+
+**Primary deployment target:** Windows operator UX (GUI + ProcessSupervisor). Linux and Android
+use the same Xray config model; platform-specific containment is **TARGET** Track D — see
+`01` §2.7.
+
 ## 0. Terminology (read first)
 
 This handbook spells out acronyms on first use in each document; this section is the
@@ -90,6 +128,9 @@ authoritative glossary.
 | GUI / progressive disclosure | 01 Track C, ADR-0006 |
 | Assumptions / unknowns | 03 §5 |
 | Layer verification | doc 02 Part III §8 |
+| Bounded rigor / RFC 2119 | 00 § Bounded tiered rigor |
+| FMEA / CI stages | 03 §2.1, §3.0 |
+| Threat traceability (TM-*) | [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceability IDs |
 
 ## Operational guides (day-to-day)
 

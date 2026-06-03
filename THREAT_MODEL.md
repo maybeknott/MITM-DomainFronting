@@ -90,6 +90,23 @@ Per engineering policy in `docs/reference/02-decisions-evasion-engineering.md`:
 - Supported use remains user-controlled testing on user-owned devices; techniques
   aimed at intercepting third-party traffic without authorization stay unsupported.
 
+## Traceability IDs
+
+Use these IDs in `docs/reference/` normative statements (`[Mitigates: TM-NN]`).
+
+| ID | Threat | Primary control | Reference |
+|---|---|---|---|
+| TM-01 | Local listener reachable from LAN | Loopback bind + preflight | `docs/listener-binding.md`, preflight |
+| TM-02 | Cooperative proxy bypass (WebRTC, DNS, QUIC) | Track D TUN/firewall; probe labels | `03` PROTO-004 |
+| TM-03 | Upstream DNS poisoning / captive DNS | Resolver fallback + FakeDNS design | `docs/dns-resilience.md` |
+| TM-04 | Raw IP / system DNS bypassing proxy | FakeDNS `198.18.0.0/15` (TARGET) | `03` DNS-004 |
+| TM-05 | Route misconfiguration deanonymizes or loops | Route linter + validate_config | `docs/routing-correctness.md` |
+| TM-06 | Static TLS / JA3 fingerprint clustering | JA3 pool artifacts + Xray uTLS (Track A/B) | `03` PROTO-005 |
+| TM-07 | Stateful DPI blocks uniform ClientHello | TLS `fragment` + REALITY (Track A) | `02` Part III §4 |
+| TM-08 | Orphan Xray after supervisor exit | Windows Job Object; Linux `killpg` | `process_supervisor.py` |
+| TM-09 | Machine-wide CA / trust-store IoC | Profile-scoped trust, CDP (Track D) | `03` CERT-004, ADR-0002 |
+| TM-10 | Second live egress in Rust crate | ADR-0007/0008 rejection | `02` ADR-0007 |
+
 ## Related documents
 
 | Document | Topic |

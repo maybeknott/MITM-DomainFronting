@@ -8,6 +8,19 @@ specifications, and JSON profile targets. Operational how-tos live under `docs/`
 
 Terminology: [00-engineering-handbook.md](00-engineering-handbook.md) §0.
 
+### Normative tiers (see handbook)
+
+| Topic | Tier | Owner on wire |
+|---|---|---|
+| TLS MITM, repack, fronting | SHIPPED | Xray |
+| uTLS fingerprint emission | SHIPPED / TARGET pools | Xray (`tlsSettings.fingerprint`) |
+| JA3 pool artifacts (≤2048) | TARGET (A4) | `config-src/templates/ja3-pools/` → Xray |
+| TLS record `fragment` | TARGET (A3) | Xray `streamSettings.sockopt.fragment` |
+| Live ClientHello from `ja3.rs` | **REJECTED** | Offline parse/hash only `[TM-10]` |
+| Live egress via `ingress_xdp_gateway.rs` | **REJECTED** | Regression fixture only `[TM-10]` |
+
+Traceability IDs: [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceability IDs.
+
 ---
 
 # Part I - Architecture Decision Register

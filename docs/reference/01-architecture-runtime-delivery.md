@@ -100,6 +100,68 @@ High Stealth TUN + firewall fail-closed is enabled (Track D).
 → `ProcessSupervisor` spawns `xray.exe` only. Rust `mitm_stream_core` does **not** sit
 inline on this arrow unless the optional loopback harness is run manually for lab work.
 
+### 2.5 Config delivery state machine (SHIPPED)
+
+The path from `config-src/` to a running Xray process **MUST** follow this sequence.
+Failure at lint **MUST** block treating the config as release-ready. `[Mitigates: TM-05]`
+
+```text
+INIT → LOAD_FRAGMENTS → LINT → MERGE → DISPATCH → RUNNING
+         │                │
+         │                └── HALT (linter/validator failure — do not ship)
+         └── build_config.py reads config-src/
+```
+
+| State | Owner | Action |
+|---|---|---|
+| **INIT** | Operator / CI | Repository checkout; optional `bootstrap.py` |
+| **LOAD_FRAGMENTS** | `scripts/build_config.py` | Merge `config-src/` → `Xray-config/MITM-DomainFronting.json` |
+| **LINT** | `validate_config.py`, `route_rule_linter.py`, `config_src_validate.py` | Schema, routes, provider targets |
+| **MERGE** | `build_config.py` | Profile labels; pool attachment when Track A/B land |
+| **DISPATCH** | `ProcessSupervisor` / operator | `xray run -config …` or GUI Start Core |
+| **RUNNING** | Xray | Live data plane only |
+
+**Validation (POLICY):**
+
+```bash
+py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
+py -3 scripts/validate_config.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/config_src_validate.py --run-steps
+```
+
+### 2.6 ProcessSupervisor lifecycle (SHIPPED)
+
+Supervisor states for the Xray child (simplified):
+
+```text
+IDLE → SPAWNING → RUNNING → STOPPING → IDLE
+```
+
+| Transition | Windows (SHIPPED) | Linux (SHIPPED) |
+|---|---|---|
+| Spawn | Child assigned to Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` (0x2000) | Process group; teardown via `killpg` |
+| Stop / parent exit | `TerminateJobObject` + taskkill tree | SIGTERM/SIGKILL to process group |
+
+`[Mitigates: TM-08]`
+
+**Validation:** Start Core from GUI → kill GUI process → confirm `xray.exe` is not listening on
+`:10808`.
+
+### 2.7 Platform containment phases
+
+| Phase | Tier | Mechanism | Leak class |
+|---|---|---|---|
+| **1 — Explicit proxy** | SHIPPED | Browser/app → `127.0.0.1:10808` (Xray mixed-in) | WebRTC, system DNS, QUIC may bypass `[Mitigates: TM-02]` |
+| **2 — TUN + host firewall** | TARGET (D) | Xray TUN + WFP (Windows) / nftables (Linux) | Reduces bypass when documented rules applied |
+| **2 — Profile trust** | TARGET (D) | CDP / isolated profile; no `LocalMachine\Root` by default | System CA IoC `[Mitigates: TM-09]` |
+| **3 — FakeDNS trap** | TARGET (D) | Xray FakeDNS `198.18.0.0/15` | Raw-IP / system resolver bypass `[Mitigates: TM-04]` |
+| **4 — Optional eBPF helper** | TARGET (D) | Out-of-tree or Xray-core — **not** Rust fixture loader | Kernel containment lab only |
+
+**Windows note (POLICY):** ETW process-creation visibility from supervisor/browser attach is an
+**accepted tradeoff** on the reference platform — not claimed invisible. See `03` OPSEC-002.
+
+**Reject (POLICY):** Promote `src/ingress_xdp_gateway.rs` to live `libbpf` egress — see `01` §7.
+
 ---
 
 ## 3. Component inventory

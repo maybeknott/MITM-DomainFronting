@@ -15,7 +15,9 @@ unknowns, and verification gates for MITM-DomainFronting.
 |---|---|
 | **§1** | Known issues (CERT, DNS, PROTO, PROV, OPSEC) with diagnostics |
 | **§2** | Risk register |
+| **§2.1** | FMEA (shipped components) |
 | **§3** | Verification gates and lab checks |
+| **§3.1** | CI pipeline stages |
 | **§4** | Open engineering items |
 | **§5** | Assumptions and unknowns |
 | **§6** | Reviewer gates |
@@ -85,7 +87,43 @@ Each row is actionable. **Track** maps to delivery tracks in doc `01` §4.
 
 ---
 
+## 2.1 Failure mode and effects analysis (FMEA)
+
+Formal FMEA for **shipped** subsystems only. Risk Priority Number: **RPN = SEV × LIK × DET**
+(severity, likelihood, detection — each 1–10). Targets use **SHALL** in `01` / `02`; open work in §4.
+
+| ID | Component | Failure mode | SEV | LIK | DET | RPN | Tier | Mitigation |
+|---|---|---|:---:|:---:|:---:|:---:|---|---|
+| F-01 | ProcessSupervisor | Parent exit leaves Xray orphan | 8 | 3 | 2 | 48 | SHIPPED | Job Object (Win); `killpg` (Linux) `[TM-08]` |
+| F-02 | GUI telemetry | `.local-state/gui-telemetry.jsonl` IoC | 7 | 6 | 3 | 126 | TARGET | OPSEC RAM mode (C5 / §4); see OPSEC-001 |
+| F-03 | Trust / CDP | System-wide CA or stale profile trust | 9 | 4 | 4 | 144 | TARGET | Profile-scoped CDP (D5) `[TM-09]` |
+| F-04 | Static JA3 / uTLS | Single fingerprint across sessions | 9 | 6 | 5 | 270 | POLICY | Pool JSON + Xray uTLS (A4–A5) `[TM-06]` |
+| F-05 | Route / config | Loop or wrong outbound tag | 8 | 4 | 3 | 96 | SHIPPED | Linter + validate_config `[TM-05]` |
+| F-06 | Rust fixture misuse | `ingress_xdp_gateway` wired as live egress | 10 | 2 | 2 | 40 | REJECTED | ADR-0007/0008; code review `[TM-10]` |
+
+**Not in FMEA (TARGET / not shipped):** live eBPF verifier failure, WFP rule drift, DPAPI unwrap —
+track under §4 when implemented.
+
+---
+
 ## 3. Verification gates
+
+### 3.0 CI pipeline stages (POLICY)
+
+```text
+config-src change → Stage 1 Schema → Stage 2 Offline Rust → Stage 3 Lab PCAP (release)
+```
+
+| Stage | Command | Proves |
+|---|---|---|
+| **1 — Schema** | `py -3 scripts/config_src_validate.py --run-steps` | Fragments merge; routes lint `[TM-05]` |
+| **1 — Schema** | `py -3 scripts/core/route_rule_linter.py` (via validate chain) | No loop hazards |
+| **2 — Offline** | `cargo test --locked` | JA3/ALPN/H2 models; fixture bounds `[TM-06]` |
+| **2 — Offline** | `py -3 tests/python/rust_core_tests.py` | Python↔Rust contract |
+| **3 — Lab** | `py -3 scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json` | Release evidence bundle |
+| **3 — Wire (manual)** | PCAP + `tshark` (below) | Fragment / JA3 on wire `[TM-07]` |
+
+**Aggregate gate:** `py -3 main.py test` runs the repository health subset.
 
 ### 3.1 Repository health
 
@@ -116,6 +154,31 @@ Layer verification (data / control / protocol): Part III §8.
 | TLS record fragmentation | Wireshark: ClientHello in multiple records |
 | Fail-closed on supervisor exit | Kill GUI; confirm `xray.exe` gone; connectivity fails |
 
+**Wire-level examples (lab — adjust capture path):**
+
+```bash
+# Distinct JA3 hashes across sessions (when pools enabled)
+tshark -r capture.pcap -Y "tls.handshake.type == 1" -T fields -e tls.handshake.ja3_hash | sort -u
+
+# TLS carried across multiple TCP segments when fragment profile active
+tshark -r capture.pcap -Y "tls && tcp" -T fields -e frame.number -e ip.len
+```
+
+Expected: multiple JA3 values when pool rotation is configured; multi-segment ClientHello when
+`streamSettings.sockopt.fragment` is present in the active Xray profile (Track A — TARGET until A3 ships).
+
+### 3.4 Compliance checklist (bounded rigor)
+
+| Check | Tier | Status |
+|---|---|---|
+| Xray sole live egress documented | POLICY | SHIPPED |
+| Route linter before release | POLICY | SHIPPED |
+| `cargo test --locked` in CI | POLICY | SHIPPED |
+| JA3 pool JSON ↔ offline hash cross-check in CI | TARGET | Open — T-01 §4 |
+| OPSEC RAM telemetry (no jsonl) | TARGET | Open — T-02 §4 |
+| WFP / nftables fail-closed docs tested | TARGET | Open — D3 |
+| Optional eBPF helper (not Rust fixture) | TARGET | Open — D7 |
+
 ---
 
 ## 4. Open engineering items
@@ -128,8 +191,11 @@ Layer verification (data / control / protocol): Part III §8.
 | JA3 oracle in GUI | Open | ADR-0004 |
 | REALITY + TLS fragment in config-src | Open | Track A |
 | `scripts/core/strategy_engine.py` | Open | Track B |
-| OPSEC telemetry mode | Open | Track D |
+| OPSEC telemetry mode | Open | Track D — T-02 |
 | Optional eBPF helper | Open | Track D; separate from Rust fixture |
+| **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Open | Track A — `build_config.py` + `cargo test` |
+| **T-02** OPSEC RAM-only GUI telemetry | Open | Track D/C — `scripts/gui.py` |
+| **T-03** Build artifact hygiene in docs | Open | Track C — `build/`, `dist/` excluded |
 
 ---
 
