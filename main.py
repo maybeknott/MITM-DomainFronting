@@ -205,6 +205,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
             _python_test_check("path scorer tests", "path_scorer_tests.py"),
             _python_test_check("health policy tests", "health_policy_tests.py"),
             _python_test_check("readiness state tests", "readiness_tests.py"),
+            _python_test_check("verified session tests", "verified_session_tests.py"),
             _python_test_check("release artifact tests", "release_artifact_tests.py"),
             _python_test_check("gui readiness bridge tests", "gui_readiness_tests.py"),
             _python_test_check("dns lab harness tests", "dns_lab_harness_tests.py"),
@@ -241,6 +242,7 @@ def main() -> int:
             "  python main.py test        # full offline suite (mirrors CI)\n"
             "  python main.py gui         # launch the desktop control center\n"
             "  python main.py probe       # shared local readiness state\n"
+            "  python main.py verified-session # save a redacted runtime evidence bundle\n"
             "  python main.py release-check # release readiness gate\n"
             "  python main.py trust       # advisory trust-store setup instructions\n\n"
             "Tips:\n"
@@ -297,6 +299,10 @@ def main() -> int:
     sub.add_parser("preflight", help="run local preflight checks")
     sub.add_parser("trust", help="print advisory trust-store setup instructions")
     sub.add_parser("release-check", help="run release readiness checks")
+    sub.add_parser(
+        "verified-session",
+        help="run a verified runtime session and save a redacted evidence bundle",
+    )
     args, unknown = parser.parse_known_args()
 
     if args.command == "init":
@@ -314,6 +320,8 @@ def main() -> int:
         return run_script(SCRIPTS / "trust_assistant.py", unknown)
     if args.command == "release-check":
         return run_script(SCRIPTS / "release_check.py", unknown)
+    if args.command == "verified-session":
+        return run_script(SCRIPTS / "verified_session.py", unknown)
     if args.command == "audit":
         checks = build_audit_checks(args.config, unknown)
         return run_checks(checks, fail_fast=not args.keep_going, title="Static audit")

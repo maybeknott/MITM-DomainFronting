@@ -120,6 +120,17 @@ def main() -> int:
         )
     )
 
+    # The diagnostics probe must expose JA3 oracle parameters and only populate
+    # fingerprint_validation when an oracle is supplied. We verify the public
+    # signature so the verified-session command can rely on it.
+    import inspect
+
+    from browser_diagnostics import run_diagnostics_probe
+
+    sig = inspect.signature(run_diagnostics_probe)
+    checks.append(("probe_accepts_ja3_oracle", "ja3_oracle_url" in sig.parameters, True))
+    checks.append(("probe_accepts_expected_ja3", "expected_ja3" in sig.parameters, True))
+
     failed = False
     for name, actual, expected in checks:
         if actual != expected:
