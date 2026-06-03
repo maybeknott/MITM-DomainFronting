@@ -53,6 +53,7 @@ MITM-DomainFronting/
       0003-browser-proxy-first.md
       0004-ja3-oracle-honesty.md
       0005-local-source-labeled-telemetry.md
+      0006-target-user-and-progressive-disclosure.md
     fa/
       quick-start.md
     reference/

@@ -20,8 +20,23 @@ This file tracks product coherence work that should remain visible between relea
   `runtime-evidence.json` (config/profile hashes, listener/trust/cert evidence,
   PID dropped, root redacted).
 
-## Next
+## Target user
 
+Per ADR-0006, the project optimizes for the **motivated intermediate user** via
+progressive disclosure: one dominant next action up front, named intents instead
+of raw files, consent-based setup (no silent trust install / no silent admin
+elevation), and advanced surfaces available on demand. The "pure On/Off
+appliance for fully non-technical users" is explicitly deferred because it would
+require silent trust handling ruled out by ADR-0002.
+
+## Next (anchored to ADR-0006 progressive disclosure)
+
+- Surface operating profiles as named intents (Standard / High Stealth / Legacy
+  Network) bound to `ProjectState.active_profile` — a toggle with inline
+  descriptions, never a file picker.
+- Make auto-setup *prepare and recommend* CA + preflight in one flow, while
+  routing trust install / admin elevation through explicit confirmation
+  (reusing `RepairAction.requires_admin` / `confirmation_required`).
 - Extract more of `scripts/gui.py` into focused GUI modules.
 - Add a guided trust checklist panel backed by shared readiness fields.
 - Surface JA3 oracle fields and `verified-session` in the GUI (CLI path done).
@@ -29,6 +44,16 @@ This file tracks product coherence work that should remain visible between relea
 - Consolidate CA docs into a single certificate reference.
 - Consolidate DNS/profile/protocol docs into a single network-model reference.
 - Add JSON schemas for `configs/`, `providers/`, and `config-src/`.
+
+## Out of scope (deliberate)
+
+- Single On/Off appliance with silent CA trust / auto-elevation (conflicts with
+  ADR-0002; revisit only via a new ADR).
+- Supercomposition rewrites: PyO3 interpreter embedding, Cap'n Proto / shared-
+  memory IPC, Tauri/Slint UI migration, io_uring/eBPF kernel-bypass, embedding
+  the Rust core inside Xray. These raise complexity/risk and conflict with
+  ADR-0001 (Xray as runtime) and ADR-0003 (browser-proxy-first). Track as
+  research, not roadmap.
 
 ## Open Gaps
 
