@@ -28,6 +28,7 @@ from browser_common import (
     navigation_succeeded,
     resolve_profile_dir,
     transport_hardening_args,
+    verify_ja3_against_oracle,
     DEFAULT_CERT,
 )
 
@@ -44,6 +45,8 @@ def run_diagnostics_probe(
     headless: bool = False,
     navigation_timeout_ms: int = 30000,
     cert_path: Path = DEFAULT_CERT,
+    ja3_oracle_url: Optional[str] = None,
+    expected_ja3: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = load_integration_config()
     proxy_url = proxy_url or default_proxy_url(cfg)
@@ -110,6 +113,21 @@ def run_diagnostics_probe(
             telemetry["network_telemetry"]["certificate_chain_state"] = (
                 "ignore_https_errors" if telemetry["execution_state"]["page_load_success"] else "verify_failed"
             )
+
+            # Optional, opt-in JA3 measurement against an operator-supplied echo
+            # oracle. JA3 lives in the TLS ClientHello on the wire and cannot be
+            # read from page JavaScript, so this stays explicitly opt-in and is
+            # the only path allowed to populate fingerprint_validation with a
+            # measured result. Without an oracle, verification_method stays
+            # "not_measured" — we never fabricate a JA3 match.
+            if ja3_oracle_url:
+                ja3_result = verify_ja3_against_oracle(
+                    page,
+                    ja3_oracle_url,
+                    expected_ja3=expected_ja3,
+                    timeout_ms=navigation_timeout_ms,
+                )
+                telemetry["fingerprint_validation"].update(ja3_result)
         except Exception as exc:  # noqa: BLE001
             telemetry["execution_state"]["execution_exception"] = str(exc)
             telemetry["network_telemetry"]["handshake_latency_ms"] = int(
@@ -135,6 +153,19 @@ def main() -> int:
     parser.add_argument("--headless", action="store_true", help="Run headless (not recommended for MITM debug)")
     parser.add_argument("--timeout-ms", type=int, default=30000)
     parser.add_argument("--cert", type=Path, default=DEFAULT_CERT)
+    parser.add_argument(
+        "--ja3-oracle",
+        default=None,
+        help=(
+            "Optional JA3 echo oracle URL. When set, the probe navigates to it "
+            "through the proxy and records the measured JA3 in fingerprint_validation."
+        ),
+    )
+    parser.add_argument(
+        "--expected-ja3",
+        default=None,
+        help="Optional expected JA3 (or JA3 hash) to compare against the measured value.",
+    )
     args = parser.parse_args()
 
     result = run_diagnostics_probe(
@@ -144,6 +175,8 @@ def main() -> int:
         headless=args.headless,
         navigation_timeout_ms=args.timeout_ms,
         cert_path=args.cert,
+        ja3_oracle_url=args.ja3_oracle,
+        expected_ja3=args.expected_ja3,
     )
     emit_json(result)
     return 0 if result["execution_state"]["page_load_success"] else 1

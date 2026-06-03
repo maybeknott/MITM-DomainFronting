@@ -218,6 +218,16 @@ py -3 scripts\lab_evidence_run.py --json-out lab-evidence.bundle.json
 py -3 scripts\lab_evidence_validate.py lab-evidence.bundle.json
 ```
 
+برای ساخت یک بسته شواهد اجرای واقعی (redacted) که وضعیت آماده‌بودن، listener، گواهی، trust و در صورت تمایل یک Page Check و اندازه‌گیری JA3 را در یک فایل جمع می‌کند:
+
+```powershell
+py -3 main.py verified-session
+py -3 main.py verified-session --page-check --page-url https://example.com
+py -3 main.py verified-session --page-check --ja3-oracle https://ja3.example/json --expected-ja3 <hash>
+```
+
+خروجی به‌صورت پیش‌فرض در `.local-state/runtime-evidence.json` ذخیره می‌شود. مقدار JA3 فقط وقتی «measured» گزارش می‌شود که یک oracle بدهید؛ در غیر این صورت `not_measured` می‌ماند. مسیرهای محلی و PID از بسته حذف می‌شوند.
+
 ## راهنماهای تکمیلی
 
 - شروع سریع فارسی: `docs/fa/quick-start.md`
