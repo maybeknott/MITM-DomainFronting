@@ -1,5 +1,10 @@
 # راهنمای برنامه گرافیکی محلی
 
+## Purpose
+
+Local Control Center guide for `scripts/gui.py`: startup workflow, pages, telemetry rail,
+security boundaries, and Windows executable build.
+
 <div dir="rtl">
 
 فایل `scripts/gui.py` مرکز کنترل محلی این پروژه است. این برنامه برای راه‌اندازی اولیه، اجرای پروکسی، تست مرورگر، بررسی سلامت، تعمیر فایل‌های تولیدی و ساخت گزارش پشتیبانی طراحی شده است. برنامه فقط روی سیستم شما اجرا می‌شود و از کتابخانه استاندارد Python استفاده می‌کند.
@@ -135,7 +140,7 @@ Log Drawer خروجی را به سه بخش تقسیم می‌کند:
 
 - **System**: پیام‌های عمومی برنامه.
 - **Core**: پیام‌های مربوط به Xray Core و اتصال.
-- **Checks**: خروجی validate، health، audit و ابزارهای بررسی.
+- **Checks**: خروجی validate، health، release-check و ابزارهای بررسی.
 
 اگر Log Drawer بسته باشد و خروجی جدید برسد، دکمه آن به شکل `Show Logs *` تغییر می‌کند.
 
@@ -179,5 +184,14 @@ dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe -
 ## انتشار از طریق GitHub Actions
 
 Workflow ساخت GUI روی Windows اجرا می‌شود. برای push و pull request، خروجی به عنوان artifact ذخیره می‌شود. برای tagهایی مثل `v1.0.0`، فایل ZIP و checksum ساخته و به GitHub Release همان tag اضافه می‌شود.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`local-telemetry.md`](local-telemetry.md) | Telemetry rail and redaction |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Checks run from GUI |
+| [`release-engineering.md`](release-engineering.md) | Release and ZIP build |
+| [`fa/quick-start.md`](fa/quick-start.md) | Persian quick start |
 
 </div>

@@ -1,5 +1,9 @@
 # Android Guide
 
+## Purpose
+
+Set up v2rayNG with a locally generated CA and the primary Xray config on Android. This path targets Chromium-based browsers first; independent apps may ignore user CAs or use certificate pinning.
+
 ## Steps
 
 1. Install v2rayNG.
@@ -24,3 +28,12 @@ If the browser works but an independent app fails, treat it as an app compatibil
 | Browser works, app fails | app pinning/custom trust | Use browser path or mark unsupported |
 | Works on Wi-Fi not mobile | IPv6/NAT64/provider DNS | Add network details and DNS check |
 | Internet broken after stop | FakeDNS/VPN cache | Toggle airplane mode and follow FakeDNS recovery |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`android-trust-model.md`](android-trust-model.md) | User CA vs app trust behavior |
+| [`ca-install-guide.md`](ca-install-guide.md) | Android CA install steps |
+| [`tun-operational-notes.md`](tun-operational-notes.md) | TUN/VPN checks on Android |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | Network recovery after stop |

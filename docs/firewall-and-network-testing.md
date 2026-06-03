@@ -1,6 +1,8 @@
 # Firewall and Network Testing
 
-## Goal
+## Purpose
+
+Verify that local proxy and decrypt ports bind to loopback only and are not reachable from other devices on public Wi-Fi or LANs. Use these scenarios when validating listener binding and host firewall posture.
 
 Confirm that local ports are not reachable from other devices and that the config behaves reasonably on public Wi-Fi, normal LANs, and hostile local networks.
 
@@ -74,3 +76,12 @@ sudo ufw deny in to any port 11777 proto tcp
 ```
 
 Loopback local use still works because firewall rules generally target inbound network interfaces, not local loopback.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`listener-binding.md`](listener-binding.md) | Required ports and `listen` fields |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Loopback checks in preflight |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | Network recovery after stop |
+| [`THREAT_MODEL.md`](../THREAT_MODEL.md) | Untrusted LAN assumptions |

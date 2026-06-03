@@ -1,8 +1,8 @@
 # DNS Resilience
 
-## Objective
+## Purpose
 
-DNS is not a helper detail. It is a core runtime dependency. If DNS breaks, routing breaks. If DNS drifts, services break. This document keeps one simple config while adding clear DNS handling, tests, and recovery steps.
+Document DNS as a core runtime dependency: resolver paths, FakeDNS behavior, edge cases, test plans, and recovery steps. When DNS breaks or drifts, routing and service reachability break with it.
 
 ## Current DNS dependency model
 
@@ -77,11 +77,6 @@ python scripts/dns_lab_harness.py --scenario fake-dns-lab --domain example.com -
 python scripts/dns_lab_harness.py --scenario split-dns --private-domain router.local --resolver 1.1.1.1 --resolver 8.8.8.8
 python scripts/dns_lab_harness.py --scenario nat64-dns64 --nat64-domain ipv4only.arpa --resolver 1.1.1.1 --resolver 8.8.8.8
 python scripts/dns_lab_harness.py --scenario captive-portal
-```
-
-See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) and:
-
-```bash
 python scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
 ```
 
@@ -142,3 +137,12 @@ Use `--allow-warn` on desktops or in CI when full lab network conditions are not
 - FakeDNS cache recovery is documented.
 - DNS rule tags are present.
 - DNS validation runs in CI.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`dns-profiles.md`](dns-profiles.md) | Named DNS policy profiles |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | Stale FakeDNS recovery |
+| [`lab-evidence-checklist.md`](lab-evidence-checklist.md) | Lab scenario matrix and bundle |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | DNS checks in preflight |

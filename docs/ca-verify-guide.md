@@ -1,8 +1,8 @@
 # CA Verify Guide
 
-## Goal
+## Purpose
 
-Confirm that the certificate file, local key, and installed trusted certificate match what the config expects.
+Confirm that `mycert.crt`, `mycert.key`, and any installed trusted certificate match what the Xray config expects. Use this guide after install, rotation, or when the browser shows privacy or certificate errors.
 
 ## Step 1: local status
 
@@ -56,3 +56,12 @@ client:
 ```
 
 Never share `mycert.key`.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-install-guide.md`](ca-install-guide.md) | Platform install steps |
+| [`ca-wrong-certificate-recovery.md`](ca-wrong-certificate-recovery.md) | Wrong or duplicate CA installed |
+| [`ca-expired-certificate-recovery.md`](ca-expired-certificate-recovery.md) | Expired local CA |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Pair checks and rotation commands |

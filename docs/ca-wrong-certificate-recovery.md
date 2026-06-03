@@ -1,5 +1,9 @@
 # Wrong-Certificate Recovery
 
+## Purpose
+
+Fix browser privacy errors when a CA is installed but its fingerprint does not match the current `mycert.crt` and `mycert.key` pair. Compare fingerprints, remove stale trust entries, reinstall the current cert, and verify before restarting the client.
+
 ## Symptoms
 
 - Browser shows certificate/privacy errors even though a CA is installed.
@@ -34,3 +38,12 @@ Write down the fingerprint. Then inspect the OS/browser trusted CA entry and com
 | Copied cert from another device | Generate local cert/key pair and install that cert |
 | Installed cert in OS but browser uses own store | Import into browser or enable browser OS trust |
 | Android installed old cert | Remove old user credential and install current one |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint verification steps |
+| [`ca-install-guide.md`](ca-install-guide.md) | Platform install procedure |
+| [`ca-remove-guide.md`](ca-remove-guide.md) | Remove stale trust entries |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Cert/key mismatch lifecycle state |

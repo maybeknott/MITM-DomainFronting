@@ -1,5 +1,9 @@
 # Reviewer Checklist
 
+## Purpose
+
+Pre-merge checklist for config, DNS, certificate, documentation, and release changes. Complete relevant sections before merging behavior-affecting work.
+
 Use this checklist before merging config, DNS, certificate, documentation, or release changes.
 
 ## Config review
@@ -64,8 +68,17 @@ Use this checklist before merging config, DNS, certificate, documentation, or re
 - [ ] Checksums generated.
 - [ ] Validation report generated.
 - [ ] Support matrix updated.
-- [ ] Known issues updated.
+- [ ] Risk register reviewed in engineering handbook.
 - [ ] Final verdict written.
 - [ ] Any new dependency is reflected in requirements/CI and validated on clean checkout.
 - [ ] Existing script CLI contracts remain stable, or breaking changes are versioned and documented.
 - [ ] `auto_switch_safe` remains false unless explicit governance approval exists.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`routing-correctness.md`](routing-correctness.md) | Route invariants |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | CA lifecycle docs |
+| [`release-evidence.md`](release-evidence.md) | Release validation |
+| [`final-verdict-template.md`](final-verdict-template.md) | Release verdict template |

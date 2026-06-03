@@ -1,52 +1,115 @@
-# Local Activity History
+# Local activity history (GUI telemetry)
 
-The Control Center records local activity history to help users explain what happened during setup and troubleshooting.
+## Purpose
+
+The Control Center records **local-only** activity history so operators can explain
+what happened during setup and troubleshooting. This is **not** remote telemetry —
+nothing is uploaded automatically (ADR-0005).
+
+**Forensic note:** persistent disk history can be an operational security (OPSEC)
+concern on hostile hosts. Users may **Clear Activity** or delete the jsonl file;
+Track D will add optional retention caps and clear-on-exit for High Stealth mode.
+
+---
 
 ## Scope
 
-Activity history is local-only and written under `.local-state/`, which is ignored by git.
+### Recorded (local disk under `.local-state/`)
 
-It may include:
+- GUI startup and status changes
+- Command labels, exit codes, and durations
+- Whether `127.0.0.1:10808` accepts connections
+- File-presence booleans for config, certificate, key, profiles, and local tools
+- Redacted status snapshots
 
-- GUI startup and status changes;
-- command labels, exit codes, and durations;
-- local listener state such as whether `127.0.0.1:10808` accepts connections;
-- file-presence booleans for config, certificate, key, profiles, and local tools;
-- redacted status snapshots.
+### Never recorded
 
-It must not include:
+- Private keys or certificate key material
+- Request or response bodies
+- Cookies, tokens, account identifiers, or credentials
+- Decrypted payloads
+- Automatic uploads or remote reporting
 
-- private keys or certificate key material;
-- request or response bodies;
-- cookies, tokens, account identifiers, or credentials;
-- decrypted payloads;
-- automatic uploads or remote reporting.
+---
 
 ## Files
 
 ```text
-.local-state/gui-telemetry.jsonl
-.local-state/gui-telemetry-export.diagnostic.json
+.local-state/gui-telemetry.jsonl          # append-only during GUI use (gitignored)
+.local-state/gui-telemetry-export.diagnostic.json   # created only on Export Activity
 ```
 
-The JSONL file is append-only during normal GUI use. The export file is created only when the user clicks **Export Activity**.
+Clearing activity history does **not** change configs, certificates, trust stores, or
+running Xray processes.
 
-## GUI Controls
+---
 
-The **Dashboard** screen shows a right-side **Live Telemetry** rail:
+## GUI controls
 
-- **Downlink** and **Uplink**: local OS network rates with compact sparklines;
-- **Connections**: GUI/core activity stream count;
-- **Requests**: local GUI activity event count;
-- **Blocked**: failed/blocked/error activity events;
-- **Local & Private**: a visible reminder that telemetry stays on the device;
-- **Quick Actions**: opens logs, finds actions, resets statistics, or refreshes status.
+**Dashboard — Live Telemetry rail**
 
-The detailed activity actions are still available from the command palette and related tools:
+| Control | Meaning |
+|---|---|
+| Downlink / Uplink | Local OS network rates with sparklines |
+| Connections | GUI/core activity stream count |
+| Requests | Local GUI event count |
+| Blocked | Failed/blocked/error events |
+| Local & Private | Reminder that data stays on device |
 
-- **Run Full Status**: records a redacted status snapshot and prints it in the local output pane;
-- **Show Activity**: prints the most recent local GUI events;
-- **Export Activity**: writes a local diagnostic JSON file for review before sharing;
-- **Clear Activity**: removes the local GUI activity file.
+**Actions** (command palette and related tools)
 
-Clearing activity history does not change configs, certificates, trust stores, or running Xray processes.
+| Action | Effect |
+|---|---|
+| Run Full Status | Redacted snapshot in local output pane |
+| Show Activity | Recent GUI events |
+| Export Activity | Writes diagnostic JSON for manual review before sharing |
+| Clear Activity | Removes `gui-telemetry.jsonl` |
+
+---
+
+## OPSEC modes (current vs planned)
+
+| Setting | Standard default | High Stealth OPSEC (Track D — planned) |
+|---|---|---|
+| Retention | Append until user clears | Cap file size / rotate after N events |
+| On exit | File persists | Optional clear-on-exit preference |
+| Export | User-initiated only | Same — never silent upload |
+| Labels | `source: local-gui` on every record | Unchanged |
+
+Implementation target: `scripts/gui.py` preferences when Track D ships.
+
+---
+
+## What writes disk
+
+| Module | Writes telemetry to disk? | Notes |
+|---|---|---|
+| `scripts/core/failure_classifier.py` | **No** | In-memory `ProbeResult` only |
+| `scripts/decision_report.py` | **Opt-in** | Only with `--json-out <path>` |
+| `scripts/gui.py` | **Yes** | Appends to `.local-state/gui-telemetry.jsonl` |
+| `scripts/build_config.py` | **Yes** | Writes `Xray-config/*.json` — expected build artifact |
+
+---
+
+## Forensic validation procedure
+
+1. Delete `.local-state/gui-telemetry.jsonl` if present.
+2. Run a GUI session: Start Core → browse one HTTPS site → Stop Core.
+3. Inspect new files:
+
+```powershell
+Get-ChildItem -Recurse .local-state\
+```
+
+4. Confirm no unexpected probe log files appeared.
+5. Before handing device to an inspector: **Clear Activity** or delete the jsonl file.
+
+---
+
+## Related documents
+
+| Topic | Document |
+|---|---|
+| ADR-0005 policy detail | [reference/02-decisions-evasion-engineering.md](reference/02-decisions-evasion-engineering.md) (ADR-0005) |
+| Known OPSEC issues | [reference/03-issues-risks-validation.md](reference/03-issues-risks-validation.md) §1 (OPSEC-*) |
+| Threat model | [../THREAT_MODEL.md](../THREAT_MODEL.md) |

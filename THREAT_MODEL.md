@@ -1,5 +1,9 @@
 # Threat Model
 
+## Purpose
+
+State supported and unsupported use cases, sensitive assets, trust boundaries, and controls for the public repository, local Xray configuration, and release process.
+
 ## Scope
 
 This threat model covers the public repository files, local Xray configuration, local certificate/key files, local listeners, DNS/FakeDNS behavior, troubleshooting scripts, and release process.
@@ -58,7 +62,7 @@ This threat model covers the public repository files, local Xray configuration, 
 | Route drift | rule tags and validation script |
 | Geosite/GeoIP drift | release hashes and support matrix |
 | Android app failure | compatibility matrix and app trust explanation |
-| Provider policy change | provider status file and known issue entry |
+| Provider policy change | provider status documentation and validation |
 | Debug data over-sharing | redaction rules and issue template warnings |
 
 ## Maintainer boundaries
@@ -71,3 +75,26 @@ Maintainers should:
 - keep release validation artifacts;
 - keep documentation aligned with actual config behavior;
 - avoid claiming unsupported apps or protocols work without testing.
+
+## Architectural boundaries (evasion)
+
+Per engineering policy in `docs/reference/02-decisions-evasion-engineering.md`:
+
+- On-the-wire evasion is expressed primarily in **Xray configuration** (domain
+  fronting, uTLS, REALITY, TLS record fragmentation) and optionally in privileged
+  kernel shaping where explicitly consented — not via the Rust validation crate as
+  a live byte forwarder.
+- Trust, elevation, and telemetry remain **consent-based and local**. **Accepted:**
+  profile-scoped trust and OPSEC modes with user opt-in. **Rejected:** silent
+  DLL/`LD_PRELOAD` or covert system modification.
+- Supported use remains user-controlled testing on user-owned devices; techniques
+  aimed at intercepting third-party traffic without authorization stay unsupported.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`docs/reference/02-decisions-evasion-engineering.md`](docs/reference/02-decisions-evasion-engineering.md) | Evasion engineering decisions |
+| [`docs/sni-camouflage.md`](docs/sni-camouflage.md) | Camouflage SNI vs rejected injection |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reporting |
+| [`PRIVACY.md`](PRIVACY.md) | Diagnostic redaction |

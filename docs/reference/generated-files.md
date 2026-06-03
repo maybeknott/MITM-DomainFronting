@@ -1,5 +1,9 @@
 # Source And Generated Files
 
+## Purpose
+
+Define which files are edited by hand, which runtime outputs are committed for users, and which artifacts stay local-only. Use this boundary when reviewing diffs and release ZIP contents.
+
 This project has one clear source/generated boundary.
 
 ## Source Of Truth
@@ -17,6 +21,11 @@ scripts/
 scripts/core/
 tests/python/
 docs/
+  reference/          # engineering handbook (edit Markdown directly — no generator scripts)
+    00-engineering-handbook.md
+    01-architecture-runtime-delivery.md
+    02-decisions-evasion-engineering.md
+    03-issues-risks-validation.md
 src/
 ```
 
@@ -65,3 +74,12 @@ Verify a ZIP with:
 ```powershell
 py -3 scripts\verify_release_artifact.py dist\MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist\MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256
 ```
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`repository-structure.md`](../repository-structure.md) | Full repository tree |
+| [`release-engineering.md`](../release-engineering.md) | Release build workflow |
+| [`config-src/README.md`](../../config-src/README.md) | Config source boundary |
+| [`.gitignore`](../../.gitignore) | Ignored local artifacts |

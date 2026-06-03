@@ -1,5 +1,9 @@
 # Deterministic Decision Report
 
+## Purpose
+
+Produce a local, redacted explanation of routing, DNS, certificate, and health state without opaque heuristics or remote telemetry. `scripts/decision_report.py` maps preflight facts through named profiles to a support-safe JSON report.
+
 The project should avoid opaque intelligence. Local diagnostics should be explainable:
 
 ```text
@@ -67,8 +71,17 @@ python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json 
 }
 ```
 
-`policy_recommendation.auto_switch` is always `false`. The report suggests profiles and local actions only; it never mutates Xray config. For repeatable DNS/captive/FakeDNS lab scenarios, see [`lab-evidence-checklist.md`](lab-evidence-checklist.md).
+`policy_recommendation.auto_switch` is always `false`. The report suggests profiles and local actions only; it never mutates Xray config.
 
 ## Boundary
 
 The report is support-safe by design. It may contain route tags, status labels, file-existence booleans, and local port state. It must not contain full URLs, account identifiers, request/response bodies, cookies, private keys, or decrypted payload logs.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Inputs to the decision report |
+| [`operating-profiles.md`](operating-profiles.md) | Profile failure policies |
+| [`lab-evidence-checklist.md`](lab-evidence-checklist.md) | Repeatable DNS and captive scenarios |
+| [`local-telemetry.md`](local-telemetry.md) | GUI telemetry boundaries |

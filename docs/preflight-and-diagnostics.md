@@ -1,8 +1,8 @@
 # Preflight and Diagnostics
 
-## Objective
+## Purpose
 
-Catch common setup problems before users open issues. The preflight script is local-only and does not inspect request bodies. It checks files, ports, config structure, DNS reachability, and listener binding expectations.
+Catch common setup problems before users open issues. The preflight script is local-only, does not inspect request bodies, and checks files, ports, config structure, DNS reachability, and listener binding expectations.
 
 ## Preflight command
 
@@ -143,3 +143,12 @@ Users can paste:
 - proxy/VPN/TUN warnings if present;
 - route tag if available;
 - whether the issue is browser-only or app-specific.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`decision-engine.md`](decision-engine.md) | Redacted decision report |
+| [`listener-binding.md`](listener-binding.md) | Loopback port expectations |
+| [`dns-resilience.md`](dns-resilience.md) | DNS edge cases and tests |
+| [`lab-evidence-checklist.md`](lab-evidence-checklist.md) | Scenario-driven lab evidence |

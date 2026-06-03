@@ -1,5 +1,9 @@
 # macOS Guide
 
+## Purpose
+
+Generate the local CA with the shell helper, install trust in Keychain Access, import the Xray config, and verify loopback listeners and certificate fingerprint with preflight.
+
 ## Steps
 
 1. Ensure Xray is available.
@@ -23,3 +27,12 @@ python3 scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cer
 - Confirm ports 10808, 11666, 11777 are loopback-only.
 - Confirm browser trust matches local certificate fingerprint.
 - Confirm firewall does not expose local ports to the LAN.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-install-guide.md`](ca-install-guide.md) | macOS Keychain install |
+| [`listener-binding.md`](listener-binding.md) | Loopback port checks |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Preflight options |
+| [`firewall-and-network-testing.md`](firewall-and-network-testing.md) | Public Wi-Fi and LAN tests |

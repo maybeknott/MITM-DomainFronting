@@ -1,5 +1,10 @@
 # Release Engineering
 
+## Purpose
+
+Define the minimum release process, required artifacts, validation commands, and
+checklist fields so maintainers can ship reproducible releases with documented evidence.
+
 ## Objective
 
 Make every release reproducible enough that maintainers and users can understand what changed and whether the config was validated.
@@ -15,7 +20,7 @@ No complex build pipeline is required. A release can remain simple:
 5. Run `xray run -test` when Xray is available.
 6. Generate checksums.
 7. Generate `validation-report.json`.
-8. Update `KNOWN_ISSUES.md`.
+8. Update `docs/reference/03-issues-risks-validation.md` §1 if user-visible issues changed.
 9. Update `SUPPORT_MATRIX.md`.
 10. Publish artifacts.
 
@@ -28,19 +33,19 @@ Xray-config/certificate_generator.sh
 checksums.txt
 validation-report.json
 SUPPORT_MATRIX.md
-KNOWN_ISSUES.md
+docs/reference/03-issues-risks-validation.md
 CHANGELOG.md
 ```
 
 ## Validation command sequence
 
-For the standard local audit, run:
+For a standard local validation gate before release evidence, run:
 
 ```bash
-python main.py audit
+python main.py release-check
 ```
 
-On Windows, use `py -3 main.py audit` if `python` is not on `PATH`.
+On Windows, use `py -3 main.py release-check` if `python` is not on `PATH`.
 
 Use the expanded sequence below when preparing release evidence or when a specific check needs its own output:
 
@@ -102,7 +107,7 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
 - [ ] FakeDNS recovery docs are current.
 - [ ] CA lifecycle docs are current.
 - [ ] Platform matrix updated.
-- [ ] Known issues updated.
+- [ ] Issue registry in `docs/reference/03-issues-risks-validation.md` updated if needed.
 - [ ] Checksums generated.
 - [ ] Validation report attached.
 - [ ] Lab evidence bundle attached when DNS/captive/NAT64 behavior changed.

@@ -1,52 +1,90 @@
-# Provider Status and Drift Register
+# Provider status and drift register
 
-Provider and CDN behavior can change without repository changes. Keep this register current when routes, geosite data, DNS behavior, or support claims change.
+## Purpose
 
-| Provider / group | Config reference | Status | Drift risk | Evidence required before support claims |
+CDN and resolver behavior changes without a repository commit. This register records
+**support level**, **drift risk**, and **evidence required** before claiming a provider
+path works in release notes or support channels.
+
+**When to update:** route tag changes, `geosite.dat` / `geoip.dat` updates, DNS profile
+changes, or new failure reports from the field.
+
+---
+
+## Current providers
+
+| Provider / group | Config reference | Status | Drift risk | Evidence before support claims |
 |---|---|---|---|---|
 | Google / YouTube | `geosite:google`, `domain:googlevideo.com` | experimental | ALPN, QUIC, regional routing | Browser TCP/443, media playback, DNS fallback |
 | Fastly / Reddit / CNN / BuzzFeed | `geosite:fastly`, `geoip:fastly`, related domains | experimental | CDN policy and IP range drift | Domain route and IP route validation |
-| Meta / WhatsApp / Instagram | `geosite:meta` | experimental | app trust, QUIC, regional routing | Browser test and Android trust notes |
-| DNS resolvers | `no-filter-dns-cloudflare`, `no-filter-dns-google` | supported/test-required | resolver blocking or timeout | Primary timeout and fallback test |
+| Meta / WhatsApp / Instagram | `geosite:meta` | experimental | App trust, QUIC, regional routing | Browser test and Android trust notes |
+| DNS resolvers | `no-filter-dns-cloudflare`, `no-filter-dns-google` | supported/test-required | Resolver blocking or timeout | Primary timeout and fallback test |
 
-## Drift Triage
+**Wire reminder:** the logical destination travels in HTTP routing inside Xray after
+local MITM. The outer TLS Server Name Indication (SNI) is the **front domain** from
+`providers/*.yml` — validated by `scripts/core/sni_camouflage.py`, not Rust
+`tls_orchestrator.rs`.
 
-When a provider stops working, do not start by adding domains blindly. First collect:
+---
 
-- route tag that should have matched;
-- client and Xray version;
-- platform and browser/app;
-- whether failure is DNS, certificate, connection, HTTP status, media-only, or app-only;
-- whether TCP/443 works with QUIC disabled;
-- whether the same target works on another network;
-- whether `geosite.dat` and `geoip.dat` changed since the last known-good release.
+## Drift triage procedure
 
-## Evidence Levels
+When a provider stops working, **do not** add domains blindly. Collect:
+
+| Step | Action |
+|---|---|
+| 1 | Route tag that should have matched — check `providers/*.yml` → `ruleTag` |
+| 2 | Outbound `tls-repack-*` tag and camouflage `serverName`: `py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json` |
+| 3 | Client and Xray version; platform and browser/app |
+| 4 | Failure class: DNS, certificate, connection, HTTP status, media-only, or app-only |
+| 5 | TCP/443 with QUIC disabled vs enabled |
+| 6 | Same target on another network (ISP/region control) |
+| 7 | Whether `geosite.dat` and `geoip.dat` changed since last known-good release |
+| 8 | PCAP (optional): `tshark -r capture.pcap -Y "tls.handshake.extensions_server_name"` — SNI on wire vs logical Host |
+
+If the issue is user-visible and reproducible, add a row to
+[reference/03-issues-risks-validation.md](reference/03-issues-risks-validation.md) §1
+(PROV-* category).
+
+---
+
+## Evidence levels
 
 | Level | Meaning | Required evidence |
 |---|---|---|
-| `documented` | Behavior is described, not necessarily supported | Docs mention limitation and expected failure mode |
-| `experimental` | Route exists and may work for some users | At least one successful manual test and known limitations |
-| `supported/test-required` | Intended support, but release must verify | Validation report plus platform-specific test notes |
-| `unsupported` | Do not troubleshoot as a bug | Known limitation or app/provider policy prevents support |
+| `documented` | Described limitation, not necessarily supported | Docs state expected failure mode |
+| `experimental` | Route exists; may work for some users | At least one successful manual test + known limits |
+| `supported/test-required` | Intended support; release must verify | Validation report + platform test notes |
+| `unsupported` | Do not troubleshoot as product bug | Known app/provider policy blocks support |
 
-## Update Rules
+---
 
-- If a provider route changes, update `docs/routing-correctness.md`.
-- If support claims change, update `SUPPORT_MATRIX.md`.
-- If failure is user-visible, update `KNOWN_ISSUES.md`.
-- If provider metadata changes, update the matching file in `providers/`.
-- Every route listed in `providers/*.yml` must match a real `ruleTag` in the primary config.
-- If domains or IP ranges are added, record the reason and rollback path.
-- If behavior depends on geosite/geoip data, record the data source and hash in release evidence.
-- Provider dossiers must include `supported_profiles`, `tested_with` (`os`, `client`, `xray_min`), `failure_policy`, `rollback`, and `evidence_required`.
-- Validate dossier files before release:
+## Maintainer update rules
+
+| Change type | Update |
+|---|---|
+| Provider route logic | [routing-correctness.md](routing-correctness.md) |
+| Support matrix claims | `SUPPORT_MATRIX.md` (repository root) |
+| User-visible failure | [reference/03-issues-risks-validation.md](reference/03-issues-risks-validation.md) §1 |
+| Provider metadata | Matching file under `providers/` |
+| Geosite/geoip dependency | Release evidence hash in [release-evidence.md](release-evidence.md) |
+
+**Invariants:**
+
+- Every route in `providers/*.yml` must match a real `ruleTag` in the primary config.
+- New domains or IP ranges need a documented reason and rollback path.
+- Provider dossiers must include `supported_profiles`, `tested_with`, `failure_policy`,
+  `rollback`, and `evidence_required`.
+
+**Validate dossiers before release:**
 
 ```bash
 python scripts/provider_dossier_validate.py
 ```
 
-## New Provider Entry
+---
+
+## New provider entry template
 
 ```yaml
 provider_id: example
@@ -64,3 +102,13 @@ protocols:
 known_failure_modes: []
 rollback: "remove added routes"
 ```
+
+---
+
+## Related documents
+
+| Topic | Document |
+|---|---|
+| Routing invariants | [routing-correctness.md](routing-correctness.md) |
+| SNI camouflage format | [sni-camouflage.md](sni-camouflage.md) |
+| Protocol limits (QUIC, WebRTC) | [protocol-coverage.md](protocol-coverage.md) |

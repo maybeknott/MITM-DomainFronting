@@ -1,117 +1,114 @@
-# Rust Stream-Core Baseline (Milestones 4-9)
+# Rust stream-core (`mitm_stream_core`) baseline
 
-This repository now includes a tested Rust stream-core baseline at the repo root:
+## Purpose
 
-- `Cargo.toml`
-- `src/main.rs`
-- `src/alpn_policy.rs`
-- `src/backend_runtime.rs`
-- `src/h2_coalescing.rs`
-- `src/ingress.rs`
-- `src/ingress_android_tun.rs`
-- `src/ingress_loopback.rs`
-- `src/ingress_xdp_gateway.rs`
-- `src/parser.rs`
-- `src/cert_cache.rs`
-- `src/cooperative_overlay.rs`
-- `src/regression_harness.rs`
-- `src/scheduler.rs`
-- `src/tls_orchestrator.rs`
-- `src/tls_orchestrator_backend.rs`
+This document describes the **Rust validation crate** at the repository root: what it
+implements, what it deliberately does **not** do, and how to run tests.
 
-Current scope:
+**Critical boundary:** `mitm_stream_core` is **not** the production data plane.
+**Xray-core** (`xray/xray.exe`) is the sole component that forwards live traffic to
+the internet. Python spawns Xray only via `ProcessSupervisor` — not this Rust binary
+at GUI init.
 
-1. **Milestone 4: stream-core baseline**
-   - Loopback listener (`MITM_STREAM_LISTEN`, default `127.0.0.1:10808`)
-   - Safe, bounded TLS `ClientHello` parser. Per-record payload lengths are
-     validated against the RFC 8446 §5.1 ceiling (2^14 bytes) and the overall
-     ClientHello budget *before* any buffer is allocated, so a peer cannot make
-     the parser reserve a large buffer for bytes it never (or only slowly)
-     sends (pre-allocation DoS hardening)
-   - Fragment-aware collection across TLS handshake records
-   - Bounded handshake read timeout (`MITM_STREAM_HANDSHAKE_TIMEOUT_MS`,
-     default `10000`, `0` disables) so a slow/idle peer cannot pin a worker
-     thread indefinitely (slow-loris hardening)
-   - Accept-loop backoff after `accept_flow` errors, preventing a hot
-     busy-loop when accept fails persistently (e.g. file-descriptor
-     exhaustion)
-   - Misconfiguration is now visible on stderr instead of silently ignored:
-     unrecognized `MITM_STREAM_BACKEND` values, non-integer millisecond env
-     vars (`MITM_STREAM_HANDSHAKE_TIMEOUT_MS`, `MITM_STREAM_TIMEOUT_MS`), and
-     unrecognized boolean values (`MITM_STREAM_ALLOW_POLICY_INFERENCE`) emit a
-     warning and fall back to the documented default
-   - Packet backend MTU budget is configurable via `MITM_STREAM_MAX_PACKET_SIZE`
-     (default `2048`); invalid values warn and fall back to the default
-   - The observed JA3 fingerprint (string + MD5 hash, GREASE-stripped per
-     RFC 8701) is computed from each `ClientHello` and logged. Setting
-     `MITM_STREAM_EXPECTED_JA3` to the JA3 MD5 hash a genuine client of the
-     impersonated browser would present enables a runtime self-audit: a match
-     is logged, and any divergence warns loudly on stderr so a drifting
-     presented fingerprint is surfaced rather than silently tolerated
+---
 
-2. **Milestone 5: bounded cert cache**
-   - Bounded positive cache with per-provider and global caps
-   - TTL handling
-   - Negative cache (`mark_denied` / `denied_reason`)
+## Crate layout
 
-3. **Milestone 6: TLS regression harness baseline**
-   - JA3 / JA4 / ALPN / H2-settings (ordered id *and* id:value) / TLS
-     extension-order / GREASE checks
-   - Explicit mismatch reporting
-   - `observation_from_client_hello` bridges a parsed `ClientHello` into a
-     `TlsObservation` (computing JA3 via the dependency-free `ja3` module), so
-     the same harness used in tests can self-audit the live runtime fingerprint
+| Path | Role |
+|---|---|
+| `Cargo.toml` | Empty `[dependencies]` — validation library, not a TLS stack |
+| `src/main.rs` | Optional loopback harness (lab); prints policy outcome |
+| `src/parser.rs` | Bounded TLS ClientHello parser |
+| `src/ja3.rs` | Parse ClientHello → JA3 string/hash; offline JA3 regression check |
+| `src/regression_harness.rs` | JA3/ALPN/H2/extension-order regression gates |
+| `src/cert_cache.rs` | In-memory cert cache **model** (not live MITM) |
+| `src/tls_orchestrator*.rs` | ALPN policy **model** (no socket I/O) |
+| `src/h2_coalescing.rs` | HTTP/2 coalescing **model** |
+| `src/ingress_*.rs` | Ingress **fixtures** (loopback, Android TUN model, XDP mock) |
+| `src/cooperative_overlay.rs` | Session/auth **model** for regression |
+| `src/backend_runtime.rs` | Selects ingress fixture for harness |
+| `src/scheduler.rs` | Adaptive path scheduler baseline (tests) |
 
-4. **Milestone 7: adaptive path scheduler baseline**
-   - Foreground selection avoids open circuits
-   - Background half-open probe selection
-   - Request lifecycle tracking (`begin_request` / `finish_request`)
-   - Failure phase carried in samples
+`ingress_xdp_gateway.rs` is explicitly a **validation fixture** — not a loaded eBPF
+program on the live egress path.
 
-5. **Milestone 8: ingress boundary baseline**
-   - Separate stream and packet ingress traits
-   - Desktop loopback ingress backend implementing the stream trait
-   - Packet references reject empty packets
-   - Flow metadata supports unknown original destination
+---
 
-6. **Milestone 9: cooperative overlay baseline**
-   - Session open/authentication boundary via `OverlayAuthenticator`
-   - Strict sequence handling with replay/out-of-order rejection
-   - Explicit UDP-to-TCP fallback state toggles
-   - Idle session pruning and bounded session capacity
+## Milestone capabilities (validation scope)
 
-7. **ALPN policy lock baseline**
-   - Local ALPN can only be selected from client-offered and provider-allowed values
-   - Forced modes (`force_http11`, `force_h2`) fail when the upstream result conflicts
-   - `reject_mismatch` mode clones the upstream selection but fails closed when it
-     diverges from the client's most-preferred (first-offered) protocol, so the
-     MITM never silently downgrades the client's top ALPN preference
-   - Missing upstream selection is reported as a policy error
+1. **Stream-core baseline** — loopback listener (`MITM_STREAM_LISTEN`, default
+   `127.0.0.1:10808`); bounded ClientHello parser with pre-allocation DoS hardening;
+   fragment-aware collection; handshake timeout; accept-loop backoff; env var warnings;
+   JA3 regression check via `MITM_STREAM_EXPECTED_JA3`.
 
-8. **HTTP/2 coalescing guard baseline**
-   - Sessions bind to one provider family
-   - `:authority` values are normalized before tracking
-   - Cross-provider reuse fails closed
+2. **Cert cache model** — bounded positive/negative cache with TTL.
 
-9. **TLS orchestration baseline**
-   - Upstream ALPN negotiation and local ALPN commit are split behind explicit traits
-   - Fallback policy is explicit (`FailClosed`, `ForceHttp11IfPossible`, `BypassWithoutMitm`)
-   - Upstream negotiation errors can degrade to bypass mode when policy allows
+3. **TLS regression harness** — JA3/JA4/ALPN/H2 SETTINGS order and id:value checks;
+   extension order; GREASE handling; `observation_from_client_hello` bridge.
 
-10. **Backend runtime fallback baseline**
-    - Runtime backend selection supports `auto`, `loopback`, `android_tun`, `gateway_xdp`
-    - Android TUN and XDP packet backends are capability-gated and bounded
-    - Unsupported or misconfigured packet backends automatically fall back to loopback with visible runtime notes
+4. **Scheduler baseline** — circuit avoidance, probe selection, request lifecycle.
 
-Important limits:
+5. **Ingress traits** — stream vs packet backends; loopback implements stream trait.
 
-- This is **not** a production TLS MITM engine yet.
-- No handcrafted TLS `ServerHello` forging is implemented.
-- Android TUN and AF_XDP paths are bounded packet backends with explicit fallback to loopback.
-- No runtime auto-switching is introduced by this Rust baseline.
+6. **Cooperative overlay model** — session auth, sequence strictness, replay rejection.
 
-Validation:
+7. **ALPN policy lock** — client-offered ∩ provider-allowed; forced modes; reject mismatch.
 
-- Run Rust tests: `python tests/python/rust_core_tests.py`
-- Or directly: `cargo test`
-- Lint strictly: `cargo clippy --all-targets -- -D warnings`
+8. **H2 coalescing guard** — single provider family per session; authority normalization.
+
+9. **TLS orchestration model** — upstream vs local ALPN commit split; explicit fallback policy.
+
+10. **Backend runtime fallback** — `auto` / `loopback` / `android_tun` / `gateway_xdp`
+    with capability gating and visible fallback notes.
+
+---
+
+## Explicit limits (do not assume more)
+
+| Capability | Status |
+|---|---|
+| Production TLS MITM on wire | **No** — Xray + `mycert.*` |
+| Handcrafted ServerHello forging | **No** |
+| Live eBPF / libbpf in tree | **No** |
+| uTLS / rustls wire emission from `ja3.rs` | **No** |
+| Runtime auto-switching to Rust forwarder | **No** |
+| Android TUN / XDP on production path | **Harness models only** |
+
+---
+
+## Production boundary
+
+This crate validates models and regression gates. **Xray** owns live TLS MITM, routing,
+and outbound repack on the wire.
+
+| Capability | This crate | Live owner |
+|---|---|---|
+| `ingress_xdp_gateway.rs` loads libbpf | Mock `BatchPacketBuffer` | Xray + optional Track D helper |
+| `ja3.rs` drives live uTLS | Parses → JA3 hash | Xray `tlsSettings.fingerprint` |
+| `tls_orchestrator.rs` mutates wire | ALPN policy model | Xray repack outbounds |
+| `cert_cache.rs` OpenSSL on disk | In-memory model | Xray + `mycert.crt` / `.key` |
+| Python spawns Rust + Xray at init | Harness optional | **Xray only** |
+
+Rust module verification checklists: [reference/02-decisions-evasion-engineering.md](reference/02-decisions-evasion-engineering.md) (ADR-0007).
+
+---
+
+## Validation commands
+
+```bash
+python tests/python/rust_core_tests.py
+cargo test --locked
+cargo clippy --all-targets -- -D warnings
+```
+
+Optional harness env vars: `MITM_STREAM_BACKEND`, `MITM_STREAM_EXPECTED_JA3`,
+`MITM_STREAM_HANDSHAKE_TIMEOUT_MS` — see `src/main.rs` and module docs.
+
+---
+
+## Related documents
+
+| Topic | Document |
+|---|---|
+| Production runtime graph | [reference/01-architecture-runtime-delivery.md](reference/01-architecture-runtime-delivery.md) §2 |
+| ADR-0007 validation boundary | [reference/02-decisions-evasion-engineering.md](reference/02-decisions-evasion-engineering.md) (ADR-0007) |

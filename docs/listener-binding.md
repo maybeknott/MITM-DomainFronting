@@ -1,8 +1,8 @@
 # Listener Binding and Local Port Exposure
 
-## Goal
+## Purpose
 
-The local inbounds should only accept connections from the user's own machine. This is especially important on public Wi-Fi, LANs, and hostile local networks.
+Keep local inbounds on loopback so proxy and decrypt ports are not reachable from other devices on a LAN or public Wi-Fi. This document lists required ports, recommended `listen` fields, and verification commands.
 
 ## Required local ports
 
@@ -101,3 +101,12 @@ LAN_IP:10808
 ## API/admin endpoints
 
 Do not expose unauthenticated admin/API endpoints. If metrics or debug endpoints are added later, bind them to `127.0.0.1` only and keep them disabled by default unless needed for local troubleshooting.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`firewall-and-network-testing.md`](firewall-and-network-testing.md) | LAN and public Wi-Fi exposure tests |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Automated loopback checks |
+| [`routing-correctness.md`](routing-correctness.md) | Redirect rules to tunnel ports |
+| [`THREAT_MODEL.md`](../THREAT_MODEL.md) | Local listener risk controls |

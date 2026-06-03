@@ -1,5 +1,9 @@
 # config-src
 
+## Purpose
+
+Build-time source boundary for the primary Xray config. Users still import `Xray-config/MITM-DomainFronting.json`; this directory holds the JSON and metadata that rebuild that file under CI.
+
 This directory is the build-time source boundary for the repository config. It does
 not change the current user import workflow.
 
@@ -29,3 +33,12 @@ python scripts/config_src_validate.py --run-steps
 python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 python scripts/config_src_merge_test.py
 ```
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`fragments/README.md`](fragments/README.md) | Fragment overlay authoring |
+| [`docs/routing-correctness.md`](../docs/routing-correctness.md) | Route validation |
+| [`docs/reference/generated-files.md`](../docs/reference/generated-files.md) | Source vs generated boundary |
+| [`docs/repository-structure.md`](../docs/repository-structure.md) | Repository layout |

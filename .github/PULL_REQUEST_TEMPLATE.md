@@ -23,7 +23,7 @@ Describe what changed and why.
 - [ ] Route order was reviewed if routing changed.
 - [ ] DNS behavior was reviewed if DNS changed.
 - [ ] Platform compatibility docs were updated if behavior changed.
-- [ ] Known issues were updated if a limitation remains.
+- [ ] Issue registry in `docs/reference/03-issues-risks-validation.md` updated if a limitation remains.
 
 ## Notes for reviewers
 

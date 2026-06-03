@@ -1,5 +1,9 @@
 # CA Rotate Guide
 
+## Purpose
+
+Replace the local CA certificate and private key when the cert expires, trust no longer matches, or the key may have been exposed. Rotation keeps the trusted store aligned with the files referenced in the Xray config.
+
 ## When to rotate
 
 Rotate the local CA when:
@@ -50,3 +54,12 @@ Then reinstall `Xray-config\mycert.crt` into the intended trust store.
 | New cert generated but browser still fails | Remove old CA from trust store and install new CA |
 | New key missing | Regenerate both cert and key |
 | Permission error | Run from writable directory or choose another output directory |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-install-guide.md`](ca-install-guide.md) | Install the new CA after rotation |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Confirm fingerprint after rotation |
+| [`ca-emergency-key-compromise.md`](ca-emergency-key-compromise.md) | Key exposure response |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Lifecycle states and commands |

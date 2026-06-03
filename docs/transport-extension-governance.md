@@ -1,5 +1,9 @@
 # Transport Extension and Configuration Governance
 
+## Purpose
+
+Define in-scope transport work, engineering vocabulary, profile failure isolation, and CI guardrails for transport and profile changes. Proposals outside these boundaries should go to upstream engines or separate privileged components.
+
 This document codifies the technical review matrix, engineering terms, and compliance guardrails governing transport modifications and profile evaluations within this repository.
 
 ## 1. Architectural Scopes & Boundaries
@@ -51,3 +55,12 @@ Our continuous integration toolchain runs `scripts/transport_experiment_validate
 * Lacks a defined, verified rollback plan or leaves the repository non-goals array empty.
 
 Manifest entries live in `configs/transport-experiments.json`.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`transport-profiles.md`](transport-profiles.md) | Shipped transport expectations |
+| [`operating-profiles.md`](operating-profiles.md) | Strict/balanced/compatibility/debug |
+| [`protocol-coverage.md`](protocol-coverage.md) | Protocol support matrix |
+| [`reference/02-decisions-evasion-engineering.md`](reference/02-decisions-evasion-engineering.md) | Evasion engineering decisions |

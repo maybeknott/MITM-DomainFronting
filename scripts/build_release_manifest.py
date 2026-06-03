@@ -158,7 +158,7 @@ def main() -> int:
         root / "Xray-config" / "certificate_generator.sh",
         root / "README.md",
         root / "SUPPORT_MATRIX.md",
-        root / "KNOWN_ISSUES.md",
+        root / "docs/reference/03-issues-risks-validation.md",
         root / "CHANGELOG.md",
         root / "SECURITY.md",
         root / "PRIVACY.md",

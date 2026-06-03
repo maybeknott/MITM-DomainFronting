@@ -1,5 +1,9 @@
 # Privacy and Diagnostic Data
 
+## Purpose
+
+Explain local plaintext exposure from the trusted CA model, what the tool does not protect, and redaction rules before posting diagnostics to public issues.
+
 ## Runtime data
 
 The repository does not need telemetry, analytics, remote logging, or uploaded diagnostics to function.
@@ -44,3 +48,12 @@ Before posting an issue:
 ## Maintainer policy
 
 Maintainers should delete or hide private keys and sensitive logs posted publicly, then instruct the user to rotate their CA.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`local-telemetry.md`](docs/local-telemetry.md) | GUI telemetry boundaries |
+| [`relay-and-metrics-policy.md`](docs/relay-and-metrics-policy.md) | Metrics redaction |
+| [`preflight-and-diagnostics.md`](docs/preflight-and-diagnostics.md) | Support-safe diagnostics |
+| [`SECURITY.md`](SECURITY.md) | Vulnerability reporting |

@@ -1,8 +1,11 @@
 # Routing Correctness
 
-## Objective
+## Purpose
 
-The route table is the most important correctness surface in the repository. A small change in rule order can alter the entire behavior of the config because route rules are evaluated in order. This document keeps the current single-config model, but makes route behavior easier to audit.
+Document route invariants, rule-tag conventions, and validation checks for the primary
+Xray config so rule-order changes stay reviewable and testable. A small change in
+rule order can alter the entire behavior of the config because route rules are
+evaluated in order.
 
 ## Current routing risks
 
@@ -137,3 +140,12 @@ python scripts/build_config.py --check-runtime-sync --generate-profiles --check-
 ```
 
 Fragments under `config-src/fragments/` merge into `build/config/MITM-DomainFronting.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy of `config-src/base.json`, and CI requires that copy to remain identical to the runtime import target.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`protocol-coverage.md`](protocol-coverage.md) | Protocol expectations by route path |
+| [`provider-status.md`](provider-status.md) | Provider drift and route groups |
+| [`operating-profiles.md`](operating-profiles.md) | Strict/balanced/debug profile behavior |
+| [`config-src/README.md`](../config-src/README.md) | Config source boundary |

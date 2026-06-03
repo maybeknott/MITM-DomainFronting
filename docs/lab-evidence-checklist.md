@@ -1,5 +1,9 @@
 # Lab Evidence Checklist
 
+## Purpose
+
+Collect real-environment evidence beyond static CI validation: DNS harness scenarios, FakeDNS recovery, and redacted bundles suitable for release notes or support escalation.
+
 Use this when collecting **real-environment** evidence beyond static CI validation.
 
 ## Automated local bundle
@@ -27,7 +31,7 @@ This runs DNS harness scenarios (including `fake-dns-lab` and `captive-portal`) 
 | captive-portal | Hotel/airport Wi-Fi | HTTP 204 from connectivity check |
 | fakedns recovery | Xray stopped after FakeDNS use | Recovery steps documented |
 
-## Maintainer release attach list
+## Release attach list
 
 - [ ] `lab-evidence.bundle.json` from target platform
 - [ ] `validation-report.json` from clean commit
@@ -42,3 +46,12 @@ This runs DNS harness scenarios (including `fake-dns-lab` and `captive-portal`) 
 - Long-running QUIC leakage under mixed network conditions
 
 Record those manually in issue templates or [`release-evidence.md`](release-evidence.md).
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`dns-resilience.md`](dns-resilience.md) | DNS harness commands |
+| [`release-evidence.md`](release-evidence.md) | Release validation bundle |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | FakeDNS recovery procedure |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Static preflight checks |

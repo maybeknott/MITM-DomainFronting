@@ -1,5 +1,9 @@
 # Support Matrix
 
+## Purpose
+
+Summarize documented platform and protocol support levels. Do not claim app or protocol support without validation evidence attached to a release.
+
 ## Summary
 
 | Area | Status | Notes |
@@ -20,3 +24,12 @@
 | Release | Xray | v2rayN | v2rayNG | Windows | Android | macOS | Linux | Notes |
 |---|---|---|---|---|---|---|---|---|
 | current main | min 26.2.6 per config | test before release | test before release | supported path documented | browser-oriented path documented | needs release evidence | needs release evidence | Do not claim app/protocol support without validation evidence |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`docs/platform-compatibility.md`](docs/platform-compatibility.md) | Detailed compatibility matrix |
+| [`docs/protocol-coverage.md`](docs/protocol-coverage.md) | Protocol expectations |
+| [`docs/release-evidence.md`](docs/release-evidence.md) | Release validation |
+| [`docs/final-verdict-template.md`](docs/final-verdict-template.md) | Release recommendation template |

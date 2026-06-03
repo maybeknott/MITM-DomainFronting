@@ -38,3 +38,12 @@ python scripts/protocol_smoke.py --scenario udp443-policy
 python scripts/protocol_smoke.py --scenario http2-alpn --host example.com
 python scripts/protocol_smoke.py --scenario grpc-alpn --host example.com
 ```
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`protocol-coverage.md`](protocol-coverage.md) | Full protocol matrix |
+| [`transport-extension-governance.md`](transport-extension-governance.md) | Transport change governance |
+| [`sni-camouflage.md`](sni-camouflage.md) | Camouflage SNI in outbounds |
+| [`configs/transport-profiles.yml`](../configs/transport-profiles.yml) | Transport profile policy |

@@ -1,5 +1,9 @@
 # Emergency Key-Compromise Guide
 
+## Purpose
+
+Respond when `mycert.key` may have been exposed through git, issues, chat, screenshots, or an untrusted environment. Treat the old CA as compromised: remove trust, rotate locally, and verify the new fingerprint before resuming.
+
 ## Trigger
 
 Use this guide if `mycert.key` was uploaded, pasted, emailed, committed to git, screenshotted, shared, or generated on an untrusted website.
@@ -45,3 +49,12 @@ If a user posts a key in an issue:
 2. Tell the user to rotate immediately.
 3. Do not reuse that key.
 4. Do not download or test the user's key.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Standard rotation steps |
+| [`ca-remove-guide.md`](ca-remove-guide.md) | Remove compromised CA from trust stores |
+| [`SECURITY.md`](../SECURITY.md) | Vulnerability and secret-handling policy |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Key exposure lifecycle state |

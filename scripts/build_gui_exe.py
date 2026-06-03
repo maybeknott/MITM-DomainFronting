@@ -33,7 +33,7 @@ FALLBACK_TOP_FILES = (
     "PRIVACY.md",
     "CHANGELOG.md",
     "SUPPORT_MATRIX.md",
-    "KNOWN_ISSUES.md",
+    "docs/reference/03-issues-risks-validation.md",
     "THREAT_MODEL.md",
     "LICENSE",
 )

@@ -1,16 +1,21 @@
 # Release Evidence Checklist
 
+## Purpose
+
+List the commands, fields, and pass criteria that must accompany each release so
+maintainers can prove the shipped config was validated without exposing secrets.
+
 Every release should include evidence that the single shipped config was checked.
 
 ## Required Commands
 
-For a quick local audit before collecting artifacts:
+For a quick validation gate before collecting artifacts:
 
 ```sh
-python main.py audit
+python main.py release-check
 ```
 
-On Windows, use `py -3 main.py audit` if `python` is not on `PATH`.
+On Windows, use `py -3 main.py release-check` if `python` is not on `PATH`.
 
 For release evidence, collect the individual command output:
 
@@ -34,7 +39,14 @@ For GUI release assets, also attach the ZIP verifier result:
 python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256 --json
 ```
 
-See also [`lab-evidence-checklist.md`](lab-evidence-checklist.md) for scenario matrix and attach list.
+## Related documents
+
+| Topic | Document |
+|---|---|
+| Lab scenarios | [lab-evidence-checklist.md](lab-evidence-checklist.md) |
+| Final verdict | [final-verdict-template.md](final-verdict-template.md) |
+| Release process | [release-engineering.md](release-engineering.md) |
+| Issue registry | [reference/03-issues-risks-validation.md](reference/03-issues-risks-validation.md) |
 
 For local release verification with generated CA files:
 
@@ -86,7 +98,7 @@ For a normal release:
 - Metadata validation and route policy tests pass.
 - Route intent sync and config-src validation pass.
 - Transport experiment manifest validation passes.
-- Known issues and support matrix are reviewed.
+- Issue registry and support matrix reviewed ([03-issues-risks-validation.md](reference/03-issues-risks-validation.md), [SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md)).
 - Final verdict is written.
 
 For a stronger release:
@@ -105,4 +117,4 @@ The manifest records whether the repository was dirty when evidence was generate
 
 ## Final Verdict
 
-Use [final-verdict-template.md](final-verdict-template.md). A release can ship with known issues, but the known issues must be explicit.
+Use [final-verdict-template.md](final-verdict-template.md). A release can ship with documented limitations; they must be explicit in the issue registry.

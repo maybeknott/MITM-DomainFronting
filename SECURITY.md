@@ -1,5 +1,9 @@
 # Security Policy
 
+## Purpose
+
+How to report vulnerabilities, which versions are supported, and which secret material must never appear in issues or pull requests.
+
 ## Reporting a vulnerability
 
 Use GitHub private vulnerability reporting if it is enabled for this repository. If it is not available, open a minimal public issue that describes the affected file or behavior without posting private keys, cookies, credentials, request bodies, or full decrypted logs.
@@ -30,6 +34,6 @@ python scripts/secret_scan.py
 
 The scan only inspects tracked repository files. It fails on private-key-like filenames and PEM private key markers; it does not upload files or inspect traffic.
 
-## Maintainer response
+## If sensitive material is posted publicly
 
 If sensitive material is posted publicly, maintainers should hide/delete it when possible and instruct the user to rotate their local CA.

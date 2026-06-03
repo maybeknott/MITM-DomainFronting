@@ -1,5 +1,9 @@
 # Expired Certificate Recovery
 
+## Purpose
+
+Recover when the local CA has expired and the browser begins showing certificate or privacy errors. Check expiry with `mitm_trust.py`, rotate to a new pair, reinstall trust, and verify before restarting the client.
+
 ## Symptoms
 
 - Browser suddenly shows certificate/privacy errors.
@@ -34,3 +38,11 @@ python scripts/mitm_trust.py rotate --out-dir Xray-config
 - Add expiry date to local notes.
 - Check expiry before each release or major troubleshooting session.
 - Prefer rotation over trying to extend an old CA.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Full rotation workflow |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Post-rotation verification |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Expiry warnings and status fields |

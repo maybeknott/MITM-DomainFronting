@@ -1,12 +1,18 @@
 # DNS Profiles
 
+## Purpose
+
+Describe named DNS policy profiles and how they map to runtime resolver tags so
+support and release validation can reason about fallback behavior without a separate
+generator.
+
 The primary config keeps one DNS block, but support and release validation should reason about named DNS policies. The profiles in [dns-profiles.yml](../configs/dns-profiles.yml) define expected fallback behavior without requiring a separate runtime generator.
 
 ## Profiles
 
 | Profile | Purpose | Resolver order | Local DNS policy | Silent local fallback |
 |---|---|---|---|---|
-| `dns-strict` | Privacy or audit mode | Cloudflare, then Google, then fail | Private/regional only | No |
+| `dns-strict` | Privacy or strict verification mode | Cloudflare, then Google, then fail | Private/regional only | No |
 | `dns-balanced` | Normal reliability | Cloudflare, Google, documented local fallback | Private/regional/captive/enterprise | No |
 | `dns-local-first` | Captive or enterprise troubleshooting | Local, then external | Preferred for setup/private flows | Warning required |
 | `dns-debug` | Diagnostics | Report each attempt | User selected | No |
@@ -42,3 +48,12 @@ Stronger validation:
 ## Privacy Rule
 
 Do not silently fall back to local DNS for targeted public domains in strict or balanced support claims. If local DNS is used for captive or enterprise troubleshooting, the issue or release note must say so explicitly.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`dns-resilience.md`](dns-resilience.md) | Edge cases, harness, and recovery |
+| [`decision-engine.md`](decision-engine.md) | DNS fields in decision report |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | FakeDNS stale cache recovery |
+| [`configs/dns-profiles.yml`](../configs/dns-profiles.yml) | Profile definitions (source) |

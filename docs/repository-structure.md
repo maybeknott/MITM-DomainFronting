@@ -1,6 +1,14 @@
-# Repository Structure
+# Repository structure
 
-## Goal
+## Purpose
+
+Directory layout contract for reviewers, release engineers, and contributors. The
+**primary runtime artifact** is `Xray-config/MITM-DomainFronting.json`; Python and
+Rust tooling surround that config.
+
+**Engineering docs:** start at [reference/00-engineering-handbook.md](reference/00-engineering-handbook.md).
+
+## Design goal
 
 Keep the repository simple while making it easier to review, test, troubleshoot, and release. The primary user-facing runtime config remains `Xray-config/MITM-DomainFronting.json`; generated profiles, metadata, diagnostics, and the local GUI are supporting tools around that config.
 
@@ -13,8 +21,6 @@ MITM-DomainFronting/
   PRIVACY.md
   CHANGELOG.md
   SUPPORT_MATRIX.md
-  KNOWN_ISSUES.md
-  ROADMAP.md
   build_gui_exe.bat
   bootstrap.py
   main.py
@@ -47,22 +53,15 @@ MITM-DomainFronting/
     mycert.key                 # local only, ignored by git
 
   docs/
-    adr/
-      0001-xray-as-runtime.md
-      0002-no-silent-trust-install.md
-      0003-browser-proxy-first.md
-      0004-ja3-oracle-honesty.md
-      0005-local-source-labeled-telemetry.md
-      0006-target-user-and-progressive-disclosure.md
-      0007-rust-core-is-validation-not-data-plane.md
-      0008-no-raw-packet-injection-data-plane.md
-      0009-anti-censorship-is-a-first-class-goal.md
-    fa/
-      quick-start.md
     reference/
+      00-engineering-handbook.md
+      01-architecture-runtime-delivery.md
+      02-decisions-evasion-engineering.md
+      03-issues-risks-validation.md
       generated-files.md
       maintainer-map.md
-    architecture.md
+    fa/
+      quick-start.md
     routing-correctness.md
     dns-resilience.md
     protocol-coverage.md
@@ -71,13 +70,22 @@ MITM-DomainFronting/
     decision-engine.md
     dns-profiles.md
     gui.md
+    local-telemetry.md
+    rust-stream-core-baseline.md
     operating-profiles.md
     relay-and-metrics-policy.md
+    transport-profiles.md
     release-engineering.md
     release-evidence.md
     provider-status.md
     tun-operational-notes.md
     certificate-lifecycle.md
+    windows-guide.md
+    linux-guide.md
+    macos-guide.md
+    android-guide.md
+    android-trust-model.md
+    uninstall.md
     ca-install-guide.md
     ca-verify-guide.md
     ca-rotate-guide.md
@@ -92,7 +100,6 @@ MITM-DomainFronting/
     lab-evidence-checklist.md
     firewall-and-network-testing.md
     fakedns-recovery.md
-    assumptions-and-unknowns.md
     reviewer-checklist.md
     final-verdict-template.md
     evidence-map.md
@@ -233,3 +240,12 @@ Generated operating profiles and the local GUI are optional repository tools. Th
 - Routing, DNS, protocol support, platform compatibility, certificate lifecycle, browser checks, release evidence, and recovery workflows are documented under `docs/`.
 - `preflight.py`, `validate_config.py`, route checks, provider checks, transport checks, secret scan, and repository-structure tests cover the release-critical paths.
 - Issue templates ask for platform, client, DNS, and redacted diagnostics without requesting private key material.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`reference/00-engineering-handbook.md`](reference/00-engineering-handbook.md) | Engineering handbook index |
+| [`reference/generated-files.md`](reference/generated-files.md) | Source vs generated boundary |
+| [`release-engineering.md`](release-engineering.md) | Release workflow |
+| [`evidence-map.md`](evidence-map.md) | Evidence-to-safeguard map |

@@ -1,8 +1,8 @@
 # Protocol Coverage
 
-## Objective
+## Purpose
 
-Document what the current method is expected to handle, what is expected to pass through directly, what may behave inconsistently, and what is not supported. This reduces vague bug reports such as "site broken" by turning them into protocol-specific reports.
+Document what the current method is expected to handle, what passes through directly, what may behave inconsistently, and what is not supported. Use this matrix to turn vague "site broken" reports into protocol-specific diagnostics.
 
 ## Protocol matrix
 
@@ -75,3 +75,12 @@ python scripts/protocol_smoke.py --scenario http2-alpn --host example.com
 python scripts/protocol_smoke.py --scenario grpc-alpn --host example.com
 python scripts/protocol_smoke.py --scenario ipv6-connect --host ipv6.google.com --port 443
 ```
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`transport-profiles.md`](transport-profiles.md) | Transport handling summary |
+| [`operating-profiles.md`](operating-profiles.md) | UDP/443 policy by profile |
+| [`android-trust-model.md`](android-trust-model.md) | App vs browser protocol scope |
+| [`routing-correctness.md`](routing-correctness.md) | Route tags for protocol paths |

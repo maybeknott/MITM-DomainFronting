@@ -1,14 +1,12 @@
 # Platform Compatibility
 
-## Objective
+## Purpose
 
-Clarify what is expected to work on each platform without creating complex user choices. The current simple path remains:
+Summarize expected support and constraints per platform and browser class without
+adding user-facing configuration branches. Use this matrix when triaging reports,
+updating guides, or reviewing release claims.
 
-1. Generate local certificate and key.
-2. Import the config.
-3. Trust the certificate in the relevant OS/browser store.
-4. Run the client.
-5. Use supported browsers/apps according to platform limitations.
+The default operator path remains: generate local CA → import config → trust certificate → run client.
 
 ## Compatibility summary
 
@@ -90,3 +88,15 @@ Recommended wording:
 ```text
 This method is mainly browser-oriented. On Android without root, independent apps may fail because they can ignore user-installed CAs, use certificate pinning, or use network stacks that do not follow browser trust settings. A browser working does not guarantee every app will work.
 ```
+
+## Related documents
+
+| Topic | Document |
+|---|---|
+| Windows setup | [windows-guide.md](windows-guide.md) |
+| Android setup | [android-guide.md](android-guide.md) |
+| macOS setup | [macos-guide.md](macos-guide.md) |
+| Linux setup | [linux-guide.md](linux-guide.md) |
+| CA trust | [ca-install-guide.md](ca-install-guide.md) |
+| Support matrix | [../SUPPORT_MATRIX.md](../SUPPORT_MATRIX.md) |
+| Issue registry | [reference/03-issues-risks-validation.md](reference/03-issues-risks-validation.md) |

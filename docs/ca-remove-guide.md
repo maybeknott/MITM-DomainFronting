@@ -1,8 +1,8 @@
 # CA Remove Guide
 
-## Goal
+## Purpose
 
-Cleanly remove local certificate files and remove the trusted CA from the OS/browser trust store when no longer using the method.
+Remove the local test CA from OS and browser trust stores and delete local certificate files when you stop using the method. Complete all steps so stale trust entries do not cause privacy errors or unexpected TLS behavior on normal browsing.
 
 ## Step 1: stop the client
 
@@ -57,4 +57,13 @@ python scripts/mitm_trust.py remove-local --cert Xray-config/mycert.crt --key Xr
 
 ## Step 5: FakeDNS/network recovery
 
-Follow `docs/fakedns-recovery.md` to flush stale DNS caches if internet access is broken after disabling the method.
+Follow [`fakedns-recovery.md`](fakedns-recovery.md) to flush stale DNS caches if internet access is broken after disabling the method.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`uninstall.md`](uninstall.md) | Disable proxy, remove trust, and recover network |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Confirm removal and fingerprint mismatch |
+| [`fakedns-recovery.md`](fakedns-recovery.md) | DNS cache recovery after exit |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Local file and trust lifecycle |

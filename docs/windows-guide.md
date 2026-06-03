@@ -1,5 +1,9 @@
 # Windows Guide
 
+## Purpose
+
+Run the documented Windows path with v2rayN and Xray: generate or install the local CA, import the primary config, run preflight, and validate browser integration through diagnostics or stealth launchers.
+
 ## Steps
 
 1. Download/extract v2rayN with Xray core.
@@ -39,3 +43,12 @@ Stealth uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) by default;
 | Port conflict | another app uses 10808/11666/11777 | Stop other app or adjust config carefully |
 | Works in Chrome but not Firefox | browser trust mismatch | Import CA into Firefox or configure OS trust usage |
 | LAN can reach port | listener not loopback/firewall issue | Add explicit `listen: 127.0.0.1` and check firewall |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-install-guide.md`](ca-install-guide.md) | Windows CA install |
+| [`chromium-integration.md`](chromium-integration.md) | Browser diagnostics and stealth |
+| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Preflight checks |
+| [`listener-binding.md`](listener-binding.md) | Loopback port verification |

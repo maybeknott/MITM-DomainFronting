@@ -1,5 +1,9 @@
 # Relay and Metrics Policy
 
+## Purpose
+
+State constraints for relay and metrics features in a local-first project. Relays stay disabled by default; metrics stay loopback-only and redacted if added later.
+
 The current project is local-first. Relay and metrics support are not enabled by default and must stay constrained if added later.
 
 ## Relay Policy
@@ -40,3 +44,12 @@ Forbidden examples:
 - decrypted payloads.
 
 The schema lives in [metrics-profiles.yml](../configs/metrics-profiles.yml). Debug data should help explain behavior without collecting user traffic.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`local-telemetry.md`](local-telemetry.md) | GUI telemetry boundaries |
+| [`PRIVACY.md`](../PRIVACY.md) | Diagnostic redaction rules |
+| [`decision-engine.md`](decision-engine.md) | Redacted health reporting |
+| [`configs/metrics-profiles.yml`](../configs/metrics-profiles.yml) | Metrics schema |

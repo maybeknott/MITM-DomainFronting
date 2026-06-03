@@ -179,7 +179,7 @@ Firefox -> Settings -> About Firefox -> پنج بار روی لوگو بزنید
 - `scripts/`: ابزارهای validate، preflight، health، DNS، route، browser و release.
 - `tests/python/`: تست‌های رگرسیون و ساختار پروژه.
 - `docs/`: راهنماهای جزئی‌تر درباره گواهی، مرورگر، DNS، پروفایل‌ها، سازگاری پلتفرم، release و عیب‌یابی.
-- `ROADMAP.md`: وضعیت کارهای انجام‌شده و شکاف‌های باقی‌مانده.
+- `docs/reference/00-engineering-handbook.md`: نمای کلی مهندسی، تصمیم‌ها، و ریسک‌های عملیاتی.
 - `.local-state/`: گزارش‌ها و تاریخچه محلی برنامه؛ خروجی پشتیبانی است و نباید بدون بازبینی ارسال شود.
 
 ## بررسی و عیب‌یابی محلی
@@ -190,7 +190,7 @@ Firefox -> Settings -> About Firefox -> پنج بار روی لوگو بزنید
 py -3 scripts\gui.py --self-test
 ```
 
-برای audit سریع:
+برای بررسی سریع پیکربندی، مسیرها و metadata (بدون اجرای Xray):
 
 ```powershell
 py -3 main.py audit

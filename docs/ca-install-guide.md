@@ -1,18 +1,8 @@
 # CA Install Guide
 
-## Goal
+## Purpose
 
-Install the locally generated `mycert.crt` so the browser or OS trusts certificates issued by the local Xray tunnel.
-
-## Before installing
-
-Run:
-
-```bash
-python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
-```
-
-Record the SHA-256 fingerprint shown by the script. After installing, verify the trusted certificate fingerprint matches this value.
+Install the locally generated `mycert.crt` so your browser or operating system trusts certificates issued by the local Xray tunnel. Follow the platform steps below, record the SHA-256 fingerprint before installing, and complete verification before troubleshooting routing or DNS.
 
 ## Windows: install for current user or local machine
 
@@ -26,7 +16,15 @@ Basic Windows flow:
 4. Select **Place all certificates in the following store**.
 5. Choose **Trusted Root Certification Authorities**.
 6. Finish the wizard.
-7. Verify fingerprint with `docs/ca-verify-guide.md`.
+7. Verify fingerprint with [`ca-verify-guide.md`](ca-verify-guide.md).
+
+Before installing, run:
+
+```bash
+python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
+```
+
+Record the SHA-256 fingerprint shown by the script. After installing, verify the trusted certificate fingerprint matches this value.
 
 PowerShell fingerprint check:
 
@@ -78,3 +76,12 @@ Android apps may ignore user-installed CAs or use certificate pinning. Browser s
 ## Verification required
 
 After installation, always run the verify guide. Do not troubleshoot routing before confirming the trusted CA fingerprint is correct.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint and trust-store checks |
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Replacing an expired or mismatched CA |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Status, rotation, and lifecycle states |
+| [`android-guide.md`](android-guide.md) | v2rayNG and Android user-CA setup |

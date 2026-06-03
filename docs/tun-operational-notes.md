@@ -1,5 +1,9 @@
 # TUN Operational Notes
 
+## Purpose
+
+Document TUN/VPN-mode checks that differ from browser-only proxy setup. TUN can capture broader traffic; validate DNS, private LAN reachability, and app trust separately from browser success.
+
 TUN mode can capture more traffic than browser proxy mode. Treat it as platform-specific and test it independently from browser-only setup.
 
 ## Required Checks
@@ -56,3 +60,12 @@ Do not mark an app as supported only because a browser works on the same device.
 | `android-browser-safe` | External VPN-service client feeding browser-oriented traffic | No | `dns-balanced` | Do not infer independent app support |
 | `desktop-full-system-strict` | Full-system capture | No | `dns-strict` | Stop on VPN, proxy, or DNS conflict |
 | `desktop-split-tunnel` | Selected routes | No | `dns-local-first` | Keep private LAN direct and review DNS capture |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`android-guide.md`](android-guide.md) | v2rayNG TUN setup |
+| [`android-trust-model.md`](android-trust-model.md) | App vs browser trust |
+| [`operating-profiles.md`](operating-profiles.md) | Profile failure policies |
+| [`protocol-coverage.md`](protocol-coverage.md) | QUIC and UDP expectations |

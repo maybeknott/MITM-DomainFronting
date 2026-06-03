@@ -1,5 +1,9 @@
 # Evidence Map
 
+## Purpose
+
+Map repository evidence to the safeguards implemented around it. Use this table to see which docs, scripts, and tests back each operational conclusion.
+
 This document maps repository evidence to the safeguards that are now implemented around it.
 
 | Evidence | Conclusion | Implemented safeguard |
@@ -14,4 +18,13 @@ This document maps repository evidence to the safeguards that are now implemente
 | Xray supports multiple transports | Protocol expectations need clear boundaries | Protocol coverage docs, transport profiles, and protocol smoke tests |
 | FakeDNS can create stale mappings | Normal internet access may look broken after exit | FakeDNS recovery guide and lab evidence checks |
 | Android trust behavior varies by app | Browser success does not imply app success | Platform compatibility matrix and Android trust model docs |
-| Provider policies can change | External drift can break routes | Provider status docs, known issues, and provider policy validation |
+| Provider policies can change | External drift can break routes | Provider status docs and provider policy validation |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`release-evidence.md`](release-evidence.md) | Release validation workflow |
+| [`reviewer-checklist.md`](reviewer-checklist.md) | Pre-merge verification |
+| [`repository-structure.md`](repository-structure.md) | Tree and safeguard summary |
+| [`reference/03-issues-risks-validation.md`](reference/03-issues-risks-validation.md) | Operational risks register |

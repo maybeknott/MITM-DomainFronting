@@ -87,3 +87,12 @@ The `.crt` can be installed locally by the user. The `.key` must remain private 
 - whether the certificate and key public keys match.
 
 It does not print private-key contents.
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`ca-install-guide.md`](ca-install-guide.md) | Install local CA on each platform |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint and pair verification |
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Rotation workflow |
+| [`ca-emergency-key-compromise.md`](ca-emergency-key-compromise.md) | Key exposure response |

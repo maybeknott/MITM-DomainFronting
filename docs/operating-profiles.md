@@ -1,5 +1,9 @@
 # Operating Profiles
 
+## Purpose
+
+Describe optional generated profiles that make failure policy explicit for testing and support. The primary import file remains `Xray-config/MITM-DomainFronting.json`; profiles adjust UDP/443 handling, catch-all behavior, and logging without replacing the main workflow.
+
 The primary import file remains `Xray-config/MITM-DomainFronting.json`. Additional profiles make failure policy explicit for testing and support.
 
 ## Profiles
@@ -59,3 +63,12 @@ That example creates files such as `MITM-DomainFronting.strict.altports.json` us
 | Debugging route behavior | `debug` | Redacted diagnostics only |
 | Missing CA trust | stop | Do not auto-install silently |
 | Weak key permissions | stop | Fix before running |
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`decision-engine.md`](decision-engine.md) | Profile in decision report |
+| [`protocol-coverage.md`](protocol-coverage.md) | UDP/443 and QUIC expectations |
+| [`dns-profiles.md`](dns-profiles.md) | DNS profile names |
+| [`configs/profiles.yml`](../configs/profiles.yml) | Profile policy source |

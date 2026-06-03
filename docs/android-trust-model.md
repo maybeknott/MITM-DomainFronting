@@ -1,5 +1,9 @@
 # Android Trust Model
 
+## Purpose
+
+Explain why Android browser success does not imply app success. User-installed CAs, system CAs, app trust policies, and VPN/TUN behavior differ by app; use this model when triaging Android reports.
+
 ## Why Android behavior differs
 
 Android separates user-installed CAs, system CAs, app trust policies, and VPN/TUN behavior. A browser may trust a user CA while an independent app may ignore it.
@@ -33,10 +37,19 @@ When reporting Android issues, specify:
 - whether HEV TUN is enabled;
 - redacted preflight output if available.
 
-## What maintainers should say
+## Recommended support wording
 
-Recommended response for app failures:
+For app failures when the browser works:
 
 ```text
 If the same service works in a browser but fails in the Android app, the app may ignore user CAs, use certificate pinning, use a custom network stack, or use UDP/QUIC/WebRTC paths not handled by the browser-oriented setup. Please test in a supported browser and provide platform details.
 ```
+
+## Related documents
+
+| Document | Topic |
+|---|---|
+| [`android-guide.md`](android-guide.md) | v2rayNG setup steps |
+| [`platform-compatibility.md`](platform-compatibility.md) | Cross-platform support matrix |
+| [`protocol-coverage.md`](protocol-coverage.md) | QUIC/WebRTC expectations |
+| [`tun-operational-notes.md`](tun-operational-notes.md) | TUN vs browser proxy on Android |
