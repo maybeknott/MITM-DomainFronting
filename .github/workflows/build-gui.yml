@@ -10,7 +10,7 @@ on:
     branches: [ main ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-gui:
@@ -67,8 +67,19 @@ jobs:
             dist/MITM-DomainFronting-Control-Center-*.zip.sha256
           if-no-files-found: error
 
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-gui
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download GUI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gui-dist
+          path: release-artifacts
       - name: Publish GUI build to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -78,6 +89,6 @@ jobs:
 
             GitHub also shows automatic source-code archives for every tag; those are not the final product package.
           files: |
-            dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip
-            dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip.sha256
+            release-artifacts/dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip
+            release-artifacts/dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip.sha256
           fail_on_unmatched_files: true

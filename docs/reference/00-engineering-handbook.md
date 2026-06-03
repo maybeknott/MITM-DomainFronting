@@ -56,6 +56,24 @@ threat traceability ID from [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceabi
 use the same Xray config model; platform-specific containment is **TARGET** Track D — see
 `01` §2.7.
 
+### Subsystem ownership (paths)
+
+| Domain | Paths | Tier | Live egress? |
+|---|---|---|---|
+| Live data plane | `xray/`, `Xray-config/*.json`, `providers/*.yml` | SHIPPED | Yes — sole path |
+| Control plane | `main.py`, `bootstrap.py`, `scripts/gui.py`, `scripts/build_config.py`, `scripts/core/process_supervisor.py` | SHIPPED | No |
+| Validation harness | `src/`, `Cargo.toml`, `tests/python/rust_core_tests.py` | SHIPPED | No (CI / lab) |
+
+**Rust harness note (POLICY):** `mitm_stream_core` and `src/main.rs` use synchronous
+`std::thread` accept loops for the **optional** loopback lab binary — not a Tokio production
+data plane. Do **not** document Tokio `spawn_blocking` budgets or volatile `cert_cache.rs`
+zeroization as **SHIPPED**; key material today is `Xray-config/mycert.key` on disk (see `03`
+CERT-005, Track D DPAPI).
+
+**Telemetry (POLICY / TARGET):** `scripts/core/failure_classifier.py` is in-memory only
+(SHIPPED). GUI activity history writes `.local-state/gui-telemetry.jsonl` (SHIPPED behavior;
+TARGET OPSEC RAM mode — `03` §5, T-02).
+
 ## 0. Terminology (read first)
 
 This handbook spells out acronyms on first use in each document; this section is the

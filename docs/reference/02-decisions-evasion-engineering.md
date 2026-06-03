@@ -1,4 +1,4 @@
-﻿# Decisions, Evasion & Engineering Specifications
+# Decisions, Evasion & Engineering Specifications
 
 ## Purpose
 
@@ -20,6 +20,36 @@ Terminology: [00-engineering-handbook.md](00-engineering-handbook.md) §0.
 | Live egress via `ingress_xdp_gateway.rs` | **REJECTED** | Regression fixture only `[TM-10]` |
 
 Traceability IDs: [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceability IDs.
+
+### Canonical rejected decisions register
+
+| ID | Pattern | Rationale |
+|---|---|---|
+| **REJECTED-01** | Promote `src/ingress_xdp_gateway.rs` to live egress / `libbpf` loader | Offline fixture only; breaks Windows/Android build matrix `[TM-10]` |
+| **REJECTED-02** | Inline Rust SOCKS5 splice or live multiplexing in `mitm_stream_core` | Duplicates Xray; violates ADR-0007 |
+| **REJECTED-03** | On-the-fly ClientHello byte shuffling in `ja3.rs` at connect time | Pools belong in `config-src` → Xray uTLS; Rust parses offline only |
+
+### Track A wire template (TARGET — A2/A3)
+
+When REALITY and TLS record `fragment` profiles land in `config-src`, they **SHALL** be
+expressed as Xray JSON (emitted by Xray only). Example shape:
+
+```json
+"streamSettings": {
+  "security": "reality",
+  "realitySettings": {
+    "show": false,
+    "dest": "example.com:443",
+    "serverNames": ["example.com"]
+  },
+  "sockopt": {
+    "fragment": { "packets": "1-2", "length": "100-200", "interval": "3-5" }
+  }
+}
+```
+
+**SHIPPED today:** camouflage `serverName` on repack outbounds (`docs/sni-camouflage.md`).
+**TARGET:** full block above + JA3 pool attachment (A2–A5). `[Mitigates: TM-06, TM-07]`
 
 ---
 
@@ -975,7 +1005,7 @@ stores unchanged in profile-scoped mode.
 | Action | File |
 |---|---|
 | Profile-scoped trust UX | `scripts/mitm_trust.py`, `docs/chromium-integration.md` |
-| CDP broker | **New** `scripts/core/trust_broker.py` (Track D) |
+| CDP broker | `scripts/core/trust_broker.py` scaffold (Track D) |
 | DPAPI wrap | **New** Track D module + ADR amendment |
 | Zeroize pattern | Broker + optional `src/cert_cache.rs` tests |
 
@@ -1226,7 +1256,7 @@ GREASE/padding variants only within cohort mask → reject outliers in regressio
 ### 3.4 O(1) selection (strategy layer)
 
 ```python
-# scripts/core/strategy_engine.py (planned)
+# scripts/core/strategy_engine.py (skeleton shipped)
 def pool_index(session_counter: int, pool_size: int) -> int:
     return session_counter & (pool_size - 1)  # pool_size power of two, e.g. 2048
 ```
@@ -1370,12 +1400,52 @@ Move trust, containment, and signature management into **volatile memory + kerne
 space (Track D)** and **Xray profiles (Track A)** — not a second Rust forwarder in
 `mitm_stream_core`.
 
+## 9. Implementation-readiness closure register
+
+This section turns the reference-track ideas into concrete engineering closure
+criteria. It is intentionally scoped to Xray profiles, Python control-plane
+automation, Rust offline validation, and consent-based local operation.
+
+| Track item | Owner | Concrete artifact | Required tests | Ship gate | Non-negotiable boundary |
+|---|---|---|---|---|---|
+| Profile-scoped trust | Python control plane | `scripts/core/trust_broker.py`, browser guide update | unit test for command generation; manual profile trust validation | no system CA entry in profile-scoped mode | no silent CA install, no DLL/LD_PRELOAD, no covert `cert9.db` patch |
+| Config fragment semantics | Python build pipeline | `scripts/config_src_merge.py` explicit list strategies | `tests/python/config_src_merge_test.py` | generated config matches runtime target | no implicit route-rule shadowing through blind list append |
+| Strategy selection | Python strategy layer | `scripts/core/strategy_engine.py` | deterministic pool-index vectors; labels-to-profile tests | decision report includes reason and confidence | no packet manipulation or live TLS emission in Python |
+| JA3 pool readiness | config-src + Rust validation | `config-src/templates/ja3-pools/*.json` plus expected hashes | Rust JA3 harness per template ID | oracle evidence marks measured vs configured | no on-connect random ClientHello mutation |
+| TLS fragment profile | Xray profile | config-src fragment bound to named profile | PCAP shows multi-record ClientHello | `protocol_smoke.py` scenario passes | do not implement raw split in Rust validation crate |
+| OPSEC telemetry mode | GUI/control plane | bounded retention, clear-on-exit option | file-monitor test; GUI self-test | `.local-state` growth capped in OPSEC mode | no remote telemetry upload |
+| Key-at-rest hardening | OS crypto helper | DPAPI/keychain wrapper with consent | ACL/permission test; secret scan | key never included in package/release | no shared CA, no upload |
+
+### 9.1 Definition of done for a Track A/B/D pull request
+
+Every pull request that claims Track A/B/D progress must include:
+
+1. the affected ADR row and traceability ID;
+2. exact files changed;
+3. a validation command runnable from repository root;
+4. a negative test proving the rejected implementation site remains rejected;
+5. evidence classification: `configured`, `locally verified`, or `wire measured`;
+6. rollback behavior if the profile or helper fails.
+
+### 9.2 Evidence vocabulary
+
+| Word | Meaning |
+|---|---|
+| `configured` | Config contains the setting, but no runtime or packet evidence has been collected. |
+| `locally verified` | Local validator or harness proved structure/contract. |
+| `wire measured` | PCAP/oracle/lab evidence observed the behavior on the wire. |
+| `unsupported` | Known platform/browser/provider limitation. |
+| `rejected` | Violates an accepted ADR boundary. |
+
+Pull requests must not describe configured behavior as wire measured without a
+captured artifact or oracle result.
+
 ### 5.1 Ephemeral trust (ADR-0002) — Track D
 
 | Status | Item | Implementation target |
 |---|---|---|
 | [ ] | No silent OS-wide CA in High Stealth default | `scripts/mitm_trust.py`, GUI consent |
-| [ ] | CDP/isolated Chromium profile broker | `scripts/core/trust_broker.py` (new) |
+| [ ] | CDP/isolated Chromium profile broker | `scripts/core/trust_broker.py` (scaffold shipped; CDP flow open) |
 | [ ] | Documented Firefox profile import path | `docs/chromium-integration.md` |
 | [ ] | Reject covert mmap `cert9.db` patching | ADR-0002, code review |
 | [ ] | `zeroize` on ephemeral broker key bytes | trust broker |
@@ -1400,7 +1470,7 @@ space (Track D)** and **Xray profiles (Track A)** — not a second Rust forwarde
 | [ ] | Offline template pool artifacts | `config-src/templates/ja3-pools/` |
 | [ ] | build_config attaches pool to profile | `scripts/build_config.py` |
 | [ ] | regression_harness per template id | `src/regression_harness.rs` |
-| [ ] | strategy_engine O(1) pool selection | `scripts/core/strategy_engine.py` |
+| [~] | strategy_engine O(1) pool selection | `scripts/core/strategy_engine.py` (skeleton shipped; wire to build_config open) |
 | [x] | Reject on-the-fly shuffle in Rust egress | ADR-0004, ADR-0007 |
 
 ### 5.4 Packet manipulation (ADR-0007/8) — Track A/D
@@ -1787,13 +1857,15 @@ consent and platform review — not silent substitution.
 
 ## 7. Strategy layer — concrete evolution (Track B)
 
-**Today:**
+**Today (skeleton shipped):**
 
+- `scripts/core/strategy_engine.py` — `pool_index()`, `choose_profile()` with
+  failure-label scoring and deterministic pool rotation.
 - `failure_classifier.run_staged_probe(host, port)` → `ProbeResult` with
   `phase_classification` (`dns_*`, `tcp_*`, `tls_*`, …).
 - `path_scorer.py` scores phase-weighted reports.
 
-**Target `scripts/core/strategy_engine.py` interface (planned):**
+**Still open (Track B wiring):**
 
 ```python
 @dataclass

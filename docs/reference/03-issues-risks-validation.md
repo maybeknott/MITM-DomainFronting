@@ -18,6 +18,7 @@ unknowns, and verification gates for MITM-DomainFronting.
 | **§2.1** | FMEA (shipped components) |
 | **§3** | Verification gates and lab checks |
 | **§3.1** | CI pipeline stages |
+| **§3.5** | OPSEC telemetry and build artifacts |
 | **§4** | Open engineering items |
 | **§5** | Assumptions and unknowns |
 | **§6** | Reviewer gates |
@@ -179,6 +180,23 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | WFP / nftables fail-closed docs tested | TARGET | Open — D3 |
 | Optional eBPF helper (not Rust fixture) | TARGET | Open — D7 |
 
+### 3.5 OPSEC telemetry and build artifacts (POLICY / TARGET)
+
+| Control | Tier | Requirement |
+|---|---|---|
+| GUI activity log | SHIPPED | Writes `.local-state/gui-telemetry.jsonl` — see OPSEC-001 |
+| OPSEC RAM-only telemetry | TARGET | Operator-toggle; no jsonl append (T-02, C5) |
+| failure_classifier | SHIPPED | In-memory only — no default disk log |
+| PyInstaller staging dirs | POLICY | `build/`, `dist/`, `build/pyinstaller-runs/` gitignored (T-03) |
+| Lab bundle validation | SHIPPED | `py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json` |
+
+**Validation (lab bundle):**
+
+```bash
+py -3 scripts/lab_evidence_run.py --json-out lab-evidence.bundle.json
+py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
+```
+
 ---
 
 ## 4. Open engineering items
@@ -190,7 +208,9 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | DPAPI wrap for `mycert.key` | Open | Track D |
 | JA3 oracle in GUI | Open | ADR-0004 |
 | REALITY + TLS fragment in config-src | Open | Track A |
-| `scripts/core/strategy_engine.py` | Open | Track B |
+| `scripts/core/strategy_engine.py` | Partial | Skeleton shipped — wire to `build_config.py` / supervisor reload open |
+| `scripts/core/trust_broker.py` | Partial | Profile-scoped launch scaffold — CDP cert import open |
+| Config fragment merge semantics | Closed | `scripts/config_src_merge.py` + `tests/python/config_src_merge_test.py` |
 | OPSEC telemetry mode | Open | Track D — T-02 |
 | Optional eBPF helper | Open | Track D; separate from Rust fixture |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Open | Track A — `build_config.py` + `cargo test` |

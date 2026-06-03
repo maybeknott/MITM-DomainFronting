@@ -20,6 +20,29 @@ def test_deep_merge_dict_and_list() -> None:
     assert [rule["ruleTag"] for rule in merged["routing"]["rules"]] == ["a", "b"]
 
 
+def test_append_unique_by_tag_replaces_tagged_route() -> None:
+    base = {"routing": {"rules": [{"ruleTag": "r100", "outboundTag": "direct"}]}}
+    overlay = {
+        "routing": {
+            "__merge_strategy__": {"rules": "append_unique_by_tag"},
+            "rules": [{"ruleTag": "r100", "outboundTag": "block"}],
+        }
+    }
+    assert deep_merge(base, overlay)["routing"]["rules"] == [{"ruleTag": "r100", "outboundTag": "block"}]
+
+
+def test_replace_marker_replaces_subtree() -> None:
+    base = {"dns": {"servers": [{"address": "localhost"}], "queryStrategy": "UseIPv4"}}
+    overlay = {"dns": {"__replace__": True, "servers": [{"address": "fakedns"}]}}
+    assert deep_merge(base, overlay) == {"dns": {"servers": [{"address": "fakedns"}]}}
+
+
+def test_append_unique_deduplicates_scalars() -> None:
+    base = {"domains": ["geosite:google", "geosite:meta"]}
+    overlay = {"__merge_strategy__": {"domains": "append_unique"}, "domains": ["geosite:google", "geosite:fastly"]}
+    assert deep_merge(base, overlay)["domains"] == ["geosite:google", "geosite:meta", "geosite:fastly"]
+
+
 def test_compile_config_from_files() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -33,7 +56,13 @@ def test_compile_config_from_files() -> None:
 
 
 def main() -> int:
-    tests = [test_deep_merge_dict_and_list, test_compile_config_from_files]
+    tests = [
+        test_deep_merge_dict_and_list,
+        test_append_unique_by_tag_replaces_tagged_route,
+        test_replace_marker_replaces_subtree,
+        test_append_unique_deduplicates_scalars,
+        test_compile_config_from_files,
+    ]
     for test in tests:
         test()
         print(f"PASS {test.__name__}")

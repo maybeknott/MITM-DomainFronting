@@ -162,6 +162,26 @@ IDLE → SPAWNING → RUNNING → STOPPING → IDLE
 
 **Reject (POLICY):** Promote `src/ingress_xdp_gateway.rs` to live `libbpf` egress — see `01` §7.
 
+### 2.8 Loopback wire ingress (SHIPPED)
+
+Production browsers and apps reach Xray via the **mixed inbound** on loopback:
+
+| Listener | Address | Tier | Notes |
+|---|---|---|---|
+| Mixed (SOCKS + HTTP) | `127.0.0.1:10808` | SHIPPED | Primary ingress — `config-src/base.json`, `configs/browser-integration.json` |
+
+There is **no** separate `:10809` listener in the shipped primary config. Additional inbounds
+are profile-specific generated JSON only.
+
+```text
+[Browser / app] --SOCKS/HTTP--> 127.0.0.1:10808 (Xray mixed-in)
+                                      |
+                                      v
+                               tls-decrypt / tls-repack --> CDN front
+```
+
+`[Mitigates: TM-01]` — listeners MUST stay loopback unless explicitly documented and consented.
+
 ---
 
 ## 3. Component inventory
@@ -177,8 +197,8 @@ IDLE → SPAWNING → RUNNING → STOPPING → IDLE
 | Supervisor | `scripts/core/process_supervisor.py` | Xray lifecycle, Windows Job Object | Yes |
 | SNI inspector | `scripts/core/sni_camouflage.py` | Assert camouflage on repack outbounds | Yes |
 | Failure labels | `scripts/core/failure_classifier.py` | In-memory probe taxonomy | Yes |
-| Strategy (planned) | `scripts/core/strategy_engine.py` | O(1) pool / profile rotation | Track B |
-| Trust broker (planned) | `scripts/core/trust_broker.py` | CDP ephemeral trust | Track D |
+| Strategy (skeleton) | `scripts/core/strategy_engine.py` | O(1) pool / profile rotation | Track B — wire to build_config open |
+| Trust broker (scaffold) | `scripts/core/trust_broker.py` | Profile-scoped Chromium launch; CDP flow open | Track D |
 | Preflight | `scripts/core/platform_capability_check.py` | Capability / env checks | Partial |
 
 **Not in tree:** Python does **not** spawn `mitm_stream_core` as a production
@@ -243,7 +263,7 @@ JSON export — without persistent covert logging.
 
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
-| B1 | [ ] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | Unit tests |
+| B1 | [~] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | Unit tests for pool_index + label routing |
 | B2 | [ ] O(1) pool index `session & (size-1)` | API + docs in 02 §3.3 | Deterministic test vectors |
 | B3 | [ ] Wire engine to build_config profile names | `build_config.py` hook | Profile switch in GUI |
 | B4 | [ ] Probe orchestration CLI | `main.py probe --json-out` | Opt-in file only |
@@ -281,7 +301,7 @@ JSON export — without persistent covert logging.
 | D2 | [ ] TUN inbound profile | `config-src/tun-*.yml` | `tun-operational-notes.md` |
 | D3 | [ ] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | Leak test Xray down |
 | D4 | [ ] FakeDNS 198.18.0.0/15 | Xray DNS fragment | `fakedns-recovery.md` |
-| D5 | [ ] `trust_broker.py` CDP ephemeral CA | New module | No system store write |
+| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` | No system store write; CDP cert import open |
 | D6 | [ ] DPAPI wrap `mycert.key` | crypto helper | File ACL test |
 | D7 | [ ] Track D decision record for optional eBPF helper | `track-d/` or new ADR section in 02 | bpftool lab |
 | D8 | [ ] TTL spin / ghost segments | Xray-core or eBPF | Suricata lab |
@@ -290,6 +310,26 @@ JSON export — without persistent covert logging.
 **Phasing (mandatory):** explicit proxy (shipped) → TUN + firewall → FakeDNS → eBPF.
 
 **Reject:** Promote `ingress_xdp_gateway.rs` to production `libbpf` loader.
+
+**Appendix — platform containment (Track D, TARGET):**
+
+| OS | Mechanism | Mitigates |
+|---|---|---|
+| Windows (reference) | Job Object kill-on-close; WFP fail-closed (D3); DPAPI for `mycert.key` (D6); CDP profile trust (D5) | TM-08, TM-09; ETW visibility **accepted** (OPSEC-002) |
+| Linux | nftables redirect; network namespace optional; FakeDNS 198.18/15 via Xray (D4) | TM-03, TM-04 |
+| Android | VPN/TUN via `VpnService`; model in `ingress_android_tun.rs` (harness) | Non-root app limits — `docs/android-trust-model.md` |
+
+Live kernel shaping **MUST NOT** ship from `ingress_xdp_gateway.rs` (REJECTED-01). Optional
+Linux eBPF **SHALL** be an out-of-tree helper or Xray-core change (D7) with consent + new ADR text.
+
+### Track status matrix (bounded rigor)
+
+| Track | Tier | Wire owner | Notes |
+|---|---|---|---|
+| **A** — Xray profiles (REALITY, fragment, pools) | SHIPPED: camouflage SNI · TARGET: REALITY, fragment, pools | Xray uTLS | See §4 Track A tasks A2–A4 |
+| **B** — Strategy / probes | PARTIAL | Python selects → Xray config | `strategy_engine.py` skeleton shipped; build_config wiring open |
+| **C** — GUI / UX | SHIPPED partial | Python | Profile picker; OPSEC mode TARGET |
+| **D** — Containment | TARGET (D1 SHIPPED) | Xray TUN + OS firewall + optional helper | eBPF **not** Rust fixture |
 
 ---
 
