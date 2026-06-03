@@ -74,3 +74,14 @@ Concretely:
 - Module names that imply a live data plane (e.g. `ingress_xdp_gateway`) should
   carry doc comments clarifying they are models/fixtures, to reduce future
   confusion.
+
+## Related decisions
+
+- **ADR-0009** — Anti-censorship is a first-class goal. Evasion strength is delivered
+  through the Xray data plane (camouflage SNI, REALITY, fragmentation, etc.) plus
+  an adaptive strategy layer in Python/Rust — not by promoting this crate to an
+  egress engine.
+- Legitimate **camouflage SNI** ("SNI spoofing" in the domain-fronting sense) is
+  config on Xray outbounds; see `docs/sni-camouflage.md` and
+  `scripts/core/sni_camouflage.py`. That is distinct from the raw-packet injection
+  proposals this ADR and ADR-0008 reject.

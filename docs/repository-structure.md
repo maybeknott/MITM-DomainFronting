@@ -55,6 +55,8 @@ MITM-DomainFronting/
       0005-local-source-labeled-telemetry.md
       0006-target-user-and-progressive-disclosure.md
       0007-rust-core-is-validation-not-data-plane.md
+      0008-no-raw-packet-injection-data-plane.md
+      0009-anti-censorship-is-a-first-class-goal.md
     fa/
       quick-start.md
     reference/
@@ -85,6 +87,7 @@ MITM-DomainFronting/
     ca-wrong-certificate-recovery.md
     listener-binding.md
     chromium-integration.md
+    sni-camouflage.md
     transport-extension-governance.md
     lab-evidence-checklist.md
     firewall-and-network-testing.md
@@ -170,6 +173,7 @@ MITM-DomainFronting/
       process_supervisor.py
       route_rule_linter.py
       trust_assistant.py
+      sni_camouflage.py
 
   tests/
     python/
@@ -186,6 +190,7 @@ MITM-DomainFronting/
       repository_structure_tests.py
       route_policy_tests.py
       rust_core_tests.py
+      sni_camouflage_tests.py
 
   .github/
     ISSUE_TEMPLATE/

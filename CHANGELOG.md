@@ -18,6 +18,9 @@
 - `main.py release-check` gates release readiness and ZIP artifact verification, including checksum and forbidden local certificate/key checks.
 - Release readiness checks and ZIP artifact verification.
 - Farsi quick start, maintainer map, generated-files policy, roadmap, and architecture decision records.
+- ADR-0008 (no raw-packet injection / inline Rust egress) and ADR-0009 (anti-censorship as a first-class goal).
+- ROADMAP anti-censorship Tracks A/B/C and structural guardrails (GUI stays under `scripts/`, doc-merge requires structure-test updates).
+- SNI camouflage doc and read-only inspector (`docs/sni-camouflage.md`, `scripts/core/sni_camouflage.py`) distinguishing legitimate front-`serverName` evasion from raw-packet injection (ADR-0008).
 
 ### Changed
 
@@ -28,6 +31,7 @@
 - Telemetry rail shows Running Time at the top and inline sparklines beside each live metric value.
 - JA3 runtime self-audit comparison extracted to testable `ja3::self_audit` (env: `MITM_STREAM_EXPECTED_JA3`).
 - JA3 MD5 hex encoding writes directly into a pre-sized buffer instead of allocating per byte.
+- `docs/architecture.md` documents the anti-censorship strategy layer (probe → classify → score → apply Xray config).
 - No change to default runtime behavior unless maintainers apply optional patches.
 - Removed obsolete historical patch files now superseded by committed loopback and ignore rules.
 

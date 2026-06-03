@@ -58,17 +58,39 @@ runs a self-audit/regression harness. It does not forward bytes to the internet
 and does not hand traffic to Xray over SOCKS5.
 
 ```text
-Xray  = data plane (proxy, routing, MITM, domain-fronting, uTLS) — see ADR-0001
-Rust  = parse / classify / model / self-audit around Xray's config and behavior
-        (no upstream dialing, no raw-packet manipulation, no eBPF on egress)
+Xray  = data plane (proxy, routing, MITM, domain-fronting, uTLS, REALITY,
+        fragmentation) — where evasion executes — see ADR-0001
+Rust  = parse / classify / model / score / self-audit around Xray's config and
+        behavior (no upstream dialing, no raw-packet manipulation, no eBPF on egress)
 ```
 
 Integration between the two is **config + evidence**, never an in-band byte
 handoff. See `docs/adr/0007-rust-core-is-validation-not-data-plane.md` for the
-full boundary, including why packet-injection / SNI-spoofing / "Rust as egress
-engine" proposals are out of scope. Process lifetime (running the Rust self-audit
-alongside Xray) is handled by `scripts/core/process_supervisor.py`, which already
-provides atomic kill-on-close containment without changing the byte path.
+full boundary, and `docs/adr/0008-no-raw-packet-injection-data-plane.md` for why
+the specific TCP-sequence-injection / SNI-spoofing / eBPF-XDP / inline-SOCKS5
+"Rust as egress engine" blueprint is rejected. Process lifetime (running the Rust
+self-audit alongside Xray) is handled by `scripts/core/process_supervisor.py`,
+which already provides atomic kill-on-close containment without changing the byte
+path.
+
+## Anti-censorship strategy layer
+
+Defeating censorship is a first-class goal (ADR-0009), pursued **without** turning
+the Rust crate into a packet engine. Evasion strength lives in the Xray data plane
+(REALITY, uTLS, TLS record fragmentation, padding/mux, domain fronting, FakeDNS);
+the repo's job is to make that data plane *adaptive and self-healing*:
+
+```text
+probe user's own path  ->  classify blocking method  ->  score candidate
+(path_scorer.py)           (failure_classifier.py)       strategies
+        |                                                     |
+        +------------------> select + apply Xray config <-----+
+                             (strategy engine, roadmap)  -> auto-failover + evidence
+```
+
+The Rust core may model and regression-test the selection logic; Python probes and
+orchestrates; Xray executes the chosen strategy. See ADR-0009 and the
+anti-censorship capability roadmap in `ROADMAP.md` (Tracks A/B/C).
 
 ## Diagnostic and governance layer
 
