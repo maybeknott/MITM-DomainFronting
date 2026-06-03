@@ -54,6 +54,7 @@ MITM-DomainFronting/
       0004-ja3-oracle-honesty.md
       0005-local-source-labeled-telemetry.md
       0006-target-user-and-progressive-disclosure.md
+      0007-rust-core-is-validation-not-data-plane.md
     fa/
       quick-start.md
     reference/
