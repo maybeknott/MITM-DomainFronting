@@ -16,6 +16,12 @@ REQUIRED_SCENARIOS = {
     "nat64-dns64",
     "captive-portal",
     "fakedns_recovery",
+    "udp443-policy",
+    "fragment-policy",
+    "reality-stub",
+    "fakedns-policy",
+    "tun-stub",
+    "ttl-spin-policy",
 }
 
 ALLOWED_STATUS = {"pass", "warn", "fail", "info"}

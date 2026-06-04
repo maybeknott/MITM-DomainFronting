@@ -22,6 +22,15 @@ SCENARIOS = [
     ("captive-portal", ["--scenario", "captive-portal"]),
 ]
 
+PROTOCOL_SCENARIOS = [
+    ("udp443-policy", ["--scenario", "udp443-policy"]),
+    ("fragment-policy", ["--scenario", "fragment-policy"]),
+    ("reality-stub", ["--scenario", "reality-stub"]),
+    ("fakedns-policy", ["--scenario", "fakedns-policy"]),
+    ("tun-stub", ["--scenario", "tun-stub"]),
+    ("ttl-spin-policy", ["--scenario", "ttl-spin-policy"]),
+]
+
 
 def run_script(script: str, extra: List[str], root: Path, timeout: float) -> Dict[str, Any]:
     cmd = [sys.executable, str(root / "scripts" / script), *extra]
@@ -61,6 +70,8 @@ def main() -> int:
     for name, extra in SCENARIOS:
         bundle["scenarios"][name] = run_script("dns_lab_harness.py", extra, ROOT, args.timeout)
     bundle["scenarios"]["fakedns_recovery"] = run_script("fakedns_recovery_check.py", [], ROOT, args.timeout)
+    for name, extra in PROTOCOL_SCENARIOS:
+        bundle["scenarios"][name] = run_script("protocol_smoke.py", extra, ROOT, args.timeout)
 
     statuses = [item.get("status") for item in bundle["scenarios"].values()]
     bundle["overall"] = "pass" if all(status == "pass" for status in statuses) else "warn"

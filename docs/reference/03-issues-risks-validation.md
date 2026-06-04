@@ -217,7 +217,7 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 | Optional eBPF helper | Open | `docs/reference/track-d-ebpf-helper-adr.md`; Rust fixture only |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
 | **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
-| **T-03** Build artifact hygiene in docs | Open | Track C — `build/`, `dist/` excluded |
+| **T-03** Build artifact hygiene in docs | Shipped | `docs/reference/generated-files.md` § T-03; `build/`, `dist/` gitignored |
 
 ---
 

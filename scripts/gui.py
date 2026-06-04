@@ -3209,7 +3209,7 @@ class App(tk.Tk):
             CommandSpec("Config-src Merge Tests", "Regression tests for structured config merge behavior.", tuple(py_test("config_src_merge_test.py"))),
             CommandSpec("Transport Governance", "Validate transport experiment manifest guardrails.", tuple(py_script("transport_experiment_validate.py"))),
             CommandSpec("DNS Harness Tests", "Regression tests for DNS packet parsing and harness safety.", tuple(py_test("dns_lab_harness_tests.py"))),
-            CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive harness scenarios locally.", tuple(py_script("lab_evidence_run.py", "--allow-warn"))),
+            CommandSpec("Lab Evidence Bundle", "Run DNS/fakeDNS/captive and protocol structure probes locally.", tuple(py_script("lab_evidence_run.py", "--allow-warn"))),
             CommandSpec("Secret Scan", "Tracked-file private key scan.", tuple(py_script("secret_scan.py"))),
             CommandSpec(
                 "Decision Report",

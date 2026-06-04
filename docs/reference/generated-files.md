@@ -63,7 +63,36 @@ Xray-config/mycert.key
 validation-report.json
 checksums.txt
 lab-evidence.bundle.json
+build/pyinstaller-runs/
+*.spec.bak
 ```
+
+### Build artifact hygiene (T-03)
+
+PyInstaller and local packaging write under `build/` and `dist/`. These trees are **POLICY: MUST NOT** be committed.
+
+| Path | Producer | Committed? |
+|---|---|---|
+| `build/config/` | `scripts/build_config.py` | No — compile staging |
+| `build/pyinstaller-runs/` | `scripts/build_gui_exe.py` | No — per-run workdirs |
+| `dist/*.exe`, `dist/*.zip` | PyInstaller / release scripts | No — attach to GitHub Releases only |
+| `target/` | `cargo build` | No — Rust validation crate |
+
+**Before sharing a diff or ZIP**, confirm no local artifacts leaked in:
+
+```powershell
+git status --ignored
+git check-ignore -v build dist target .local-state 2>$null
+```
+
+**Clean local packaging outputs** (safe — regenerates on next build):
+
+```powershell
+Remove-Item -Recurse -Force build, dist, target -ErrorAction SilentlyContinue
+py -3 scripts\build_gui_exe.py --help   # rebuild GUI when needed
+```
+
+GUI builds: `scripts/build_gui_exe.py` stages each run under `build/pyinstaller-runs/<timestamp>/` so failed PyInstaller attempts do not overwrite prior artifacts.
 
 ## Release Bundle Rule
 
