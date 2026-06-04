@@ -39,13 +39,22 @@ Xray-config/MITM-DomainFronting.strict.json
 Xray-config/MITM-DomainFronting.balanced.json
 Xray-config/MITM-DomainFronting.compatibility.json
 Xray-config/MITM-DomainFronting.debug.json
+Xray-config/MITM-DomainFronting.evasion-fragment.json
+Xray-config/MITM-DomainFronting.evasion-reality-stub.json
+Xray-config/MITM-DomainFronting.evasion-tun-stub.json
+Xray-config/MITM-DomainFronting.evasion-fakedns.json
+Xray-config/MITM-DomainFronting.evasion-high-stealth.json
 ```
 
-Regenerate and verify them with:
+Regenerate operating profiles and evasion lab configs with:
 
 ```powershell
 py -3 scripts\build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
+py -3 scripts\generate_evasion_profiles.py
+py -3 main.py lab-prepare --allow-warn
 ```
+
+Evasion lab JSON is listed in `config-src/manifest.json` under `generated_evasion_lab_profiles`. Use only in controlled lab environments.
 
 ## Local-Only Generated Artifacts
 

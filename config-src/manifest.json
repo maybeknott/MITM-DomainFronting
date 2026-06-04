@@ -32,6 +32,13 @@
     "Xray-config/MITM-DomainFronting.compatibility.json",
     "Xray-config/MITM-DomainFronting.debug.json"
   ],
+  "generated_evasion_lab_profiles": [
+    "Xray-config/MITM-DomainFronting.evasion-fragment.json",
+    "Xray-config/MITM-DomainFronting.evasion-reality-stub.json",
+    "Xray-config/MITM-DomainFronting.evasion-tun-stub.json",
+    "Xray-config/MITM-DomainFronting.evasion-fakedns.json",
+    "Xray-config/MITM-DomainFronting.evasion-high-stealth.json"
+  ],
   "non_goals": [
     "no automatic runtime profile switching",
     "no upstream Xray-core source edits",

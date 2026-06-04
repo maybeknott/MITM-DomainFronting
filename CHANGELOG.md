@@ -25,6 +25,7 @@
 
 ### Changed
 
+- Integration pass: manifest tracks evasion lab outputs, CI/release/repo-structure guards, GUI remembers strategy winner, probe/GUI expose intelligent hints, `derive_next_action` surfaces advisor when decision labels exist.
 - Strategy profile **Apply Recommended** and optional auto-apply after non-healthy decision reports.
 - `lab_evidence_run.py` aggregates DNS harness + protocol smoke scenarios into one bundle.
 - Reference docs finalized: all Track A/B/C/D baseline items marked **Shipped**; future research isolated to `03` §4.1.

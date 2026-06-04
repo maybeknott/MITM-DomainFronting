@@ -25,6 +25,13 @@ This runs:
 - Protocol structure probes via `protocol_smoke.py`:
   - `udp443-policy`, `reality-stub`, `fragment-policy`, `fakedns-policy`
   - `tun-stub`, `ttl-spin-policy`, `firewall-checklist`, `evasion-lab-profiles`
+  - `ebpf-xdp-loader`, `ebpf-containment-policy`, `suricata-wire-proof`, `ja3-pool-attach`
+
+One-shot local prep (regenerates evasion profiles + runs the same smoke subset):
+
+```bash
+python main.py lab-prepare --allow-warn
+```
 
 Review and redact before attaching to issues or release evidence.
 

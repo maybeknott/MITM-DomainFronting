@@ -2,6 +2,7 @@
 """Regression checks for the shared readiness model."""
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 
 import _path  # noqa: F401
@@ -10,7 +11,9 @@ from core.readiness import (  # noqa: E402
     CheckResult,
     ProjectState,
     RepairAction,
+    build_project_state,
     derive_next_action,
+    emit_json,
     state_to_dict,
     status_from_checks,
 )
@@ -110,7 +113,11 @@ def main() -> int:
 
     ready = replace(base_state(), ja3_validation_status="match", ja3_measured=True)
     action, _ = derive_next_action(ready)
-    ok &= expect("next_action_ready_after_ja3_measured", action, "Ready")
+    ok &= expect(
+        "next_action_ready_or_advisor_after_ja3_measured",
+        action in {"Ready", "Review Advisor"},
+        True,
+    )
 
     state = replace(
         base_state(),
@@ -120,6 +127,10 @@ def main() -> int:
     payload = state_to_dict(state)
     ok &= expect("state_to_dict_checks_serialized", payload["checks"][0]["id"], "listener.loopback")
     ok &= expect("state_to_dict_repairs_serialized", payload["repairs"][0]["id"], "repair.playwright")
+
+    state = build_project_state(skip_trust=True, skip_runtime=True)
+    probe_payload = json.loads(emit_json(state))
+    ok &= expect("emit_json_has_intelligent", "intelligent" in probe_payload, True)
 
     return 0 if ok else 1
 

@@ -824,6 +824,17 @@ def derive_next_action(state: ProjectState) -> tuple[str, str]:
         return "Run Page Check", "Verify a stock browser can load a page through the local proxy."
     if state.cloakbrowser_ok and state.ja3_validation_status == "not_measured":
         return "Optional JA3 Validation", "Run a JA3 oracle check only if fingerprint evidence is needed."
+    try:
+        from core.intelligent_advisor import load_decision_labels
+
+        labels = load_decision_labels(Path(state.root) if state.root else root)
+        if labels:
+            return (
+                "Review Advisor",
+                f"Decision report labels: {', '.join(labels[:4])}. Run: py -3 main.py advise --text",
+            )
+    except Exception:
+        pass
     return "Ready", "Core setup is ready for normal browser proxy testing."
 
 

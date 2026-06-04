@@ -56,6 +56,16 @@ python scripts/health_probe.py --config Xray-config/MITM-DomainFronting.json --c
 
 The health probe includes a read-only `policy_recommendation` object (`auto_switch` is always false). It suggests a profile and local actions but never changes runtime config.
 
+Intelligent advisor (profiles, evasion lab, eBPF — local only):
+
+```bash
+python main.py advise --text
+python main.py probe --json   # includes an "intelligent" object
+python main.py lab-prepare --allow-warn
+```
+
+See [`intelligent-automation.md`](intelligent-automation.md).
+
 Query-type-aware DNS check:
 
 ```bash

@@ -28,7 +28,7 @@ def _evasion_profiles_present(root: Path) -> Dict[str, bool]:
     }
 
 
-def _load_decision_labels(root: Path) -> tuple[str, ...]:
+def load_decision_labels(root: Path) -> tuple[str, ...]:
     report_path = root / ".local-state" / "decision-report.latest.json"
     if not report_path.is_file():
         return ()
@@ -69,7 +69,7 @@ def build_advisor_plan(
         "evasion_profiles": _evasion_profiles_present(root),
     }
 
-    labels = _load_decision_labels(root)
+    labels = load_decision_labels(root)
     if state and state.page_check_status == "fail":
         labels = (*labels, "tcp_timeout")
 

@@ -49,6 +49,7 @@ jobs:
       - name: Validate generated profile configs
         run: |
           python scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json
+          python scripts/generate_evasion_profiles.py
           git diff --exit-code -- Xray-config/MITM-DomainFronting.*.json
           for config in Xray-config/MITM-DomainFronting*.json; do
             python scripts/validate_config.py "$config"
@@ -100,6 +101,17 @@ jobs:
           python tests/python/protocol_policy_tests.py
           python scripts/transport_profile_validate.py
           python scripts/protocol_smoke.py --scenario udp443-policy
+          python scripts/protocol_smoke.py --scenario ja3-pool-attach
+          python scripts/protocol_smoke.py --scenario ebpf-xdp-loader
+          python scripts/protocol_smoke.py --scenario ebpf-containment-policy
+          python scripts/protocol_smoke.py --scenario suricata-wire-proof
+          python tests/python/ja3_pool_attach_test.py
+          python tests/python/ebpf_xdp_loader_test.py
+          python tests/python/ebpf_containment_test.py
+          python tests/python/strategy_winner_test.py
+          python tests/python/intelligent_advisor_test.py
+          python tests/python/wire_proof_suricata_test.py
+          python scripts/intelligent_advise.py --skip-runtime
 
       - name: Validate provider dossiers
         run: |

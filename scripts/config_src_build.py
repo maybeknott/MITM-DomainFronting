@@ -105,6 +105,11 @@ def main() -> int:
             print(evasion_proc.stdout)
             return evasion_proc.returncode
         print(json.dumps({"evasion_lab_profiles": "regenerated"}, indent=2))
+        evasion_rels = manifest.get("generated_evasion_lab_profiles", [])
+        missing_evasion = [rel for rel in evasion_rels if not (args.root / rel).is_file()]
+        if missing_evasion:
+            print(f"evasion lab profiles missing after generate: {missing_evasion}")
+            return 2
     if args.check_profile_sync:
         expected_profiles = [args.root / rel for rel in manifest.get("generated_profiles", [])]
         if len(generated_profile_paths) != len(expected_profiles):

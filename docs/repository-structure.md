@@ -73,6 +73,7 @@ MITM-DomainFronting/
     local-telemetry.md
     rust-stream-core-baseline.md
     operating-profiles.md
+    intelligent-automation.md
     relay-and-metrics-policy.md
     transport-profiles.md
     release-engineering.md
@@ -130,8 +131,16 @@ MITM-DomainFronting/
     README.md
     routes.yml
     static-cidrs.yml
+    ja3-profile-pools.yml
+    lab/
     fragments/
       README.md
+
+  tools/
+    ebpf/
+      README.md
+      ingress_telemetry.bpf.c
+      containment_xdp.bpf.c
 
   providers/
     dns-resolvers.yml
@@ -148,6 +157,12 @@ MITM-DomainFronting/
     check_dns.py
     decision_report.py
     generate_profiles.py
+    generate_evasion_profiles.py
+    intelligent_advise.py
+    lab_prepare.py
+    ebpf_xdp_loader.py
+    wire_proof_suricata.py
+    apply_strategy_profile.py
     gui.py
     route_graph_verify.py
     route_rule_linter.py

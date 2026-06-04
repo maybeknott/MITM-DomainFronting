@@ -183,7 +183,25 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
         _python_test_check("rust core checks", "rust_core_tests.py", rust_args),
         _script_check("validate config", "validate_config.py", [config_arg]),
         _script_check("generate profiles", "generate_profiles.py", ["--base", config_arg]),
+        _script_check("generate evasion lab profiles", "generate_evasion_profiles.py"),
     ]
+
+    def _evasion_lab_profiles_present() -> int:
+        missing = [
+            name
+            for name in (
+                "evasion-fragment",
+                "evasion-reality-stub",
+                "evasion-tun-stub",
+                "evasion-fakedns",
+                "evasion-high-stealth",
+            )
+            if not (ROOT / "Xray-config" / f"MITM-DomainFronting.{name}.json").is_file()
+        ]
+        if missing:
+            print(f"missing evasion lab profiles: {', '.join(missing)}")
+            return 2
+        return 0
 
     def _profiles_in_sync() -> int:
         proc = subprocess.run(
@@ -201,6 +219,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
     checks.extend(
         [
             ("generated profiles in sync", _profiles_in_sync),
+            ("evasion lab profiles present", _evasion_lab_profiles_present),
             _script_check(
                 "preflight (static)",
                 "preflight.py",

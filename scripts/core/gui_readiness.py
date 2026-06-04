@@ -120,7 +120,27 @@ def readiness_snapshot_fields(state: Optional[ProjectState], error: str = "") ->
         "ja3_oracle_url": state.ja3_oracle_url if state else "",
         "ja3_expected": state.ja3_expected if state else "",
         "ja3_observed": state.ja3_observed if state else "",
+        "intelligent_hint": _intelligent_hint(state),
     }
+
+
+def _intelligent_hint(state: Optional[ProjectState]) -> str:
+    if state is None:
+        return ""
+    try:
+        from core.intelligent_advisor import build_advisor_plan
+
+        plan = build_advisor_plan(root=Path(state.root), state=state)
+        recommendations = plan.get("recommendations") or []
+        if recommendations:
+            top = recommendations[0]
+            return str(top.get("title") or "")
+        suggested = plan.get("suggested_profile")
+        if isinstance(suggested, dict) and suggested.get("profile_id"):
+            return f"Suggested profile: {suggested['profile_id']}"
+    except Exception:
+        return ""
+    return ""
 
 
 def primary_action_spec(action: str) -> GuiActionSpec:

@@ -68,6 +68,17 @@ def validate_manifest(manifest: Dict[str, Any], root: Path) -> List[str]:
                     continue
                 if not (root / rel).exists():
                     errors.append(f"source component missing: {rel}")
+    evasion_profiles = manifest.get("generated_evasion_lab_profiles", [])
+    if evasion_profiles is not None:
+        if not isinstance(evasion_profiles, list):
+            errors.append("generated_evasion_lab_profiles must be an array when present")
+        else:
+            for rel in evasion_profiles:
+                if not isinstance(rel, str) or not rel.strip():
+                    errors.append("generated_evasion_lab_profiles entries must be non-empty strings")
+                    continue
+                if not (root / rel).is_file():
+                    errors.append(f"evasion lab profile missing: {rel}")
     return errors
 
 

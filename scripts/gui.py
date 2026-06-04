@@ -4622,6 +4622,11 @@ class App(tk.Tk):
             "balanced": "Balanced",
             "compatibility": "Compatibility (troubleshooting)",
             "debug": "Debug (advanced)",
+            "evasion-fragment": "Evasion fragment (lab)",
+            "evasion-reality-stub": "Evasion REALITY stub (lab)",
+            "evasion-tun-stub": "Evasion TUN stub (lab)",
+            "evasion-fakedns": "Evasion FakeDNS (lab)",
+            "evasion-high-stealth": "Evasion high stealth (lab)",
         }.get(label, label.replace(".", " ").title())
         return f"{friendly} - {rel}"
 
@@ -5637,6 +5642,12 @@ class App(tk.Tk):
             return
         self.profile_selection.set(label)
         self._select_profile()
+        try:
+            from core.strategy_winner import remember_winner
+
+            remember_winner(profile_id, reason=reason, failure_labels=labels)
+        except Exception:
+            pass
         self.record_telemetry("strategy_profile_applied", "info", profile_id, {"reason": reason, "confidence": confidence})
         should_restart = restart
         if should_restart is None:
