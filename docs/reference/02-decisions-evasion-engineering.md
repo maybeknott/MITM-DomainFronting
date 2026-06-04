@@ -1384,7 +1384,7 @@ Use during Track A/B/D work. `[ ]` = not shipped; `[~]` = partial; `[x]` = shipp
    [x] ProcessSupervisor kill-on-close (shipped).
    [x] TUN lab fragment + WFP/nftables checklist (`tun-operational-notes.md`).
    [x] FakeDNS 198.18 fragment + recovery docs.
-   [ ] Live optional eBPF cookie map (future research — 03 §4.1).
+   [x] Live eBPF/XDP production loader (`ebpf_xdp_loader.py`, consent gate).
 
 3. PRE-COMPUTED HANDSHAKE POOLS [ADR-0004]
    [x] Static pool artifacts + CI cross-check (`ja3_pool_validate.py`).
@@ -1394,7 +1394,7 @@ Use during Track A/B/D work. `[ ]` = not shipped; `[~]` = partial; `[x]` = shipp
 4. STATEFUL PACKET MANIPULATION [ADR-0007 / ADR-0008]
    [x] TLS fragment + REALITY lab fragments + protocol_smoke probes.
    [x] TTL spin lab ADR + smoke probe (structure only).
-   [ ] Suricata/PCAP wire proof under active DPI block (operator lab — 03 §4.1).
+   [x] Suricata/PCAP wire proof harness (`wire_proof_suricata.py`; wire capture = operator lab).
 =================================================================================================
 ```
 
@@ -1460,7 +1460,7 @@ captured artifact or oracle result.
 | [x] | High Stealth TUN + firewall fail-closed (lab baseline) | TUN stub + `docs/tun-operational-notes.md` |
 | [x] | FakeDNS `198.18.0.0/15` lab fragment | `config-src/fragments/fakedns-19818-trap.json` |
 | [x] | WebRTC/DNS leak probe labels | `failure_classifier.py`, Track B |
-| [ ] | eBPF cookie map + XDP_DROP (live loader) | Future research — `track-d-ebpf-helper-adr.md` |
+| [x] | eBPF cookie map + XDP_DROP (containment loader) | `containment_xdp.bpf.c`, `ebpf_xdp_loader.py --program containment`, `ebpf_containment.py` |
 | [x] | Env-proxy as **default** (not only path) | ADR-0003 |
 
 ### 5.3 Pre-computed pools (ADR-0004) — Track A/B
@@ -1536,7 +1536,7 @@ Legend: **Shipped** · **Future research** = 03 §4.1 · **N/A** = model/fixture
 |---|---|---|---|
 | 1 | Loopback drops packets without crypto token | **N/A** | `ingress_loopback.rs` uses normal `TcpListener::accept`; containment = Xray/TUN (D) |
 | 2 | eBPF ring buffer uses lockless bounds under load | **Track D** | No live ring in `ingress_xdp_gateway.rs` — fixture only |
-| 3 | XDP fail-secure kill-switch on user-space panic | **Track D** | Map cleared → `XDP_DROP`; supervisor kill-on-close shipped separately |
+| 3 | XDP fail-secure kill-switch on user-space panic | **Shipped** | `containment_xdp.bpf.c` + `mark_supervisor_dead()` → `XDP_DROP` |
 | 4 | FakeDNS maps only to `198.18.0.0/15` | **Track D** | `docs/fakedns-recovery.md` + Xray DNS config — not Rust `src/` |
 | 5 | JNI / Android TUN leak-free across GC | **Harness** | `ingress_android_tun.rs` model; Valgrind/LSAN when Android path ships |
 | 6 | Live TLS MITM + repack on wire | **Shipped (Xray)** | `tls-decrypt-*` / `tls-repack-*` — not Rust orchestrator |
@@ -1559,7 +1559,7 @@ py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
 | 2 | `decision_report.py` writes only when `--json-out` passed | **Shipped** | CLI opt-in; not GUI default |
 | 3 | GUI telemetry stays under `.local-state/` | **Shipped** | See `docs/local-telemetry.md`; OPSEC cap/clear-on-exit = Track D |
 | 4 | `ProcessSupervisor` cleans child tree on exit | **Shipped** | Job Object `0x2000`; POSIX `killpg` |
-| 5 | `platform_capability_check.py` checks admin / capability hints | **Shipped** | Extend CAP_NET_* when live eBPF loader ships (future research) |
+| 5 | `platform_capability_check.py` checks admin / capability hints | **Shipped** | Includes `ebpf` section (bpftool, BPF sources, consent env vars) |
 | 6 | `build_config.py` output parseable and sync-checked | **Shipped** | `--check-runtime-sync --check-profile-sync` |
 | 7 | Config secrets not committed | **Shipped** | `mycert.key` gitignored; release ZIP scan |
 | 8 | Forensic disk sweep after GUI session | **Track D** | `grep`/FS monitor — expect jsonl only if user ran GUI; Clear Activity |
@@ -1870,8 +1870,8 @@ consent and platform review — not silent substitution.
   `phase_classification` (`dns_*`, `tcp_*`, `tls_*`, …).
 - `path_scorer.py` scores phase-weighted reports; `decision_report.py` exports opt-in JSON.
 
-**Future research (03 §4.1):** persistent `remember_winner()` cache across sessions —
-not required for baseline closure.
+**Shipped:** persistent `remember_winner()` cache — `scripts/core/strategy_winner.py`
+(`.local-state/strategy-winner.json`).
 
 Strategy sweep replaces “offset sweep” fantasies: score **named profiles**, not
 raw-socket injection parameters.

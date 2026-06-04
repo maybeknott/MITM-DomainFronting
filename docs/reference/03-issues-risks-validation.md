@@ -178,7 +178,7 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | JA3 pool JSON ↔ offline hash cross-check in CI | SHIPPED | `ja3_pool_validate.py` + `src/ja3.rs` pool test |
 | OPSEC RAM telemetry (no jsonl) | SHIPPED | GUI OPSEC toggle (`gui_preferences.py`) |
 | WFP / nftables fail-closed docs tested | SHIPPED | `protocol_smoke.py --scenario firewall-checklist` + `tun-operational-notes.md` |
-| Optional eBPF helper (live loader) | Future research | ADR + Rust fixture shipped; live loader explicitly out of baseline — §4.1 |
+| eBPF containment (XDP_DROP + supervisor map) | Shipped | `containment_xdp.bpf.c`, `ebpf_containment.py`, ProcessSupervisor hooks |
 
 ### 3.5 OPSEC telemetry and build artifacts (POLICY / TARGET)
 
@@ -218,20 +218,27 @@ authoritative closure record for the reference implementation.
 | Preflight connect gate | Shipped | `preflight_gate.py` + GUI Settings toggle (default block) |
 | TUN lab fragment + firewall checklist | Shipped | `tun-inbound-stub.json`, `firewall-checklist` smoke |
 | Optional eBPF helper (ADR + fixtures) | Shipped (baseline) | `track-d-ebpf-helper-adr.md`; Rust mock bounds only |
+| Live eBPF/XDP production loader | Shipped | `scripts/ebpf_xdp_loader.py`, `tools/ebpf/`; consent `MITM_EBPF_CONSENT=1` |
+| Suricata/PCAP wire proof harness | Shipped (structure + operator PCAP) | `scripts/wire_proof_suricata.py`, `config-src/lab/` |
+| Automatic JA3 pool-id on generated profiles | Shipped | `scripts/core/ja3_pool_attach.py`, `config-src/ja3-profile-pools.yml` |
+| eBPF fail-secure containment (XDP_DROP) | Shipped | `containment_xdp.bpf.c`, `ebpf_containment.py`, ProcessSupervisor |
+| Evasion high-stealth lab profile | Shipped | `generate_evasion_profiles.py` → `evasion-high-stealth.json` |
+| Strategy `remember_winner()` cache | Shipped | `scripts/core/strategy_winner.py` |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
 | **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
 | **T-03** Build artifact hygiene in docs | Shipped | `docs/reference/generated-files.md` § T-03; `build/`, `dist/` gitignored |
 
-### 4.1 Future research (explicitly out of baseline)
+### 4.1 Operator lab extensions (wire-measured tier)
 
-These items are **not** partial work — they are optional extensions documented for
-operator labs or a future release cycle:
+Structure and attach paths ship in CI; **wire measured** Suricata/PCAP proof still
+requires an operator capture on a lab bridge:
 
-| Item | Why out of baseline | Reference |
+| Item | CI proves | Wire measured requires |
 |---|---|---|
-| Live eBPF/XDP loader in production path | Requires kernel consent + separate binary; Rust fixture documents shapes only | `track-d-ebpf-helper-adr.md` |
-| Suricata/PCAP wire proof under active DPI | Needs lab bridge + capture artifacts; structure probes ship in CI | `02` §4.3, `lab-evidence-checklist.md` |
-| Automatic pool-id attach on every generated profile | Operator selects profile/fingerprint today; CI validates pool artifacts | `config-src/templates/ja3-pools/` |
+| eBPF/XDP loader | `--simulate` telemetry + containment | `make -C tools/ebpf` + live attach on Linux |
+| eBPF containment fail-closed | `ebpf-containment-policy` smoke | `MITM_EBPF_CONTAINMENT=1` + supervisor stop on lab NIC |
+| Suricata/PCAP DPI proof | Rules + manifest + `wire_proof_suricata.py --scenario structure` | `--pcap capture.pcap --require-wire` under active block rule |
+| JA3 pool-id attach | `ja3-pool-attach` smoke on regenerated profiles | JA3 oracle / PCAP series per template |
 
 ---
 

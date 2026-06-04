@@ -64,10 +64,22 @@ That example creates files such as `MITM-DomainFronting.strict.altports.json` us
 | Missing CA trust | stop | Do not auto-install silently |
 | Weak key permissions | stop | Fix before running |
 
+## Evasion lab profiles (optional)
+
+For controlled lab testing against DPI or leak labels, regenerate:
+
+```bash
+python scripts/generate_evasion_profiles.py
+python main.py lab-prepare --allow-warn
+```
+
+See [`intelligent-automation.md`](intelligent-automation.md) for advisor commands and `main.py advise`.
+
 ## Related documents
 
 | Document | Topic |
 |---|---|
+| [`intelligent-automation.md`](intelligent-automation.md) | Advisor, lab-prepare, strategy winner |
 | [`decision-engine.md`](decision-engine.md) | Profile in decision report |
 | [`protocol-coverage.md`](protocol-coverage.md) | UDP/443 and QUIC expectations |
 | [`dns-profiles.md`](dns-profiles.md) | DNS profile names |

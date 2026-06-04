@@ -135,6 +135,12 @@ def build_audit_checks(config: str, extra_validate_args: List[str]) -> List[Chec
         _python_test_check("strategy engine tests", "strategy_engine_test.py"),
         _python_test_check("trust broker tests", "trust_broker_test.py"),
         _python_test_check("ja3 pool validate tests", "ja3_pool_validate_test.py"),
+        _python_test_check("ja3 pool attach tests", "ja3_pool_attach_test.py"),
+        _python_test_check("ebpf xdp loader tests", "ebpf_xdp_loader_test.py"),
+        _python_test_check("ebpf containment tests", "ebpf_containment_test.py"),
+        _python_test_check("strategy winner tests", "strategy_winner_test.py"),
+        _python_test_check("intelligent advisor tests", "intelligent_advisor_test.py"),
+        _python_test_check("wire proof suricata tests", "wire_proof_suricata_test.py"),
         _python_test_check("version utils tests", "version_utils_test.py"),
         _python_test_check("key at rest tests", "key_at_rest_test.py"),
         _python_test_check("preflight gate tests", "preflight_gate_test.py"),
@@ -217,6 +223,12 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
         _python_test_check("strategy engine tests", "strategy_engine_test.py"),
         _python_test_check("trust broker tests", "trust_broker_test.py"),
         _python_test_check("ja3 pool validate tests", "ja3_pool_validate_test.py"),
+        _python_test_check("ja3 pool attach tests", "ja3_pool_attach_test.py"),
+        _python_test_check("ebpf xdp loader tests", "ebpf_xdp_loader_test.py"),
+        _python_test_check("ebpf containment tests", "ebpf_containment_test.py"),
+        _python_test_check("strategy winner tests", "strategy_winner_test.py"),
+        _python_test_check("intelligent advisor tests", "intelligent_advisor_test.py"),
+        _python_test_check("wire proof suricata tests", "wire_proof_suricata_test.py"),
         _python_test_check("version utils tests", "version_utils_test.py"),
         _python_test_check("key at rest tests", "key_at_rest_test.py"),
         _python_test_check("preflight gate tests", "preflight_gate_test.py"),
@@ -261,7 +273,9 @@ def main() -> int:
             "  python main.py audit       # fast static config/route/governance checks\n"
             "  python main.py test        # full offline suite (mirrors CI)\n"
             "  python main.py gui         # launch the desktop control center\n"
-            "  python main.py probe       # shared local readiness state\n"
+            "  python main.py probe       # shared local readiness state (+ intelligent hints)\n"
+            "  python main.py advise      # context-aware profile and lab recommendations\n"
+            "  python main.py lab-prepare # evasion profiles + lab evidence bundle\n"
             "  python main.py verified-session # save a redacted runtime evidence bundle\n"
             "  python main.py release-check # release readiness gate\n"
             "  python main.py trust       # advisory trust-store setup instructions\n\n"
@@ -324,6 +338,17 @@ def main() -> int:
         "verified-session",
         help="run a verified runtime session and save a redacted evidence bundle",
     )
+    advise_parser = sub.add_parser("advise", help="emit intelligent recommendations (profiles, evasion lab, eBPF)")
+    advise_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    advise_parser.add_argument("--skip-runtime", action="store_true")
+    advise_parser.add_argument("--text", action="store_true", help="human-readable summary")
+    lab_parser = sub.add_parser(
+        "lab-prepare",
+        help="generate evasion lab profiles and run lab evidence checks",
+    )
+    lab_parser.add_argument("--json-out", type=Path, default=None)
+    lab_parser.add_argument("--allow-warn", action="store_true")
+    lab_parser.add_argument("--skip-evidence", action="store_true")
     args, unknown = parser.parse_known_args()
 
     if args.command == "init":
@@ -343,6 +368,24 @@ def main() -> int:
         return run_script(SCRIPTS / "release_check.py", unknown)
     if args.command == "verified-session":
         return run_script(SCRIPTS / "verified_session.py", unknown)
+    if args.command == "advise":
+        advise_args = []
+        if args.skip_runtime:
+            advise_args.append("--skip-runtime")
+        if args.text:
+            advise_args.append("--text")
+        advise_args.extend(["--config", args.config])
+        advise_args.extend(unknown)
+        return run_script(SCRIPTS / "intelligent_advise.py", advise_args)
+    if args.command == "lab-prepare":
+        lab_args = list(unknown)
+        if args.json_out is not None:
+            lab_args.extend(["--json-out", str(args.json_out)])
+        if args.allow_warn:
+            lab_args.append("--allow-warn")
+        if args.skip_evidence:
+            lab_args.append("--skip-evidence")
+        return run_script(SCRIPTS / "lab_prepare.py", lab_args)
     if args.command == "audit":
         checks = build_audit_checks(args.config, unknown)
         return run_checks(checks, fail_fast=not args.keep_going, title="Static audit")

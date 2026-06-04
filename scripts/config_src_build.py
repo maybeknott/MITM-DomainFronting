@@ -93,6 +93,18 @@ def main() -> int:
             return profile_proc.returncode
         generated_profile_paths = [Path(line.strip()) for line in profile_proc.stdout.splitlines() if line.strip()]
         print(json.dumps({"generated_profiles": [str(path) for path in generated_profile_paths]}, indent=2))
+        evasion_proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "generate_evasion_profiles.py")],
+            cwd=str(args.root),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if evasion_proc.returncode != 0:
+            print(evasion_proc.stdout)
+            return evasion_proc.returncode
+        print(json.dumps({"evasion_lab_profiles": "regenerated"}, indent=2))
     if args.check_profile_sync:
         expected_profiles = [args.root / rel for rel in manifest.get("generated_profiles", [])]
         if len(generated_profile_paths) != len(expected_profiles):

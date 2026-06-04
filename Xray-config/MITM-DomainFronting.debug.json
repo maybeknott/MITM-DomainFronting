@@ -287,6 +287,13 @@
             "maxConcurrentTry": 4
           }
         }
+      },
+      "mitmMeta": {
+        "ja3_pool_id": "chrome-baseline-v1",
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "debug"
       }
     },
     {
@@ -314,6 +321,13 @@
             "maxConcurrentTry": 4
           }
         }
+      },
+      "mitmMeta": {
+        "ja3_pool_id": "chrome-baseline-v1",
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "debug"
       }
     },
     {
@@ -338,6 +352,13 @@
             "maxConcurrentTry": 4
           }
         }
+      },
+      "mitmMeta": {
+        "ja3_pool_id": "chrome-baseline-v1",
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "debug"
       }
     },
     {
@@ -365,6 +386,13 @@
             "maxConcurrentTry": 4
           }
         }
+      },
+      "mitmMeta": {
+        "ja3_pool_id": "chrome-baseline-v1",
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "debug"
       }
     },
     {
@@ -389,6 +417,13 @@
             "maxConcurrentTry": 4
           }
         }
+      },
+      "mitmMeta": {
+        "ja3_pool_id": "chrome-baseline-v1",
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "debug"
       }
     }
   ],
@@ -584,5 +619,13 @@
         "ruleTag": "r999_block_final"
       }
     ]
+  },
+  "mitm": {
+    "ja3_pool_id": "chrome-baseline-v1",
+    "ja3_template_id": "rust-fixture-empty-curves",
+    "ja3_template_index": 1,
+    "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+    "operating_profile": "debug",
+    "ja3_pool_file": "config-src/templates/ja3-pools/chrome-baseline-pool.json"
   }
 }

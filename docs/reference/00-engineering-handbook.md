@@ -177,7 +177,7 @@ Each guide opens with **Purpose** and ends with **Related documents** where help
 | **Release** | [../release-engineering.md](../release-engineering.md), [../release-evidence.md](../release-evidence.md), [../lab-evidence-checklist.md](../lab-evidence-checklist.md), [../final-verdict-template.md](../final-verdict-template.md), [../evidence-map.md](../evidence-map.md) | Build, sign, evidence hashes, lab scenarios |
 | **Platform guides** | [../windows-guide.md](../windows-guide.md), [../linux-guide.md](../linux-guide.md), [../macos-guide.md](../macos-guide.md), [../android-guide.md](../android-guide.md), [../android-trust-model.md](../android-trust-model.md), [../platform-compatibility.md](../platform-compatibility.md), [../uninstall.md](../uninstall.md) | OS-specific operator steps and compatibility matrix |
 | **Governance / review** | [../reviewer-checklist.md](../reviewer-checklist.md), [../transport-extension-governance.md](../transport-extension-governance.md), [../listener-binding.md](../listener-binding.md), [../firewall-and-network-testing.md](../firewall-and-network-testing.md) | Review gates, transport experiments, binding safety |
-| **Strategy / profiles** | [../decision-engine.md](../decision-engine.md), [../operating-profiles.md](../operating-profiles.md), [../relay-and-metrics-policy.md](../relay-and-metrics-policy.md), [../transport-profiles.md](../transport-profiles.md) | Decision reports, relay/metrics policy |
+| **Strategy / profiles** | [../decision-engine.md](../decision-engine.md), [../operating-profiles.md](../operating-profiles.md), [../intelligent-automation.md](../intelligent-automation.md), [../relay-and-metrics-policy.md](../relay-and-metrics-policy.md), [../transport-profiles.md](../transport-profiles.md) | Decision reports, advisor, relay/metrics policy |
 | **Farsi quick start** | [../fa/quick-start.md](../fa/quick-start.md) | Persian-language operator intro |
 | **Generated artifacts** | [generated-files.md](generated-files.md) | Which outputs are committed vs gitignored |
 
@@ -185,6 +185,8 @@ Each guide opens with **Purpose** and ends with **Related documents** where help
 
 ```bash
 py -3 main.py test
+py -3 main.py advise --skip-runtime
+py -3 main.py lab-prepare --allow-warn
 py -3 tests/python/repository_structure_tests.py
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json

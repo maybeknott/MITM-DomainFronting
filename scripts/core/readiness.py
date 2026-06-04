@@ -988,7 +988,17 @@ def state_to_dict(state: ProjectState) -> dict[str, Any]:
 
 
 def emit_json(state: ProjectState) -> str:
-    return json.dumps(state_to_dict(state), indent=2, ensure_ascii=False)
+    payload = state_to_dict(state)
+    try:
+        from core.intelligent_advisor import build_advisor_plan
+
+        payload["intelligent"] = build_advisor_plan(
+            root=Path(state.root) if state.root else ROOT,
+            state=state,
+        )
+    except Exception as exc:  # noqa: BLE001
+        payload["intelligent"] = {"error": str(exc)}
+    return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
 def emit_text(state: ProjectState) -> str:

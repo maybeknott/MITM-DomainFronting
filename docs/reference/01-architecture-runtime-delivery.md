@@ -248,7 +248,7 @@ config — all emitted by Xray uTLS, validated offline by Rust.
 | A2 | [x] REALITY outbound profile fragment | `config-src/fragments/reality-outbound-stub.json` | `protocol_smoke.py --scenario reality-stub` |
 | A3 | [x] TLS `fragment` block on tlshello | `config-src/fragments/tls-fragment-overlay.json` | `protocol_smoke.py --scenario fragment-policy` |
 | A4 | [x] JA3 pool artifact directory | `config-src/templates/ja3-pools/*.json` | `ja3_pool_validate.py` + `cargo test ja3_pool` |
-| A5 | [x] JA3 pool CI validation + profile fingerprints | `ja3_pool_validate.py`; `configs/profiles.yml` | CI manifest green; operator selects profile |
+| A5 | [x] JA3 pool CI validation + auto pool-id on profiles | `ja3_pool_validate.py`; `generate_profiles.py` + `ja3_pool_attach.py` | CI manifest green; `mitm.ja3_pool_id` on every generated profile |
 | A6 | [x] protocol_smoke REALITY + fragment scenarios | `scripts/protocol_smoke.py` | Config-structure probes (lab baseline) |
 | A7 | [x] Pin Xray schema to version in config-src | `config-src/base.json` `version.min` + `version_utils.py` | Preflight + `main.py test` metadata check |
 
@@ -305,7 +305,7 @@ JSON export — without persistent covert logging.
 | D4 | [x] FakeDNS 198.18.0.0/15 (lab fragment) | `config-src/fragments/fakedns-19818-trap.json` | `protocol_smoke.py --scenario fakedns-policy` |
 | D5 | [x] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + `cdp_client.py` | CDP assist opens settings; manual CA import (ADR-0002) |
 | D6 | [x] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust wrap-key` | `key_at_rest` tests + connect-time unwrap |
-| D7 | [x] Track D decision record for optional eBPF helper | `docs/reference/track-d-ebpf-helper-adr.md` | ADR + Rust fixture bounds (no live loader) |
+| D7 | [x] Track D eBPF loader + containment | `ebpf_xdp_loader.py`, `containment_xdp.bpf.c` | Consent gate; simulate probes in CI |
 | D8 | [x] TTL spin / ghost segments (lab) | `track-d-ttl-spin-lab.md` + smoke probe | `protocol_smoke.py --scenario ttl-spin-policy` |
 | D9 | [x] Android TUN harness buffer lifecycle | `ingress_android_tun.rs` | `cargo test ingress_android_tun --locked` |
 

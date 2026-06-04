@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "description": "Operator lab wire-proof contract for Suricata/PCAP validation under active DPI",
+  "dpi_block_rule_sid": 9000001,
+  "required_tshark_fields": [
+    "tls.handshake.ja3_hash",
+    "tls.handshake.extensions_server_name"
+  ],
+  "evidence_classification": "wire measured",
+  "operator_steps": [
+    "Deploy suricata-sni-block.rules on lab bridge",
+    "Start Xray with evasion-fragment profile while block rule is active",
+    "Capture PCAP on client or bridge tap",
+    "Run: py -3 scripts/wire_proof_suricata.py --scenario wire-proof --pcap capture.pcap --require-wire"
+  ]
+}

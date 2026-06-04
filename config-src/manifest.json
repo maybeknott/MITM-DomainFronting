@@ -11,7 +11,10 @@
     "config-src/dns.yml",
     "config-src/profiles.yml",
     "config-src/providers.yml",
-    "config-src/static-cidrs.yml"
+    "config-src/static-cidrs.yml",
+    "config-src/ja3-profile-pools.yml",
+    "config-src/lab/wire-proof-manifest.json",
+    "config-src/lab/suricata-sni-block.rules"
   ],
   "validation_steps": [
     "validate_config",

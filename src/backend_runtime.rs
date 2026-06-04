@@ -125,7 +125,7 @@ pub fn build_runtime_backend(
         BackendPreference::GatewayXdp => {
             let backend = LinuxGatewayXdpIngress::new(XdpGatewayOptions {
                 enabled: true,
-                interface_name: options.xdp_interface,
+                interface_name: options.xdp_interface.clone(),
                 max_packet_size: options.max_packet_size,
             });
             match backend.availability() {

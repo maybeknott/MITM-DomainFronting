@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from core.failure_classifier import derive_strategy_labels  # noqa: E402
 from core.strategy_profiles import recommend_profile  # noqa: E402
+from core.strategy_winner import remember_winner  # noqa: E402
 
 
 def load_report(path: Path) -> dict:
@@ -31,6 +32,11 @@ def main() -> int:
     parser.add_argument("--session-counter", type=int, default=0)
     parser.add_argument("--leak-hint", action="append", default=[])
     parser.add_argument("--phase", default="", help="optional failure_classifier phase label")
+    parser.add_argument(
+        "--remember",
+        action="store_true",
+        help="persist selected profile as strategy winner for next sessions",
+    )
     args = parser.parse_args()
 
     report = load_report(args.report)
@@ -63,6 +69,13 @@ def main() -> int:
         }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
     path = Path(str(payload.get("selected_profile_path") or ""))
+    if args.remember and payload.get("selected_profile_id") and path.exists():
+        labels = payload.get("failure_labels") or []
+        remember_winner(
+            str(payload["selected_profile_id"]),
+            reason=str(payload.get("reason") or "apply_strategy_profile"),
+            failure_labels=tuple(labels) if isinstance(labels, list) else (),
+        )
     return 0 if path.exists() else 2
 
 

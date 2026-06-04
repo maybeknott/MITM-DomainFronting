@@ -28,11 +28,22 @@ def test_dns_leak_prefers_fakedns_profile() -> None:
 
 
 def test_recommend_profile_avoids_blocked_ids() -> None:
-    decision = recommend_profile(
+    avoid = (
+        "strict",
+        "balanced",
+        "compatibility",
+        "debug",
+        "evasion-fragment",
+        "evasion-reality-stub",
+        "evasion-tun-stub",
+        "evasion-fakedns",
+        "evasion-high-stealth",
+    )
+    recommend_profile(
         failure_labels=("webrtc_leak",),
         operator_intent="balanced",
         session_counter=1,
-        avoid_profiles=("strict", "balanced", "compatibility", "debug"),
+        avoid_profiles=avoid,
     )
     raise AssertionError("expected ValueError")
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import platform
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -216,6 +217,25 @@ def interface_probe() -> Dict[str, object]:
     }
 
 
+def ebpf_capability_probe() -> Dict[str, object]:
+    root = Path(__file__).resolve().parents[1]
+    bpf_dir = root / "tools" / "ebpf"
+    objects = {
+        "ingress_telemetry.o": bpf_dir / "ingress_telemetry.o",
+        "containment_xdp.o": bpf_dir / "containment_xdp.o",
+    }
+    return {
+        "status": "info",
+        "consent_env": "MITM_EBPF_CONSENT",
+        "containment_env": "MITM_EBPF_CONTAINMENT",
+        "bpftool_available": bool(shutil.which("bpftool")),
+        "clang_hint": bool(shutil.which("clang")),
+        "bpf_sources_present": all((bpf_dir / name).is_file() for name in ("ingress_telemetry.bpf.c", "containment_xdp.bpf.c")),
+        "bpf_objects_built": {name: path.is_file() for name, path in objects.items()},
+        "detail": "Live XDP requires Linux, MITM_EBPF_CONSENT=1, and built tools/ebpf/*.o",
+    }
+
+
 def build_report() -> Dict[str, object]:
     browsers = detect_browsers()
     return {
@@ -229,6 +249,7 @@ def build_report() -> Dict[str, object]:
         "browsers": browsers,
         "ech": ech_warning(browsers),
         "network_interfaces": interface_probe(),
+        "ebpf": ebpf_capability_probe(),
     }
 
 

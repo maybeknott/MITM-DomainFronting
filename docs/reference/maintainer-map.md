@@ -17,6 +17,8 @@ doc owns policy** for each product area.
 |---|---|---|
 | GUI / UX | `scripts/gui.py`, `scripts/core/gui_readiness.py`, `assets/` | `py -3 scripts/gui.py --self-test`, `py -3 tests/python/gui_readiness_tests.py` |
 | Shared readiness | `scripts/core/readiness.py`, `main.py probe` | `py -3 tests/python/readiness_tests.py` |
+| Intelligent automation | `scripts/core/intelligent_advisor.py`, `scripts/intelligent_advise.py`, `scripts/lab_prepare.py` | `py -3 tests/python/intelligent_advisor_test.py`, `py -3 main.py advise --skip-runtime` |
+| Evasion lab profiles | `scripts/generate_evasion_profiles.py`, `Xray-config/MITM-DomainFronting.evasion-*.json` | `py -3 main.py lab-prepare --allow-warn` |
 | Xray config | `config-src/`, `Xray-config/` | `py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync` |
 | Routing | `Xray-config/*.json`, `configs/route-intent.json`, `scripts/route_*` | `py -3 tests/python/route_policy_tests.py`, `py -3 scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json` |
 | Browser integration | `scripts/browser_common.py`, `scripts/browser_diagnostics.py`, `scripts/browser_stealth.py`, `configs/browser-integration.json` | `py -3 tests/python/browser_probe_semantics_test.py` |

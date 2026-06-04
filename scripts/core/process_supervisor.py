@@ -54,6 +54,7 @@ class ProcessSupervisor:
         if self.process and self.process.poll() is None:
             return self.process
 
+        self._ebpf_supervisor_started()
         cmd = [str(self.binary_path), *self.arguments]
         if os.name == "nt":
             self.process = self._spawn_windows_job(cmd)
@@ -164,10 +165,27 @@ class ProcessSupervisor:
         self._job_handle = job
         return proc
 
+    def _ebpf_supervisor_started(self) -> None:
+        try:
+            from core.ebpf_containment import on_supervisor_start
+
+            on_supervisor_start()
+        except Exception:
+            pass
+
+    def _ebpf_supervisor_stopped(self) -> None:
+        try:
+            from core.ebpf_containment import on_supervisor_stop
+
+            on_supervisor_stop()
+        except Exception:
+            pass
+
     def terminate(self, timeout: float = 5.0) -> None:
         proc = self.process
         if proc is None:
             self._close_job_handle()
+            self._ebpf_supervisor_stopped()
             return
 
         if proc.poll() is None:
@@ -177,6 +195,15 @@ class ProcessSupervisor:
                 self._terminate_posix_group(timeout)
         self._close_job_handle()
         self.process = None
+        self._ebpf_supervisor_stopped()
+
+    def _ebpf_supervisor_stopped(self) -> None:
+        try:
+            from core.ebpf_containment import on_supervisor_stop
+
+            on_supervisor_stop()
+        except Exception:
+            pass
 
     def _terminate_posix_group(self, timeout: float) -> None:
         import signal

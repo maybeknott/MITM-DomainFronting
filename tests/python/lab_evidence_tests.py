@@ -35,6 +35,10 @@ def test_lab_evidence_validate_accepts_minimal_bundle() -> None:
                 "ttl-spin-policy",
                 "firewall-checklist",
                 "evasion-lab-profiles",
+                "ebpf-xdp-loader",
+                "ebpf-containment-policy",
+                "suricata-wire-proof",
+                "ja3-pool-attach",
             )
         },
     }

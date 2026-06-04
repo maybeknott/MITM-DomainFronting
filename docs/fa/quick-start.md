@@ -30,6 +30,8 @@ py -3 main.py gui
 
 ```powershell
 py -3 main.py probe --json
+py -3 main.py advise --text
+py -3 main.py lab-prepare --allow-warn
 py -3 main.py test
 py -3 main.py release-check
 ```

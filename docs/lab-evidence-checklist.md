@@ -60,7 +60,10 @@ Review and redact before attaching to issues or release evidence.
 - Certificate pinning inside independent Android apps
 - Provider CDN drift in every region
 - Long-running QUIC leakage under mixed network conditions
-- Suricata/Snort bypass proof under active DPI block (operator lab — 03 §4.1)
+- [ ] Suricata/PCAP wire measured: `py -3 scripts/wire_proof_suricata.py --scenario wire-proof --pcap <capture.pcap> --require-wire`
+- [x] Suricata structure probe in lab bundle (`suricata-wire-proof` scenario)
+- [x] eBPF/XDP loader structure probe (`ebpf-xdp-loader` scenario; live attach needs Linux + consent)
+- [x] JA3 pool-id on generated profiles (`ja3-pool-attach` scenario after profile regen)
 
 Record those manually in issue templates or [`release-evidence.md`](release-evidence.md).
 

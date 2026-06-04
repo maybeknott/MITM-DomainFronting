@@ -31,6 +31,10 @@ PROTOCOL_SCENARIOS = [
     ("ttl-spin-policy", ["--scenario", "ttl-spin-policy"]),
     ("firewall-checklist", ["--scenario", "firewall-checklist"]),
     ("evasion-lab-profiles", ["--scenario", "evasion-lab-profiles"]),
+    ("ebpf-xdp-loader", ["--scenario", "ebpf-xdp-loader"]),
+    ("ebpf-containment-policy", ["--scenario", "ebpf-containment-policy"]),
+    ("suricata-wire-proof", ["--scenario", "suricata-wire-proof"]),
+    ("ja3-pool-attach", ["--scenario", "ja3-pool-attach"]),
 ]
 
 

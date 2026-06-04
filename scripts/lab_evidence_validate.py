@@ -24,6 +24,10 @@ REQUIRED_SCENARIOS = {
     "ttl-spin-policy",
     "firewall-checklist",
     "evasion-lab-profiles",
+    "ebpf-xdp-loader",
+    "ebpf-containment-policy",
+    "suricata-wire-proof",
+    "ja3-pool-attach",
 }
 
 ALLOWED_STATUS = {"pass", "warn", "fail", "info"}

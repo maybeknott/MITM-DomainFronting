@@ -5,8 +5,12 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from core.ja3_pool_attach import attach_for_operating_profile  # noqa: E402
 
 DEFAULT_LOCAL_PORTS = {
     "mixed-in": 10808,
@@ -133,6 +137,7 @@ def make_profile(base: Dict[str, Any], profile: str) -> Dict[str, Any]:
         raise ValueError("routing.rules must be a list")
     insert_udp_policy(rules, policy["udp443"], policy["udp_rule_tag"])
     set_global_catchall(rules, policy["catchall"])
+    attach_for_operating_profile(config, profile, Path(__file__).resolve().parents[1])
     return config
 
 

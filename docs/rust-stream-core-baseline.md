@@ -69,7 +69,7 @@ program on the live egress path.
 |---|---|
 | Production TLS MITM on wire | **No** — Xray + `mycert.*` |
 | Handcrafted ServerHello forging | **No** |
-| Live eBPF / libbpf in tree | **No** |
+| Live eBPF loader | **Yes** — `scripts/ebpf_xdp_loader.py` + `tools/ebpf/` (consent-gated; Xray still data plane) |
 | uTLS / rustls wire emission from `ja3.rs` | **No** |
 | Runtime auto-switching to Rust forwarder | **No** |
 | Android TUN / XDP on production path | **Harness models only** |
@@ -83,7 +83,7 @@ and outbound repack on the wire.
 
 | Capability | This crate | Live owner |
 |---|---|---|
-| `ingress_xdp_gateway.rs` loads libbpf | Mock `BatchPacketBuffer` | Xray + optional Track D helper |
+| `ingress_xdp_gateway.rs` loads libbpf | Mock `BatchPacketBuffer`; enables when loader state / `MITM_EBPF_ATTACHED=1` | Xray + `ebpf_xdp_loader.py` on NIC |
 | `ja3.rs` drives live uTLS | Parses → JA3 hash | Xray `tlsSettings.fingerprint` |
 | `tls_orchestrator.rs` mutates wire | ALPN policy model | Xray repack outbounds |
 | `cert_cache.rs` OpenSSL on disk | In-memory model | Xray + `mycert.crt` / `.key` |

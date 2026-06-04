@@ -1,0 +1,24 @@
+version: 1
+description: >
+  Maps each generated operating profile to a JA3 pool template. Applied automatically
+  by scripts/generate_profiles.py (Track A — pool-id attach on every profile).
+default_pool_file: config-src/templates/ja3-pools/chrome-baseline-pool.json
+profiles:
+  strict:
+    template_index: 0
+  balanced:
+    template_index: 0
+  compatibility:
+    template_index: 1
+  debug:
+    template_index: 1
+  evasion-fragment:
+    template_index: 0
+  evasion-reality-stub:
+    template_index: 0
+  evasion-tun-stub:
+    template_index: 1
+  evasion-fakedns:
+    template_index: 0
+  evasion-high-stealth:
+    template_index: 0

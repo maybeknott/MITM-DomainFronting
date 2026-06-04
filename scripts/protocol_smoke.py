@@ -6,6 +6,7 @@ import argparse
 import json
 import socket
 import ssl
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -204,6 +205,108 @@ def firewall_checklist(root: Path) -> int:
     return status_report("firewall-checklist", status, checks)
 
 
+def ebpf_xdp_loader_policy(root: Path) -> int:
+    loader = root / "scripts" / "ebpf_xdp_loader.py"
+    bpf_src = root / "tools" / "ebpf" / "ingress_telemetry.bpf.c"
+    containment_src = root / "tools" / "ebpf" / "containment_xdp.bpf.c"
+    adr = root / "docs" / "reference" / "track-d-ebpf-helper-adr.md"
+    checks: dict[str, object] = {
+        "loader_script_present": loader.exists(),
+        "bpf_source_present": bpf_src.exists(),
+        "containment_source_present": containment_src.exists(),
+        "ebpf_containment_module_present": (root / "scripts" / "core" / "ebpf_containment.py").exists(),
+        "adr_present": adr.exists(),
+        "simulate_attach_rc": None,
+        "containment_simulate_rc": None,
+    }
+    env = {**__import__("os").environ, "MITM_EBPF_CONSENT": "1"}
+    if loader.exists():
+        for program, key in (("telemetry", "simulate_attach_rc"), ("containment", "containment_simulate_rc")):
+            proc = subprocess.run(
+                [sys.executable, str(loader), "--simulate", "--interface", "eth0", "--program", program],
+                cwd=str(root),
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            checks[key] = proc.returncode
+            if proc.stdout.strip():
+                try:
+                    checks[f"{program}_simulate_report"] = json.loads(proc.stdout)
+                except json.JSONDecodeError:
+                    checks[f"{program}_stdout"] = proc.stdout.strip()[-500:]
+    telemetry = checks.get("telemetry_simulate_report") if isinstance(checks.get("telemetry_simulate_report"), dict) else {}
+    containment = checks.get("containment_simulate_report") if isinstance(checks.get("containment_simulate_report"), dict) else {}
+    simulate_ok = (
+        checks.get("simulate_attach_rc") == 0
+        and telemetry.get("mode") == "simulated_attach"
+        and telemetry.get("attached") is True
+        and checks.get("containment_simulate_rc") == 0
+        and containment.get("mode") == "simulated_attach"
+        and containment.get("supervisor_alive") is True
+    )
+    required = (
+        "loader_script_present",
+        "bpf_source_present",
+        "containment_source_present",
+        "ebpf_containment_module_present",
+        "adr_present",
+    )
+    status = "pass" if all(checks.get(k) for k in required) and simulate_ok else "warn"
+    return status_report("ebpf-xdp-loader", status, checks)
+
+
+def ebpf_containment_policy(root: Path) -> int:
+    module = root / "scripts" / "core" / "ebpf_containment.py"
+    checks: dict[str, object] = {"module_present": module.exists()}
+    if module.exists():
+        sys.path.insert(0, str(root / "scripts"))
+        from core.ebpf_containment import mark_supervisor_alive, mark_supervisor_dead  # noqa: WPS433
+
+        alive = mark_supervisor_alive(simulate=True)
+        dead = mark_supervisor_dead(simulate=True)
+        checks["mark_alive"] = alive
+        checks["mark_dead"] = dead
+        state_path = root / ".local-state" / "ebpf-xdp-loader.json"
+        checks["state_written"] = state_path.is_file()
+    status = "pass" if checks.get("module_present") and checks.get("state_written") else "warn"
+    return status_report("ebpf-containment-policy", status, checks)
+
+
+def suricata_wire_proof_structure(root: Path) -> int:
+    proc = subprocess.run(
+        [sys.executable, str(root / "scripts" / "wire_proof_suricata.py"), "--scenario", "structure"],
+        cwd=str(root),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return status_report(
+            "suricata-wire-proof",
+            "fail",
+            {"returncode": proc.returncode, "stdout": (proc.stdout or "")[-500:], "stderr": (proc.stderr or "")[-500:]},
+        )
+    try:
+        report = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return status_report("suricata-wire-proof", "fail", {"error": "invalid JSON from wire_proof_suricata.py"})
+    return status_report("suricata-wire-proof", str(report.get("status", "warn")), report)
+
+
+OPERATING_PROFILES = ("strict", "balanced", "compatibility", "debug")
+
+
+def ja3_pool_attach_policy(root: Path) -> int:
+    sys.path.insert(0, str(root / "scripts"))
+    from core.ja3_pool_attach import validate_all_profiles_have_pool_metadata  # noqa: WPS433
+
+    errors = validate_all_profiles_have_pool_metadata(root / "Xray-config", OPERATING_PROFILES)
+    status = "pass" if not errors else "fail"
+    return status_report("ja3-pool-attach", status, {"errors": errors, "profiles_checked": list(OPERATING_PROFILES)})
+
+
 def evasion_lab_profiles(root: Path) -> int:
     fragments = {
         "tls-fragment": root / "config-src" / "fragments" / "tls-fragment-overlay.json",
@@ -219,7 +322,13 @@ def evasion_lab_profiles(root: Path) -> int:
     }
     if profiles.exists():
         text = profiles.read_text(encoding="utf-8")
-        for label in ("evasion-fragment", "evasion-reality-stub", "evasion-tun-stub"):
+        for label in (
+            "evasion-fragment",
+            "evasion-reality-stub",
+            "evasion-tun-stub",
+            "evasion-fakedns",
+            "evasion-high-stealth",
+        ):
             if label in text:
                 checks["optional_lab_labels"].append(label)
     base = root / "Xray-config" / "MITM-DomainFronting.json"
@@ -243,9 +352,11 @@ def evasion_lab_profiles(root: Path) -> int:
         except Exception as exc:  # noqa: BLE001
             checks["merge_error"] = str(exc)
     labels = checks["optional_lab_labels"]
+    high_stealth = (root / "Xray-config" / "MITM-DomainFronting.evasion-high-stealth.json").is_file()
+    checks["evasion_high_stealth_generated"] = high_stealth
     status = (
         "pass"
-        if checks["fragments_present"] and len(labels) >= 3 and checks["fragment_merge_ok"]
+        if checks["fragments_present"] and len(labels) >= 5 and checks["fragment_merge_ok"]
         else "warn"
     )
     return status_report("evasion-lab-profiles", status, checks)
@@ -274,7 +385,29 @@ def udp443_policy(config_dir: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol smoke probes and emit redacted JSON")
-    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy", "tun-stub", "ttl-spin-policy", "firewall-checklist", "evasion-lab-profiles"], required=True)
+    parser.add_argument(
+        "--scenario",
+        choices=[
+            "tcp-connect",
+            "websocket-handshake",
+            "grpc-alpn",
+            "http2-alpn",
+            "ipv6-connect",
+            "udp443-policy",
+            "fragment-policy",
+            "reality-stub",
+            "fakedns-policy",
+            "tun-stub",
+            "ttl-spin-policy",
+            "firewall-checklist",
+            "evasion-lab-profiles",
+            "ebpf-xdp-loader",
+            "ebpf-containment-policy",
+            "suricata-wire-proof",
+            "ja3-pool-attach",
+        ],
+        required=True,
+    )
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--port", type=int, default=443)
     parser.add_argument("--path", default="/")
@@ -307,6 +440,14 @@ def main() -> int:
         return firewall_checklist(Path("."))
     if args.scenario == "evasion-lab-profiles":
         return evasion_lab_profiles(Path("."))
+    if args.scenario == "ebpf-xdp-loader":
+        return ebpf_xdp_loader_policy(Path("."))
+    if args.scenario == "ebpf-containment-policy":
+        return ebpf_containment_policy(Path("."))
+    if args.scenario == "suricata-wire-proof":
+        return suricata_wire_proof_structure(Path("."))
+    if args.scenario == "ja3-pool-attach":
+        return ja3_pool_attach_policy(Path("."))
     return udp443_policy(args.config_dir)
 
 

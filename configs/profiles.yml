@@ -38,3 +38,14 @@ optional_lab_profiles:
     purpose: tun_inbound_reference_stub
     generator: scripts/generate_evasion_profiles.py
     fragment: config-src/fragments/tun-inbound-stub.json
+  evasion-fakedns:
+    purpose: fakedns_19818_trap_lab
+    generator: scripts/generate_evasion_profiles.py
+    fragment: config-src/fragments/fakedns-19818-trap.json
+  evasion-high-stealth:
+    purpose: combined_fragment_fakedns_tun_lab
+    generator: scripts/generate_evasion_profiles.py
+    fragments:
+      - config-src/fragments/tls-fragment-overlay.json
+      - config-src/fragments/fakedns-19818-trap.json
+      - config-src/fragments/tun-inbound-stub.json

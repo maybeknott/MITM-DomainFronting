@@ -103,6 +103,18 @@ def release_checks() -> list[tuple[str, Callable[[], dict[str, object]]]]:
         ("balanced profile present", lambda: require_file("Xray-config/MITM-DomainFronting.balanced.json")),
         ("compatibility profile present", lambda: require_file("Xray-config/MITM-DomainFronting.compatibility.json")),
         ("debug profile present", lambda: require_file("Xray-config/MITM-DomainFronting.debug.json")),
+        (
+            "evasion high-stealth present",
+            lambda: require_file("Xray-config/MITM-DomainFronting.evasion-high-stealth.json"),
+        ),
+        (
+            "intelligent advisor",
+            lambda: run_command(
+                "intelligent advisor",
+                [py, "scripts/intelligent_advise.py", "--skip-runtime"],
+                timeout=60,
+            ),
+        ),
     ]
 
 
