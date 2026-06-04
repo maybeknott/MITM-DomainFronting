@@ -175,8 +175,8 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | Xray sole live egress documented | POLICY | SHIPPED |
 | Route linter before release | POLICY | SHIPPED |
 | `cargo test --locked` in CI | POLICY | SHIPPED |
-| JA3 pool JSON ↔ offline hash cross-check in CI | TARGET | Open — T-01 §4 |
-| OPSEC RAM telemetry (no jsonl) | TARGET | Open — T-02 §4 |
+| JA3 pool JSON ↔ offline hash cross-check in CI | SHIPPED | `ja3_pool_validate.py` + `src/ja3.rs` pool test |
+| OPSEC RAM telemetry (no jsonl) | SHIPPED | GUI OPSEC toggle (`gui_preferences.py`) |
 | WFP / nftables fail-closed docs tested | TARGET | Open — D3 |
 | Optional eBPF helper (not Rust fixture) | TARGET | Open — D7 |
 
@@ -208,13 +208,13 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 | DPAPI wrap for `mycert.key` | Open | Track D |
 | JA3 oracle in GUI | Open | ADR-0004 |
 | REALITY + TLS fragment in config-src | Open | Track A |
-| `scripts/core/strategy_engine.py` | Partial | Skeleton shipped — wire to `build_config.py` / supervisor reload open |
-| `scripts/core/trust_broker.py` | Partial | Profile-scoped launch scaffold — CDP cert import open |
+| `scripts/core/strategy_engine.py` | Partial | Wired to `decision_report.py` via `strategy_profiles.py`; GUI hot-swap open |
+| `scripts/core/trust_broker.py` | Partial | Profile-scoped launch + GUI action; CDP cert import open |
 | Config fragment merge semantics | Closed | `scripts/config_src_merge.py` + `tests/python/config_src_merge_test.py` |
-| OPSEC telemetry mode | Open | Track D — T-02 |
+| OPSEC telemetry mode | Shipped | GUI RAM-only toggle — T-02 |
 | Optional eBPF helper | Open | Track D; separate from Rust fixture |
-| **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Open | Track A — `build_config.py` + `cargo test` |
-| **T-02** OPSEC RAM-only GUI telemetry | Open | Track D/C — `scripts/gui.py` |
+| **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
+| **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
 | **T-03** Build artifact hygiene in docs | Open | Track C — `build/`, `dist/` excluded |
 
 ---

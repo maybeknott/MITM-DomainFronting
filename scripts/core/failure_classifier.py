@@ -223,3 +223,47 @@ def run_staged_probe(host: str, port: int = 443, timeout: float = 5.0) -> ProbeR
         tls_sock.close()
 
     return result
+
+
+STRATEGY_LABELS = frozenset(
+    {
+        "dns_leak",
+        "webrtc_leak",
+        "static_ja3",
+        "tls_block",
+        "trust_ioc",
+    }
+)
+
+_PHASE_LABELS: dict[str, tuple[str, ...]] = {
+    "dns_resolution_failed": ("dns_leak",),
+    "dns_poisoned_or_failed": ("dns_leak",),
+    "dns_timeout": ("dns_leak",),
+    "dns_poisoned": ("dns_leak",),
+    "tls_alert_or_rst": ("tls_block",),
+    "tls_alert": ("tls_block",),
+    "tls_silent_drop": ("tls_block",),
+    "alpn_mismatch": ("tls_block",),
+    "http_status_bad": ("tls_block",),
+    "cert_untrusted": ("trust_ioc",),
+    "cert_missing": ("trust_ioc",),
+}
+
+
+def derive_strategy_labels(
+    probe: ProbeResult | None = None,
+    *,
+    phase: str | None = None,
+    leak_hints: Iterable[str] | None = None,
+) -> tuple[str, ...]:
+    """Map staged probe phases and optional leak hints to strategy-engine labels."""
+    labels: set[str] = set()
+    active_phase = (phase or (probe.phase_classification if probe else "") or "").strip().lower()
+    for label in _PHASE_LABELS.get(active_phase, ()):
+        labels.add(label)
+    if leak_hints:
+        for hint in leak_hints:
+            normalized = str(hint).strip().lower()
+            if normalized in STRATEGY_LABELS:
+                labels.add(normalized)
+    return tuple(sorted(labels))

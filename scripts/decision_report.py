@@ -37,9 +37,14 @@ try:
 except Exception:  # noqa: BLE001
     geodata_report = None
 try:
-    from core.failure_classifier import run_staged_probe  # noqa: E402
+    from core.failure_classifier import derive_strategy_labels, run_staged_probe  # noqa: E402
 except Exception:  # noqa: BLE001
+    derive_strategy_labels = None
     run_staged_probe = None
+try:
+    from core.strategy_profiles import recommend_profile  # noqa: E402
+except Exception:  # noqa: BLE001
+    recommend_profile = None
 
 PROFILE_RULES = {
     "strict": "block_unknown_non_private_and_udp443",
@@ -227,6 +232,8 @@ def main() -> int:
     parser.add_argument("--provider-family", default="unknown", help="Optional provider family label for phase probe output")
     parser.add_argument("--probe-port", type=int, default=443, help="Destination port for staged probe")
     parser.add_argument("--probe-timeout", type=float, default=5.0, help="Timeout (seconds) for each staged probe boundary")
+    parser.add_argument("--session-counter", type=int, default=0, help="Deterministic pool index for strategy recommendation")
+    parser.add_argument("--leak-hint", action="append", default=[], help="Optional leak label hints (dns_leak, webrtc_leak, ...)")
     parser.add_argument("--json-out", type=Path, default=None, help="Optional file path to save JSON output")
     args = parser.parse_args()
 
@@ -283,6 +290,7 @@ def main() -> int:
         if provider_freshness is not None and (root / "providers").exists():
             health_checks["providers"] = provider_freshness(root / "providers", 45)
         report["policy_recommendation"] = build_policy_recommendation(health_checks, validation, root)
+    probe = None
     if args.target_sni and run_staged_probe is not None:
         probe = run_staged_probe(host=args.target_sni, port=args.probe_port, timeout=args.probe_timeout)
         raw_phase = probe.phase_classification
@@ -316,6 +324,31 @@ def main() -> int:
                 "reason": "failure_classifier import failed",
             },
         }
+    if recommend_profile is not None:
+        labels: tuple[str, ...] = ()
+        if derive_strategy_labels is not None:
+            labels = derive_strategy_labels(probe, leak_hints=tuple(args.leak_hint or ()))
+        try:
+            decision = recommend_profile(
+                failure_labels=labels,
+                operator_intent=args.profile,
+                session_counter=max(0, int(args.session_counter)),
+            )
+            report["strategy_recommendation"] = {
+                "selected_profile_id": decision.selected_profile_id,
+                "selected_profile_path": decision.selected_profile_path,
+                "reason": decision.reason,
+                "confidence": decision.confidence,
+                "confirmation_required": decision.confirmation_required,
+                "failure_labels": list(labels),
+                "evidence": decision.evidence,
+            }
+        except ValueError as exc:
+            report["strategy_recommendation"] = {
+                "status": "unavailable",
+                "reason": str(exc),
+                "failure_labels": list(labels),
+            }
     output = json.dumps(report, indent=2, ensure_ascii=False)
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)

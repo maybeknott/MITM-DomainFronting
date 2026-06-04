@@ -102,6 +102,42 @@ def websocket_handshake(host: str, port: int, path: str, timeout: float, tls: bo
         return status_report("websocket-handshake", "warn", {"host": host, "port": port, "elapsed_ms": elapsed_ms, "error": str(exc)})
 
 
+def fragment_policy(root: Path) -> int:
+    fragment = root / "config-src" / "fragments" / "tls-fragment-overlay.json"
+    if not fragment.exists():
+        return status_report("fragment-policy", "fail", {"error": "missing tls-fragment-overlay.json"})
+    data = json.loads(fragment.read_text(encoding="utf-8"))
+    outbounds = data.get("outbounds") if isinstance(data.get("outbounds"), list) else []
+    fragment_hits = 0
+    for outbound in outbounds:
+        if not isinstance(outbound, dict):
+            continue
+        stream = outbound.get("streamSettings") if isinstance(outbound.get("streamSettings"), dict) else {}
+        sockopt = stream.get("sockopt") if isinstance(stream.get("sockopt"), dict) else {}
+        fragment_cfg = sockopt.get("fragment") if isinstance(sockopt.get("fragment"), dict) else {}
+        if fragment_cfg.get("packets") == "tlshello":
+            fragment_hits += 1
+    status = "pass" if fragment_hits else "fail"
+    return status_report("fragment-policy", status, {"fragment_outbounds": fragment_hits})
+
+
+def reality_stub(root: Path) -> int:
+    stub = root / "config-src" / "fragments" / "reality-outbound-stub.json"
+    if not stub.exists():
+        return status_report("reality-stub", "fail", {"error": "missing reality-outbound-stub.json"})
+    data = json.loads(stub.read_text(encoding="utf-8"))
+    outbounds = data.get("outbounds") if isinstance(data.get("outbounds"), list) else []
+    reality_hits = 0
+    for outbound in outbounds:
+        if not isinstance(outbound, dict):
+            continue
+        stream = outbound.get("streamSettings") if isinstance(outbound.get("streamSettings"), dict) else {}
+        if stream.get("security") == "reality":
+            reality_hits += 1
+    status = "pass" if reality_hits else "fail"
+    return status_report("reality-stub", status, {"reality_outbounds": reality_hits})
+
+
 def udp443_policy(config_dir: Path) -> int:
     checks: List[Dict[str, object]] = []
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
@@ -125,7 +161,7 @@ def udp443_policy(config_dir: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol smoke probes and emit redacted JSON")
-    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy"], required=True)
+    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub"], required=True)
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--port", type=int, default=443)
     parser.add_argument("--path", default="/")
@@ -144,6 +180,10 @@ def main() -> int:
         return tls_alpn(args.host, args.port, ["h2", "http/1.1"], args.timeout, "http2-alpn")
     if args.scenario == "ipv6-connect":
         return ipv6_connect(args.host, args.port, args.timeout)
+    if args.scenario == "fragment-policy":
+        return fragment_policy(Path("."))
+    if args.scenario == "reality-stub":
+        return reality_stub(Path("."))
     return udp443_policy(args.config_dir)
 
 

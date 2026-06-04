@@ -243,11 +243,11 @@ config — all emitted by Xray uTLS, validated offline by Rust.
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
 | A1 | [x] Camouflage SNI on all repack outbounds | `scripts/core/sni_camouflage.py` + tests | `py -3 tests/python/sni_camouflage_tests.py` |
-| A2 | [ ] REALITY outbound profile fragment | `config-src/fragments/reality-*.yml` | `build_config.py` + lab handshake |
-| A3 | [ ] TLS `fragment` block on tlshello | `config-src/fragments/fragment-*.yml` | Wireshark multi-record ClientHello |
-| A4 | [ ] JA3 pool artifact directory | `config-src/templates/ja3-pools/*.json` | Per-id `cargo test` expectations |
-| A5 | [ ] build_config attaches pool id to profile | `build_config.py` | `--check-profile-sync` |
-| A6 | [ ] protocol_smoke REALITY + fragment scenarios | `tests/python/protocol_smoke.py` | CI green |
+| A2 | [~] REALITY outbound profile fragment | `config-src/fragments/reality-outbound-stub.json` | `protocol_smoke.py --scenario reality-stub` |
+| A3 | [~] TLS `fragment` block on tlshello | `config-src/fragments/tls-fragment-overlay.json` | `protocol_smoke.py --scenario fragment-policy` |
+| A4 | [x] JA3 pool artifact directory | `config-src/templates/ja3-pools/*.json` | `ja3_pool_validate.py` + `cargo test ja3_pool` |
+| A5 | [~] build_config attaches pool id to profile | `ja3_pool_validate.py` in manifest | CI green; runtime attach still optional |
+| A6 | [~] protocol_smoke REALITY + fragment scenarios | `scripts/protocol_smoke.py` | Config-structure probes (not live handshake) |
 | A7 | [ ] Pin Xray schema to version in docs | `docs/reference/01` + config-src header | Manual diff on Xray upgrade |
 
 **Dependencies:** None (blocks Track B pool rotation semantics).
@@ -263,12 +263,12 @@ JSON export — without persistent covert logging.
 
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
-| B1 | [~] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | Unit tests for pool_index + label routing |
-| B2 | [ ] O(1) pool index `session & (size-1)` | API + docs in 02 §3.3 | Deterministic test vectors |
-| B3 | [ ] Wire engine to build_config profile names | `build_config.py` hook | Profile switch in GUI |
-| B4 | [ ] Probe orchestration CLI | `main.py probe --json-out` | Opt-in file only |
-| B5 | [ ] failure_classifier labels for WebRTC/DNS leak | Enum extensions | Mock probe tests |
-| B6 | [ ] decision_report opt-in export | `scripts/decision_report.py` | No default disk write |
+| B1 | [x] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | `strategy_engine_test.py` |
+| B2 | [x] O(1) pool index `session & (size-1)` | API + docs in 02 §3.3 | `strategy_engine_test.py` |
+| B3 | [~] Wire engine to build_config profile names | `strategy_profiles.py` + `decision_report.py` | Profile recommendation block |
+| B4 | [x] Probe orchestration CLI | `main.py probe --json-out` | Opt-in file only |
+| B5 | [x] failure_classifier labels for WebRTC/DNS leak | `derive_strategy_labels()` | `failure_classifier_tests.py` |
+| B6 | [x] decision_report opt-in export | `scripts/decision_report.py` | `--json-out` + strategy block |
 
 **Dependencies:** A4–A5 (pool artifacts).
 
@@ -282,9 +282,9 @@ JSON export — without persistent covert logging.
 |---|---|---|---|
 | C1 | [~] Profile picker + connect | `scripts/gui.py` | Manual |
 | C2 | [ ] Preflight panel (capabilities, Xray pin) | GUI widget | Blocks connect on fail |
-| C3 | [ ] JA3 display: "expected" vs "measured (oracle URL)" | GUI + ADR-0004 | No fake "measured" |
-| C4 | [ ] REALITY / fragment profile labels | `configs/profiles.yml` | Sync test |
-| C5 | [ ] OPSEC mode: telemetry cap / clear-on-exit | GUI + `local-telemetry.md` | File monitor |
+| C3 | [x] JA3 display: "expected" vs "measured (oracle URL)" | GUI readiness + `ja3_evidence.py` | No fake "measured" |
+| C4 | [~] REALITY / fragment profile labels | `configs/profiles.yml` optional_lab_profiles | `generate_evasion_profiles.py` |
+| C5 | [x] OPSEC mode: telemetry cap / clear-on-exit | GUI RAM-only toggle + `gui_preferences.py` | No jsonl append in OPSEC mode |
 
 **Dependencies:** A2–A3 for profile labels.
 
@@ -301,7 +301,7 @@ JSON export — without persistent covert logging.
 | D2 | [ ] TUN inbound profile | `config-src/tun-*.yml` | `tun-operational-notes.md` |
 | D3 | [ ] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | Leak test Xray down |
 | D4 | [ ] FakeDNS 198.18.0.0/15 | Xray DNS fragment | `fakedns-recovery.md` |
-| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` | No system store write; CDP cert import open |
+| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + GUI action | No system store write; CDP cert import open |
 | D6 | [ ] DPAPI wrap `mycert.key` | crypto helper | File ACL test |
 | D7 | [ ] Track D decision record for optional eBPF helper | `track-d/` or new ADR section in 02 | bpftool lab |
 | D8 | [ ] TTL spin / ghost segments | Xray-core or eBPF | Suricata lab |

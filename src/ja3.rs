@@ -285,4 +285,19 @@ mod tests {
         assert_eq!(fp.ja3_hash_md5, md5_hex(fp.ja3_string.as_bytes()));
         assert_eq!(fp.ja3_hash_md5.len(), 32);
     }
+
+    #[test]
+    fn ja3_pool_artifact_matches_offline_fixture_hash() {
+        let pool = include_str!("../config-src/templates/ja3-pools/chrome-baseline-pool.json");
+        assert!(pool.contains("e5e1e38579ae55ca3ec29f347d63149e"));
+        assert!(pool.contains("772,4865-4866,0-10-16,29-23,0"));
+        let hello = hello_with(
+            vec![0x0a0a, 0x0304, 0x0303],
+            vec![0x1a1a, 0x1301, 0x1302],
+            vec![0x0000, 0x000a, 0x0010],
+            vec![0x001d, 0x0017],
+            vec![0],
+        );
+        assert_eq!(ja3_hash(&hello), "e5e1e38579ae55ca3ec29f347d63149e");
+    }
 }

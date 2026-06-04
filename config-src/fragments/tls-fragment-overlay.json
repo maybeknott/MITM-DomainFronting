@@ -1,0 +1,22 @@
+{
+  "__comment": "Reference TLS ClientHello record fragment overlay — optional lab profiles only.",
+  "__merge_strategy__": {
+    "outbounds": "append_unique_by_tag"
+  },
+  "outbounds": [
+    {
+      "tag": "fragment-lab-stub",
+      "protocol": "freedom",
+      "settings": {},
+      "streamSettings": {
+        "sockopt": {
+          "fragment": {
+            "packets": "tlshello",
+            "length": "100-200",
+            "interval": "10-20"
+          }
+        }
+      }
+    }
+  ]
+}

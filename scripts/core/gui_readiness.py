@@ -114,6 +114,12 @@ def readiness_snapshot_fields(state: Optional[ProjectState], error: str = "") ->
         "trust_windows_machine": state.trust_windows_machine if state else "unknown",
         "playwright_ok": state.playwright_ok if state else False,
         "cloakbrowser_ok": state.cloakbrowser_ok if state else False,
+        "ja3_configured": state.ja3_configured if state else False,
+        "ja3_measured": state.ja3_measured if state else False,
+        "ja3_validation_status": state.ja3_validation_status if state else "not_measured",
+        "ja3_oracle_url": state.ja3_oracle_url if state else "",
+        "ja3_expected": state.ja3_expected if state else "",
+        "ja3_observed": state.ja3_observed if state else "",
     }
 
 

@@ -25,3 +25,12 @@ profiles:
     udp_443: block_to_surface_quic_mismatch
     logs: info_without_access_log
     default_for_first_time_user: false
+optional_lab_profiles:
+  evasion-fragment:
+    purpose: tls_record_fragment_lab_only
+    generator: scripts/generate_evasion_profiles.py
+    fragment: config-src/fragments/tls-fragment-overlay.json
+  evasion-reality-stub:
+    purpose: reality_outbound_reference_stub
+    generator: scripts/generate_evasion_profiles.py
+    fragment: config-src/fragments/reality-outbound-stub.json

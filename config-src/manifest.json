@@ -20,6 +20,7 @@
     "route_rule_linter",
     "route_policy_tests",
     "transport_experiment_validate",
+    "ja3_pool_validate",
     "config_src_runtime_sync"
   ],
   "generated_profiles": [

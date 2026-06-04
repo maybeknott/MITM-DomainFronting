@@ -26,8 +26,10 @@ from typing import Callable, Iterable
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from core.gui_preferences import GuiPreferences, load_preferences, save_preferences
 from core.gui_readiness import GuiReadinessCache, primary_action_spec, readiness_snapshot_fields
 from core.process_supervisor import ProcessSupervisor
+from core.trust_broker import prepare_chromium_session, session_manifest
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
@@ -727,6 +729,9 @@ class App(tk.Tk):
         self._status_loop_running = False
         self._primary_action: Callable[[], None] = self.run_beginner_setup_check
         self.readiness_cache = GuiReadinessCache(root=ROOT, cert_path=CERT, key_path=KEY)
+        self.gui_preferences = load_preferences()
+        self.opsec_telemetry_mode = tk.BooleanVar(value=self.gui_preferences.ram_only())
+        self._ram_telemetry_events: list[dict[str, object]] = []
         self._proxy_active_since: float | None = None
         self._network_baseline: tuple[float, int, int, str] | None = None
         self._network_last: tuple[float, int, int, str] | None = None
@@ -1565,6 +1570,15 @@ class App(tk.Tk):
             )
             check.pack(side="left", padx=(0, self._scaled(8)))
             tk.Label(item, text=line, bg=COLORS["panel"], fg=COLORS["ink_soft"], font=self.fonts["caption"], anchor="w").pack(side="left", fill="x", expand=True)
+
+        opsec_row = tk.Frame(privacy, bg=COLORS["panel"])
+        opsec_row.pack(fill="x", pady=(0, self._scaled(6)))
+        ttk.Checkbutton(
+            opsec_row,
+            text="OPSEC mode (RAM-only activity history)",
+            variable=self.opsec_telemetry_mode,
+            command=self.toggle_opsec_telemetry_mode,
+        ).pack(anchor="w")
 
         view = self._rail_panel(rail, "Quick Actions", "bolt")
         for index, (label, command) in enumerate(
@@ -2936,6 +2950,7 @@ class App(tk.Tk):
             ("runtime", "Bundled files", "Xray executable and geodata are local."),
             ("cert", "Certificate", "Local CA files exist; trust stays manual."),
             ("listener", "Proxy state", "Selected local listener is checked live."),
+            ("fingerprint", "TLS fingerprint", "Configured vs measured (oracle only)."),
         )
         readiness_widgets: list[tk.Frame] = []
         for key, title, item_detail in readiness_items:
@@ -3638,6 +3653,7 @@ class App(tk.Tk):
         ]
         if os.name == "nt":
             page_actions.append(("Launch stock Chrome (PS)", "Soft.TButton", self.launch_diagnostics_chrome_ps))
+        page_actions.append(("Launch isolated Chromium", "Soft.TButton", self.launch_isolated_chromium))
         self._button_grid(drow2, page_actions, preferred_columns=3, min_cell_width=200)
 
         page_advanced, page_advanced_body = self._collapsible_section(
@@ -3737,7 +3753,6 @@ class App(tk.Tk):
         self._responsive_grid(grid, doc_cards, preferred_columns=2, min_cell_width=300, gap=10)
 
     def record_telemetry(self, event: str, status: str, detail: str = "", fields: dict[str, object] | None = None) -> None:
-        LOCAL_STATE.mkdir(exist_ok=True)
         payload: dict[str, object] = {
             "ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
             "event": event,
@@ -3745,6 +3760,14 @@ class App(tk.Tk):
             "detail": detail[:240],
             "fields": fields or {},
         }
+        if self.opsec_telemetry_mode.get():
+            self._ram_telemetry_events.append(payload)
+            cap = self.gui_preferences.telemetry_max_events
+            if len(self._ram_telemetry_events) > cap:
+                self._ram_telemetry_events = self._ram_telemetry_events[-cap:]
+            self._update_telemetry_labels(payload)
+            return
+        LOCAL_STATE.mkdir(exist_ok=True)
         try:
             with GUI_TELEMETRY.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(payload, sort_keys=True) + "\n")
@@ -3752,7 +3775,26 @@ class App(tk.Tk):
             return
         self._update_telemetry_labels(payload)
 
+    def toggle_opsec_telemetry_mode(self) -> None:
+        mode = "ram_only" if self.opsec_telemetry_mode.get() else "local_disk"
+        self.gui_preferences = GuiPreferences(
+            telemetry_mode=mode,
+            telemetry_max_events=self.gui_preferences.telemetry_max_events,
+        )
+        save_preferences(self.gui_preferences)
+        if self.opsec_telemetry_mode.get() and GUI_TELEMETRY.exists():
+            try:
+                GUI_TELEMETRY.unlink()
+            except OSError:
+                pass
+        summary = "RAM-only (no jsonl append)" if self.opsec_telemetry_mode.get() else "Local disk history enabled"
+        self.record_telemetry("telemetry_mode_changed", "info", summary, {"mode": mode})
+        self._append_output(f"\nTelemetry mode: {summary}\n")
+
     def _telemetry_events(self, limit: int | None = None) -> list[dict[str, object]]:
+        if self.opsec_telemetry_mode.get():
+            events = list(self._ram_telemetry_events)
+            return events[-limit:] if limit else events
         if not GUI_TELEMETRY.exists():
             return []
         try:
@@ -3937,6 +3979,28 @@ class App(tk.Tk):
             listener_detail,
             listener_level if listener_ready else "warn",
         )
+        configured = bool(snapshot.get("ja3_configured"))
+        measured = bool(snapshot.get("ja3_measured"))
+        validation = str(snapshot.get("ja3_validation_status") or "not_measured")
+        if measured:
+            observed = str(snapshot.get("ja3_observed") or "unknown")
+            expected = str(snapshot.get("ja3_expected") or "")
+            if validation == "match":
+                fp_status, fp_level = "Measured", "pass"
+                fp_detail = f"Oracle match. observed={observed}"
+            elif validation == "mismatch":
+                fp_status, fp_level = "Mismatch", "warn"
+                fp_detail = f"Oracle mismatch. observed={observed} expected={expected or 'unset'}"
+            else:
+                fp_status, fp_level = "Measured", "info"
+                fp_detail = f"Oracle recorded observed={observed}; no expected hash configured."
+        elif configured:
+            fp_status, fp_level = "Configured", "info"
+            fp_detail = "Xray uTLS fingerprint configured; run an opt-in JA3 oracle to measure."
+        else:
+            fp_status, fp_level = "Not set", "warn"
+            fp_detail = "No TLS fingerprint configured on repack outbounds."
+        self._set_readiness_item("fingerprint", fp_status, fp_detail, fp_level)
 
     def _update_runtime_items(self, snapshot: dict[str, object]) -> None:
         xray_path = str(snapshot.get("xray_path") or "")
@@ -4356,6 +4420,7 @@ class App(tk.Tk):
         self._append_output(f"\nExported local activity history: {short_path(target)}\n")
 
     def clear_telemetry(self) -> None:
+        self._ram_telemetry_events.clear()
         if GUI_TELEMETRY.exists():
             try:
                 GUI_TELEMETRY.unlink()
@@ -5313,6 +5378,49 @@ class App(tk.Tk):
                 f"Or click Install Fingerprint Tools in Repair.\nProject: {CLOAKBROWSER_URL}\n"
             )
             self.current_process_label.set("CloakBrowser: not installed")
+
+    def launch_isolated_chromium(self) -> None:
+        if not CERT.exists():
+            messagebox.showwarning("Missing certificate", f"Generate the local CA first: {short_path(CERT)}")
+            return
+        try:
+            _, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("Browser launch", str(exc))
+            return
+        browser = "edge" if os.name == "nt" else "chromium"
+        profile_dir = LOCAL_STATE / "isolated-chromium-profile"
+        try:
+            session = prepare_chromium_session(
+                browser=browser,
+                profile_dir=profile_dir,
+                proxy_url=proxy,
+                cert_path=CERT,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            messagebox.showerror("Browser launch", str(exc))
+            return
+        manifest_path = LOCAL_STATE / "trust-broker-session.json"
+        LOCAL_STATE.mkdir(exist_ok=True)
+        manifest_path.write_text(session_manifest(session) + "\n", encoding="utf-8")
+        self.record_telemetry("isolated_browser_prepared", "info", short_path(manifest_path), {"browser": browser})
+        self._append_output(
+            "\nPrepared isolated Chromium launch (profile-scoped trust only):\n"
+            f"{session_manifest(session)}\n"
+            "Import/trust the local CA in this profile manually if needed.\n"
+        )
+        if not messagebox.askyesno(
+            "Launch isolated browser",
+            "Launch an isolated Chromium profile now?\n\n"
+            "This does not install system-wide trust or modify browser stores silently.",
+        ):
+            return
+        try:
+            subprocess.Popen(session.command, cwd=str(ROOT))  # noqa: S603
+        except OSError as exc:
+            messagebox.showerror("Browser launch", str(exc))
+            return
+        self.record_telemetry("isolated_browser_launched", "pass", browser, {"profile_dir": session.profile_dir})
 
     def launch_diagnostics_chrome_ps(self) -> None:
         ps1 = SCRIPTS / "launch_browser_mitm.ps1"

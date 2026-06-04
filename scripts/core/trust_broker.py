@@ -34,8 +34,9 @@ def prepare_chromium_session(
     proxy_url: str = "socks5://127.0.0.1:10808",
     cert_path: Path = Path("Xray-config/mycert.crt"),
     remote_debugging_port: int = 9222,
+    binary: str | None = None,
 ) -> BrowserTrustSession:
-    binary = _find_chromium_binary(browser)
+    resolved_binary = binary or _find_chromium_binary(browser)
     profile_dir = profile_dir.expanduser().resolve()
     cert_path = cert_path.expanduser().resolve()
     if not cert_path.exists():
@@ -44,7 +45,7 @@ def prepare_chromium_session(
         raise ValueError("remote_debugging_port must be between 1024 and 65535")
     profile_dir.mkdir(parents=True, exist_ok=True)
     command = [
-        binary,
+        resolved_binary,
         f"--user-data-dir={profile_dir}",
         f"--proxy-server={proxy_url}",
         f"--remote-debugging-port={remote_debugging_port}",
@@ -54,7 +55,7 @@ def prepare_chromium_session(
     ]
     return BrowserTrustSession(
         browser=browser,
-        binary=binary,
+        binary=resolved_binary,
         profile_dir=str(profile_dir),
         proxy_url=proxy_url,
         remote_debugging_port=remote_debugging_port,

@@ -24,6 +24,8 @@ ROOT = SCRIPT_DIR.parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from core.ja3_evidence import load_evidence  # noqa: E402
+
 
 STATUS_ORDER = {"fail": 4, "warn": 3, "info": 2, "pass": 1}
 EXPECTED_PORTS = [10808, 11666, 11777, 11888, 11999]
@@ -880,6 +882,35 @@ def build_project_state(
     browser_deps_ok, playwright_ok, cloakbrowser_ok, browser_path, browser_result = browser_state(root)
     checks.extend(browser_result)
 
+    ja3_evidence = load_evidence(root / ".local-state" / "ja3-evidence.json")
+    ja3_measured = bool(ja3_evidence and ja3_evidence.measured)
+    ja3_validation_status = ja3_evidence.validation_status if ja3_evidence else "not_measured"
+    ja3_oracle_url = ja3_evidence.oracle_url if ja3_evidence else ""
+    ja3_expected = ja3_evidence.expected_ja3 if ja3_evidence else ""
+    ja3_observed = ja3_evidence.observed_ja3 if ja3_evidence else ""
+    if ja3_measured:
+        checks.append(
+            _check(
+                "ja3.measured",
+                "fingerprint",
+                "pass" if ja3_validation_status == "match" else "warn" if ja3_validation_status == "measured" else "warn",
+                "JA3 oracle measurement is on file."
+                if ja3_validation_status != "mismatch"
+                else "JA3 oracle measurement mismatched the configured expectation.",
+                evidence=f"observed={ja3_observed or 'unknown'} expected={ja3_expected or 'none'}",
+            )
+        )
+    elif ja3_configured:
+        checks.append(
+            _check(
+                "ja3.configured_only",
+                "fingerprint",
+                "info",
+                "TLS fingerprint is configured in Xray; wire measurement requires an opt-in JA3 oracle run.",
+                evidence="configured=yes measured=no",
+            )
+        )
+
     checks.append(
         _check(
             "telemetry.source",
@@ -928,7 +959,12 @@ def build_project_state(
         playwright_ok=playwright_ok,
         cloakbrowser_ok=cloakbrowser_ok,
         browser_path=browser_path,
+        ja3_validation_status=ja3_validation_status,
         ja3_configured=ja3_configured,
+        ja3_measured=ja3_measured,
+        ja3_oracle_url=ja3_oracle_url,
+        ja3_expected=ja3_expected,
+        ja3_observed=ja3_observed,
         network_status="unknown",
         release_ready=overall == "pass" and not release_blockers,
         release_blockers=release_blockers,

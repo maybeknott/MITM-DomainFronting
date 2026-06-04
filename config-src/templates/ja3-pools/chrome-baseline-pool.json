@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "pool_id": "chrome-baseline-v1",
+  "description": "Offline JA3 reference templates cross-checked by src/ja3.rs and scripts/ja3_pool_validate.py",
+  "templates": [
+    {
+      "id": "rust-fixture-grease-stripped",
+      "ja3_string": "772,4865-4866,0-10-16,29-23,0",
+      "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+      "utls_fingerprint": "chrome",
+      "notes": "Matches ja3.rs unit-test hello_with GREASE-stripped vector"
+    },
+    {
+      "id": "rust-fixture-empty-curves",
+      "ja3_string": "771,4865,0,,",
+      "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+      "utls_fingerprint": "chrome",
+      "notes": "Matches ja3.rs unit-test empty-curves vector"
+    }
+  ]
+}

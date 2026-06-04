@@ -42,5 +42,8 @@ dist/
 build/config/
 target/
 
+# Vendored sibling project — keep in separate repo (maybeknott/MaybeSNISpoofing-Suit)
+SpoofSuite/
+
 # Lab evidence bundles (review before sharing)
 lab-evidence.bundle.json

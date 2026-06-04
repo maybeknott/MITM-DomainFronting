@@ -20,6 +20,7 @@ STEP_COMMANDS = {
     "route_rule_linter": [sys.executable, "scripts/route_rule_linter.py"],
     "route_policy_tests": [sys.executable, "tests/python/route_policy_tests.py"],
     "transport_experiment_validate": [sys.executable, "scripts/transport_experiment_validate.py"],
+    "ja3_pool_validate": [sys.executable, "scripts/ja3_pool_validate.py"],
 }
 
 

@@ -23,5 +23,10 @@
   "transport_hardening_args": [
     "--disable-quic",
     "--disable-udp-proxies"
-  ]
+  ],
+  "telemetry": {
+    "default_mode": "local_disk",
+    "opsec_mode": "ram_only",
+    "max_events": 500
+  }
 }

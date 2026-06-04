@@ -50,7 +50,11 @@ def run_probe(args: argparse.Namespace) -> int:
         skip_trust=args.skip_trust,
         skip_runtime=args.skip_runtime,
     )
-    print(emit_json(state) if args.json or not sys.stdout.isatty() else emit_text(state))
+    payload = emit_json(state)
+    if args.json_out is not None:
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(payload + "\n", encoding="utf-8")
+    print(payload if args.json or not sys.stdout.isatty() else emit_text(state))
     return 2 if state.overall == "fail" else 0
 
 
@@ -128,6 +132,9 @@ def build_audit_checks(config: str, extra_validate_args: List[str]) -> List[Chec
         _script_check("provider policy", "provider_policy_validator.py"),
         _python_test_check("provider policy tests", "provider_policy_validator_tests.py"),
         _python_test_check("failure classifier tests", "failure_classifier_tests.py"),
+        _python_test_check("strategy engine tests", "strategy_engine_test.py"),
+        _python_test_check("trust broker tests", "trust_broker_test.py"),
+        _python_test_check("ja3 pool validate tests", "ja3_pool_validate_test.py"),
         _python_test_check("path scorer tests", "path_scorer_tests.py"),
         _python_test_check("rust core tests", "rust_core_tests.py"),
         _script_check("transport experiments", "transport_experiment_validate.py"),
@@ -202,6 +209,9 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
             _script_check("provider policy", "provider_policy_validator.py"),
             _python_test_check("provider policy tests", "provider_policy_validator_tests.py"),
             _python_test_check("failure classifier tests", "failure_classifier_tests.py"),
+        _python_test_check("strategy engine tests", "strategy_engine_test.py"),
+        _python_test_check("trust broker tests", "trust_broker_test.py"),
+        _python_test_check("ja3 pool validate tests", "ja3_pool_validate_test.py"),
             _python_test_check("path scorer tests", "path_scorer_tests.py"),
             _python_test_check("health policy tests", "health_policy_tests.py"),
             _python_test_check("readiness state tests", "readiness_tests.py"),
@@ -296,6 +306,7 @@ def main() -> int:
     probe_parser.add_argument("--skip-trust", action="store_true", help="skip local trust-store matching")
     probe_parser.add_argument("--skip-runtime", action="store_true", help="skip live listener/process checks")
     probe_parser.add_argument("--json", action="store_true", help="emit JSON even in an interactive terminal")
+    probe_parser.add_argument("--json-out", type=Path, default=None, help="optional file path to save probe JSON")
     sub.add_parser("preflight", help="run local preflight checks")
     sub.add_parser("trust", help="print advisory trust-store setup instructions")
     sub.add_parser("release-check", help="run release readiness checks")

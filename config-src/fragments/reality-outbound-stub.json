@@ -1,0 +1,39 @@
+{
+  "__comment": "Reference REALITY outbound stub for optional lab profiles — not merged into runtime manifest.",
+  "__merge_strategy__": {
+    "outbounds": "append_unique_by_tag"
+  },
+  "outbounds": [
+    {
+      "tag": "reality-front-stub",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 443,
+            "users": [
+              {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "encryption": "none",
+                "flow": "xtls-rprx-vision"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "show": false,
+          "dest": "www.cloudflare.com:443",
+          "xver": 0,
+          "serverNames": ["www.cloudflare.com"],
+          "privateKey": "REPLACE_WITH_LAB_KEY",
+          "shortIds": ["0123456789abcdef"]
+        }
+      }
+    }
+  ]
+}

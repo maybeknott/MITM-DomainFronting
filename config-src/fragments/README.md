@@ -4,13 +4,31 @@
 
 Optional overlay JSON objects merged onto the primary config during `scripts/build_config.py`. Use fragments for incremental route or outbound changes without editing the full base JSON by hand.
 
-Each file here is an overlay Xray JSON object merged onto the primary config during `scripts/build_config.py`.
+Reference-only lab fragments (`reality-outbound-stub.json`, `tls-fragment-overlay.json`) are **not** listed in `manifest.json` until an operator explicitly opts in. Generate optional lab profiles with:
+
+```bash
+py -3 scripts/generate_evasion_profiles.py
+```
 
 ## Merge rules
 
-- **Objects** — deep merge; overlay keys win at leaves.
-- **Arrays** — concatenated (`base + overlay`), e.g. extra `routing.rules` or `outbounds`.
-- **Scalars** — overlay replaces base.
+Control keys (see `scripts/config_src_merge.explain_merge_controls()`):
+
+| Key | Effect |
+|---|---|
+| `__replace__: true` | Replace the entire subtree at this node |
+| `__merge_strategy__` | Per-child list strategy map |
+
+List strategies:
+
+| Strategy | Behavior |
+|---|---|
+| `append` | Default — concatenate arrays |
+| `replace` | Overlay list replaces base list |
+| `append_unique` | Append items deduped by stable JSON key |
+| `append_unique_by_tag` | Replace tagged dict entries by `tag` / `ruleTag` / `id` / `name`, append untagged uniquely |
+
+Object merge: deep merge; overlay leaf keys win.
 
 ## Example
 
@@ -35,8 +53,8 @@ Each file here is an overlay Xray JSON object merged onto the primary config dur
 Add fragment paths to `config-src/manifest.json` → `fragments` in merge order, then run:
 
 ```bash
-python scripts/config_src_validate.py --run-steps
-python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
+py -3 scripts/config_src_validate.py --run-steps
+py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 ```
 
 The compiled output is written to `build/config/MITM-DomainFronting.json` (gitignored). Users still import `Xray-config/MITM-DomainFronting.json`; CI verifies that source output and tracked runtime output stay synchronized.

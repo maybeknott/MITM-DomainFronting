@@ -164,6 +164,19 @@ def verify_ja3_against_oracle(
         result["tls_fingerprint_ja3_matches_browser"] = (
             observed.strip().lower() == expected_ja3.strip().lower()
         )
+    try:
+        from core.ja3_evidence import build_evidence, save_evidence
+
+        save_evidence(
+            build_evidence(
+                oracle_url=oracle_url,
+                expected_ja3=expected_ja3,
+                observed_ja3=observed,
+                verification_method=str(result.get("verification_method") or "ja3_echo_oracle"),
+            )
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return result
 
 
