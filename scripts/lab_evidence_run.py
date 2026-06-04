@@ -29,6 +29,8 @@ PROTOCOL_SCENARIOS = [
     ("fakedns-policy", ["--scenario", "fakedns-policy"]),
     ("tun-stub", ["--scenario", "tun-stub"]),
     ("ttl-spin-policy", ["--scenario", "ttl-spin-policy"]),
+    ("firewall-checklist", ["--scenario", "firewall-checklist"]),
+    ("evasion-lab-profiles", ["--scenario", "evasion-lab-profiles"]),
 ]
 
 

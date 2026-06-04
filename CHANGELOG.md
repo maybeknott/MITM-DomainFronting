@@ -4,6 +4,21 @@
 
 ### Added
 
+- Preflight connect gate (`preflight_gate.py`) with GUI toggle to block Start Core on gate failure.
+- Windows DPAPI private-key wrap/unwrap (`mitm_trust wrap-key` / `unwrap-key`) and connect-time key restore.
+- CDP trust assist for isolated Chromium (`cdp_client.py`, `mitm_trust cdp-assist`) — opens certificate settings; no silent CA install.
+- GUI **Run JA3 Oracle** (Health tab) with opt-in oracle URL and `.local-state/ja3-evidence.json` persistence (ADR-0004).
+- TUN lab fragment (`tun-inbound-stub.json`), WFP/nftables firewall checklist, and Track D ADRs (eBPF helper, TTL spin lab).
+- Lab evidence bundle now includes protocol structure probes (UDP/443, fragment, REALITY stub, FakeDNS, TUN, TTL spin, firewall checklist, evasion lab merge).
+- T-03 build artifact hygiene section in `docs/reference/generated-files.md`.
+
+### Changed
+
+- Strategy profile **Apply Recommended** and optional auto-apply after non-healthy decision reports.
+- `lab_evidence_run.py` aggregates DNS harness + protocol smoke scenarios into one bundle.
+
+### Added (prior unreleased baseline)
+
 - Repository structure documentation.
 - Routing correctness documentation.
 - DNS resilience documentation.

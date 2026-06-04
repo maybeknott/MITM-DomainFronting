@@ -22,6 +22,8 @@ REQUIRED_SCENARIOS = {
     "fakedns-policy",
     "tun-stub",
     "ttl-spin-policy",
+    "firewall-checklist",
+    "evasion-lab-profiles",
 }
 
 ALLOWED_STATUS = {"pass", "warn", "fail", "info"}

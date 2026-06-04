@@ -6,6 +6,7 @@ import argparse
 import json
 import socket
 import ssl
+import sys
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -182,6 +183,74 @@ def ttl_spin_policy(root: Path) -> int:
     return status_report("ttl-spin-policy", status, checks)
 
 
+def firewall_checklist(root: Path) -> int:
+    doc = root / "docs" / "tun-operational-notes.md"
+    checks: dict[str, object] = {
+        "doc_present": doc.exists(),
+        "wfp_section": False,
+        "nftables_section": False,
+        "stun_block_example": False,
+    }
+    if doc.exists():
+        text = doc.read_text(encoding="utf-8")
+        checks["wfp_section"] = "Windows (WFP)" in text or "WFP" in text
+        checks["nftables_section"] = "nftables" in text
+        checks["stun_block_example"] = "3478" in text
+    status = (
+        "pass"
+        if all(checks[key] for key in ("doc_present", "wfp_section", "nftables_section", "stun_block_example"))
+        else "warn"
+    )
+    return status_report("firewall-checklist", status, checks)
+
+
+def evasion_lab_profiles(root: Path) -> int:
+    fragments = {
+        "tls-fragment": root / "config-src" / "fragments" / "tls-fragment-overlay.json",
+        "reality-stub": root / "config-src" / "fragments" / "reality-outbound-stub.json",
+        "tun-stub": root / "config-src" / "fragments" / "tun-inbound-stub.json",
+    }
+    profiles = root / "configs" / "profiles.yml"
+    checks: dict[str, object] = {
+        "fragments_present": all(path.exists() for path in fragments.values()),
+        "profiles_yml_present": profiles.exists(),
+        "optional_lab_labels": [],
+        "fragment_merge_ok": False,
+    }
+    if profiles.exists():
+        text = profiles.read_text(encoding="utf-8")
+        for label in ("evasion-fragment", "evasion-reality-stub", "evasion-tun-stub"):
+            if label in text:
+                checks["optional_lab_labels"].append(label)
+    base = root / "Xray-config" / "MITM-DomainFronting.json"
+    fragment = fragments["tls-fragment"]
+    if base.exists() and fragment.exists():
+        sys.path.insert(0, str(root / "scripts"))
+        try:
+            from config_src_merge import compile_config  # noqa: WPS433
+
+            compiled = compile_config(base, [fragment])
+            outbounds = compiled.get("outbounds", []) if isinstance(compiled.get("outbounds"), list) else []
+            for outbound in outbounds:
+                if not isinstance(outbound, dict):
+                    continue
+                stream = outbound.get("streamSettings") if isinstance(outbound.get("streamSettings"), dict) else {}
+                sockopt = stream.get("sockopt") if isinstance(stream.get("sockopt"), dict) else {}
+                fragment_cfg = sockopt.get("fragment") if isinstance(sockopt.get("fragment"), dict) else {}
+                if fragment_cfg.get("packets") == "tlshello":
+                    checks["fragment_merge_ok"] = True
+                    break
+        except Exception as exc:  # noqa: BLE001
+            checks["merge_error"] = str(exc)
+    labels = checks["optional_lab_labels"]
+    status = (
+        "pass"
+        if checks["fragments_present"] and len(labels) >= 3 and checks["fragment_merge_ok"]
+        else "warn"
+    )
+    return status_report("evasion-lab-profiles", status, checks)
+
+
 def udp443_policy(config_dir: Path) -> int:
     checks: List[Dict[str, object]] = []
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
@@ -205,7 +274,7 @@ def udp443_policy(config_dir: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol smoke probes and emit redacted JSON")
-    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy", "tun-stub", "ttl-spin-policy"], required=True)
+    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy", "tun-stub", "ttl-spin-policy", "firewall-checklist", "evasion-lab-profiles"], required=True)
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--port", type=int, default=443)
     parser.add_argument("--path", default="/")
@@ -234,6 +303,10 @@ def main() -> int:
         return tun_stub(Path("."))
     if args.scenario == "ttl-spin-policy":
         return ttl_spin_policy(Path("."))
+    if args.scenario == "firewall-checklist":
+        return firewall_checklist(Path("."))
+    if args.scenario == "evasion-lab-profiles":
+        return evasion_lab_profiles(Path("."))
     return udp443_policy(args.config_dir)
 
 

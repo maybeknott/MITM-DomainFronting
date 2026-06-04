@@ -177,15 +177,15 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | `cargo test --locked` in CI | POLICY | SHIPPED |
 | JA3 pool JSON ↔ offline hash cross-check in CI | SHIPPED | `ja3_pool_validate.py` + `src/ja3.rs` pool test |
 | OPSEC RAM telemetry (no jsonl) | SHIPPED | GUI OPSEC toggle (`gui_preferences.py`) |
-| WFP / nftables fail-closed docs tested | TARGET | Open — D3 |
-| Optional eBPF helper (not Rust fixture) | TARGET | Open — D7 |
+| WFP / nftables fail-closed docs tested | SHIPPED | `protocol_smoke.py --scenario firewall-checklist` + `tun-operational-notes.md` |
+| Optional eBPF helper (not Rust fixture) | TARGET | ADR in `track-d-ebpf-helper-adr.md`; live helper not shipped |
 
 ### 3.5 OPSEC telemetry and build artifacts (POLICY / TARGET)
 
 | Control | Tier | Requirement |
 |---|---|---|
 | GUI activity log | SHIPPED | Writes `.local-state/gui-telemetry.jsonl` — see OPSEC-001 |
-| OPSEC RAM-only telemetry | TARGET | Operator-toggle; no jsonl append (T-02, C5) |
+| OPSEC RAM-only telemetry | SHIPPED | Operator-toggle; no jsonl append (T-02, C5) |
 | failure_classifier | SHIPPED | In-memory only — no default disk log |
 | PyInstaller staging dirs | POLICY | `build/`, `dist/`, `build/pyinstaller-runs/` gitignored (T-03) |
 | Lab bundle validation | SHIPPED | `py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json` |
@@ -205,16 +205,16 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 |---|---|---|
 | Xray binary verification | Closed | `scripts/verify_release_artifact.py` |
 | CA install path documented | Closed | `scripts/mitm_trust.py`, ADR-0002 |
-| DPAPI wrap for `mycert.key` | Partial | `mitm_trust wrap-key` / `unwrap-key` + connect-time unwrap via `ensure_key_material_available` |
+| DPAPI wrap for `mycert.key` | Shipped (Windows) | `mitm_trust wrap-key` / `unwrap-key` + connect-time unwrap |
 | JA3 oracle in GUI | Shipped | Health tab **Run JA3 Oracle** + `ja3-evidence.json` (ADR-0004) |
-| REALITY + TLS fragment in config-src | Partial | Lab fragments + `generate_evasion_profiles.py`; live handshake probes structure-only |
-| `scripts/core/strategy_engine.py` | Partial | GUI Apply Recommended + optional auto-apply after decision report |
-| `scripts/core/trust_broker.py` | Partial | CDP assist opens settings tab; manual CA import still required |
+| REALITY + TLS fragment in config-src | Partial | Lab fragments + `evasion-lab-profiles` merge probe; live wire lab-only |
+| `scripts/core/strategy_engine.py` | Shipped | GUI Apply Recommended + optional auto-apply after decision report |
+| `scripts/core/trust_broker.py` | Shipped (assist) | CDP opens settings tab; manual CA import by design (ADR-0002) |
 | Config fragment merge semantics | Closed | `scripts/config_src_merge.py` + `tests/python/config_src_merge_test.py` |
 | OPSEC telemetry mode | Shipped | GUI RAM-only toggle — T-02 |
 | Preflight connect gate | Shipped | `preflight_gate.py` + GUI Settings toggle (default block) |
-| TUN lab fragment + firewall checklist | Partial | `tun-inbound-stub.json` + `docs/tun-operational-notes.md` WFP/nftables |
-| Optional eBPF helper | Open | `docs/reference/track-d-ebpf-helper-adr.md`; Rust fixture only |
+| TUN lab fragment + firewall checklist | Shipped (docs + probes) | `tun-inbound-stub.json`, `firewall-checklist` smoke |
+| Optional eBPF helper | Partial | `docs/reference/track-d-ebpf-helper-adr.md`; Rust fixture only |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
 | **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
 | **T-03** Build artifact hygiene in docs | Shipped | `docs/reference/generated-files.md` § T-03; `build/`, `dist/` gitignored |
