@@ -1,0 +1,23 @@
+{
+  "__comment": "Documents FakeDNS benchmark trap range for High Stealth lab profiles — optional overlay.",
+  "__merge_strategy__": {
+    "dns": "replace"
+  },
+  "dns": {
+    "servers": [
+      {
+        "address": "fakedns",
+        "domains": [
+          "geosite:google",
+          "geosite:meta",
+          "geosite:fastly",
+          "geosite:reddit"
+        ]
+      }
+    ],
+    "fakedns": {
+      "ipPool": "198.18.0.0/15",
+      "poolSize": 65535
+    }
+  }
+}

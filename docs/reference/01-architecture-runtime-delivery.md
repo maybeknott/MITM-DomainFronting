@@ -265,7 +265,7 @@ JSON export — without persistent covert logging.
 |---|---|---|---|
 | B1 | [x] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | `strategy_engine_test.py` |
 | B2 | [x] O(1) pool index `session & (size-1)` | API + docs in 02 §3.3 | `strategy_engine_test.py` |
-| B3 | [~] Wire engine to build_config profile names | `strategy_profiles.py` + `decision_report.py` | Profile recommendation block |
+| B3 | [~] Wire engine to build_config profile names | `strategy_profiles.py` + GUI apply | Profile switch + optional core restart |
 | B4 | [x] Probe orchestration CLI | `main.py probe --json-out` | Opt-in file only |
 | B5 | [x] failure_classifier labels for WebRTC/DNS leak | `derive_strategy_labels()` | `failure_classifier_tests.py` |
 | B6 | [x] decision_report opt-in export | `scripts/decision_report.py` | `--json-out` + strategy block |
@@ -281,7 +281,7 @@ JSON export — without persistent covert logging.
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
 | C1 | [~] Profile picker + connect | `scripts/gui.py` | Manual |
-| C2 | [ ] Preflight panel (capabilities, Xray pin) | GUI widget | Blocks connect on fail |
+| C2 | [~] Preflight panel (capabilities, Xray pin) | GUI health tab | Run Full Preflight + live pin labels |
 | C3 | [x] JA3 display: "expected" vs "measured (oracle URL)" | GUI readiness + `ja3_evidence.py` | No fake "measured" |
 | C4 | [~] REALITY / fragment profile labels | `configs/profiles.yml` optional_lab_profiles | `generate_evasion_profiles.py` |
 | C5 | [x] OPSEC mode: telemetry cap / clear-on-exit | GUI RAM-only toggle + `gui_preferences.py` | No jsonl append in OPSEC mode |
@@ -300,9 +300,9 @@ JSON export — without persistent covert logging.
 | D1 | [x] ProcessSupervisor kill-on-close | `process_supervisor.py` | Kill GUI → Xray dies |
 | D2 | [ ] TUN inbound profile | `config-src/tun-*.yml` | `tun-operational-notes.md` |
 | D3 | [ ] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | Leak test Xray down |
-| D4 | [ ] FakeDNS 198.18.0.0/15 | Xray DNS fragment | `fakedns-recovery.md` |
-| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + GUI action | No system store write; CDP cert import open |
-| D6 | [ ] DPAPI wrap `mycert.key` | crypto helper | File ACL test |
+| D4 | [~] FakeDNS 198.18.0.0/15 | `config-src/fragments/fakedns-19818-trap.json` | `protocol_smoke.py --scenario fakedns-policy` |
+| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + GUI | CDP steps documented; auto-import open |
+| D6 | [~] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust restrict-key` | ACL tighten shipped; DPAPI reserved |
 | D7 | [ ] Track D decision record for optional eBPF helper | `track-d/` or new ADR section in 02 | bpftool lab |
 | D8 | [ ] TTL spin / ghost segments | Xray-core or eBPF | Suricata lab |
 | D9 | [ ] Android TUN harness LeakSanitizer | `ingress_android_tun.rs` tests | CI optional |

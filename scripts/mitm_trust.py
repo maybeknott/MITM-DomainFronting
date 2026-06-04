@@ -20,6 +20,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
 
 def hidden_subprocess_kwargs() -> Dict[str, object]:
     if os.name != "nt":
@@ -352,6 +356,10 @@ def main() -> int:
     e = sub.add_parser("emergency")
     e.add_argument("--out-dir", type=Path, default=Path("Xray-config"))
 
+    rk = sub.add_parser("restrict-key", help="tighten private-key ACL (current user / chmod 600)")
+    rk.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
+    rk.add_argument("--json", action="store_true")
+
     args = parser.parse_args()
     if args.cmd == "status":
         return status(args.cert, args.key, args.warn_expiry_days, args.json)
@@ -367,6 +375,24 @@ def main() -> int:
         return remove_local(args.cert, args.key, args.yes)
     if args.cmd == "emergency":
         return emergency(args.out_dir)
+    if args.cmd == "restrict-key":
+        from core.key_at_rest import restrict_key_permissions
+
+        report = restrict_key_permissions(args.key)
+        payload = {
+            "path": report.path,
+            "platform": report.platform,
+            "action": report.action,
+            "status": report.status,
+            "detail": report.detail,
+            "dpapi_available": report.dpapi_available,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(f"status: {report.status}")
+            print(f"detail: {report.detail}")
+        return 0 if report.status == "pass" else 2
     return 2
 
 

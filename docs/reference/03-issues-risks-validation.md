@@ -205,7 +205,7 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 |---|---|---|
 | Xray binary verification | Closed | `scripts/verify_release_artifact.py` |
 | CA install path documented | Closed | `scripts/mitm_trust.py`, ADR-0002 |
-| DPAPI wrap for `mycert.key` | Open | Track D |
+| DPAPI wrap for `mycert.key` | Partial | `mitm_trust restrict-key` + `key_at_rest.py` (ACL only; DPAPI reserved) |
 | JA3 oracle in GUI | Open | ADR-0004 |
 | REALITY + TLS fragment in config-src | Open | Track A |
 | `scripts/core/strategy_engine.py` | Partial | Wired to `decision_report.py` via `strategy_profiles.py`; GUI hot-swap open |

@@ -29,7 +29,9 @@ from tkinter import filedialog, messagebox, ttk
 from core.gui_preferences import GuiPreferences, load_preferences, save_preferences
 from core.gui_readiness import GuiReadinessCache, primary_action_spec, readiness_snapshot_fields
 from core.process_supervisor import ProcessSupervisor
+from core.strategy_profiles import recommend_profile
 from core.trust_broker import prepare_chromium_session, session_manifest
+from core.version_utils import version_at_least
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
@@ -745,6 +747,7 @@ class App(tk.Tk):
         self.status_chip_labels: dict[str, tk.Label] = {}
         self.dashboard_stat_labels: dict[str, tuple[tk.Label, tk.Label, tk.Canvas]] = {}
         self.readiness_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
+        self.preflight_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.network_mode_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.traffic_summary_labels: dict[str, tuple[tk.Label, tk.Label]] = {}
         self.sparkline_canvases: dict[str, tk.Canvas] = {}
@@ -2682,6 +2685,30 @@ class App(tk.Tk):
         self.readiness_labels[key] = (status, detail_label)
         return item
 
+    def _preflight_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
+        item = tk.Frame(parent, bg=COLORS["panel"])
+        self._icon_canvas(item, self._icon_for_title(title), COLORS["muted"], 18, COLORS["panel"]).pack(side="left", padx=(self._scaled(4), self._scaled(7)), pady=self._scaled(6))
+        text = tk.Frame(item, bg=COLORS["panel"])
+        text.pack(side="left", fill="both", expand=True, pady=self._scaled(5))
+        row = tk.Frame(text, bg=COLORS["panel"])
+        row.pack(fill="x")
+        tk.Label(row, text=title, bg=COLORS["panel"], fg=COLORS["ink"], font=self.fonts["caption_bold"], anchor="w").pack(side="left")
+        status = tk.Label(row, text="Checking", bg=COLORS["panel"], fg=COLORS["amber"], font=self.fonts["caption_bold"], padx=4)
+        status.pack(side="left", padx=(self._scaled(6), 0))
+        detail_label = tk.Label(text, text=detail, bg=COLORS["panel"], fg=COLORS["muted"], font=self.fonts["caption"], wraplength=self._scaled(210), justify="left", anchor="nw")
+        detail_label.pack(fill="x")
+        self.preflight_labels[key] = (status, detail_label)
+        return item
+
+    def _set_preflight_item(self, key: str, status: str, detail: str, level: str) -> None:
+        labels = self.preflight_labels.get(key)
+        if not labels:
+            return
+        status_label, detail_label = labels
+        fg = {"pass": COLORS["green"], "warn": COLORS["amber"], "fail": COLORS["red"], "info": COLORS["blue"]}.get(level, COLORS["muted"])
+        status_label.configure(text=status, bg=COLORS["panel"], fg=fg)
+        detail_label.configure(text=detail)
+
     def _runtime_item(self, parent: tk.Widget, key: str, title: str, detail: str) -> tk.Frame:
         item = tk.Frame(parent, bg=COLORS["panel_alt"], highlightbackground=COLORS["line"], highlightthickness=1)
         top = tk.Frame(item, bg=COLORS["panel_alt"])
@@ -3003,6 +3030,7 @@ class App(tk.Tk):
         self.profile_box = ttk.Combobox(profile_row, textvariable=self.profile_selection, values=self._profile_choices(), state="readonly")
         self.profile_box.pack(side="left", fill="x", expand=True)
         self.profile_box.bind("<<ComboboxSelected>>", self._select_profile)
+        ttk.Button(profile_row, text="Apply Recommended", style="Soft.TButton", command=self.apply_recommended_profile).pack(side="left", padx=(8, 0))
 
         network_mode = self._card(main, "Proxy Control")
         proxy_head = tk.Frame(network_mode, bg=COLORS["panel"])
@@ -3283,6 +3311,40 @@ class App(tk.Tk):
             anchor="w",
         )
         intro.pack(fill="x", pady=(0, 12))
+
+        preflight = self._card(self.health_tab, "Startup preflight")
+        preflight.pack(fill="x", pady=(0, 12))
+        tk.Label(
+            preflight,
+            text="Surface Xray pin, platform capability, and private-key ACL before connect. Blocks are advisory until you run full preflight.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=860,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(4, 10))
+        preflight_grid = tk.Frame(preflight, bg=COLORS["panel"])
+        preflight_grid.pack(fill="x", padx=12, pady=(0, 8))
+        preflight_widgets: list[tk.Frame] = []
+        for key, title, detail in (
+            ("xray_pin", "Xray version pin", "Bundled runtime vs config minimum."),
+            ("platform", "Platform capabilities", "OS, browser, and VPN conflict hints."),
+            ("key_acl", "Private key ACL", "Local CA key permissions."),
+        ):
+            preflight_widgets.append(self._preflight_item(preflight_grid, key, title, detail))
+        self._responsive_grid(preflight_grid, preflight_widgets, preferred_columns=3, min_cell_width=220, gap=8)
+        preflight_row = tk.Frame(preflight, bg=COLORS["panel"])
+        preflight_row.pack(fill="x", padx=16, pady=(0, 16))
+        self._button_grid(
+            preflight_row,
+            [
+                ("Run Full Preflight", "Accent.TButton", self.run_full_preflight),
+                ("Apply Strategy Profile", "Soft.TButton", self.apply_recommended_profile),
+                ("Restrict Key ACL", "Soft.TButton", self.restrict_private_key_acl),
+            ],
+            preferred_columns=3,
+            min_cell_width=190,
+        )
 
         health = self._card(self.health_tab, "Local health probe")
         health.pack(fill="x", pady=(0, 12))
@@ -4001,6 +4063,35 @@ class App(tk.Tk):
             fp_status, fp_level = "Not set", "warn"
             fp_detail = "No TLS fingerprint configured on repack outbounds."
         self._set_readiness_item("fingerprint", fp_status, fp_detail, fp_level)
+
+    def _update_preflight_items(self, snapshot: dict[str, object]) -> None:
+        min_version = str(snapshot.get("config_min_xray_version") or "").strip()
+        runtime_version = str(snapshot.get("xray_version") or "").strip()
+        if not min_version:
+            pin_status, pin_level, pin_detail = "Unknown", "info", "Config does not declare a minimum Xray version."
+        elif not runtime_version or runtime_version.lower() == "unknown":
+            pin_status, pin_level, pin_detail = "Missing", "warn", f"Required >= {min_version}; download bundled Xray Core."
+        elif version_at_least(runtime_version, min_version):
+            pin_status, pin_level, pin_detail = "OK", "pass", f"Runtime {runtime_version} meets pin {min_version}."
+        else:
+            pin_status, pin_level, pin_detail = "Below pin", "fail", f"Runtime {runtime_version} is below required {min_version}."
+        self._set_preflight_item("xray_pin", pin_status, pin_detail, pin_level)
+
+        host_python = str(snapshot.get("host_python") or "").strip()
+        if host_python:
+            plat_status, plat_level, plat_detail = "Ready", "pass", f"Host Python: {host_python}"
+        else:
+            plat_status, plat_level, plat_detail = "Check", "warn", "Host Python not detected for optional browser tools."
+        self._set_preflight_item("platform", plat_status, plat_detail, plat_level)
+
+        key_perm = str(snapshot.get("key_permission_status") or "unknown")
+        if key_perm == "restricted":
+            acl_status, acl_level, acl_detail = "Restricted", "pass", "Private key ACL looks acceptable."
+        elif key_perm == "broad":
+            acl_status, acl_level, acl_detail = "Broad", "warn", "Restrict mycert.key to the current user only."
+        else:
+            acl_status, acl_level, acl_detail = "Unknown", "info", "Run Restrict Key ACL or certificate status for details."
+        self._set_preflight_item("key_acl", acl_status, acl_detail, acl_level)
 
     def _update_runtime_items(self, snapshot: dict[str, object]) -> None:
         xray_path = str(snapshot.get("xray_path") or "")
@@ -4728,6 +4819,7 @@ class App(tk.Tk):
             self.proxy_control_status_label.configure(text=proxy_state, bg=pill_bg, fg=pill_fg)
         self.auto_refresh_state.set(f"Auto refresh: every {STATUS_REFRESH_MS // 1000}s, {self.status_refresh_count} checks")
         self._update_readiness_items(snapshot, selected_config)
+        self._update_preflight_items(snapshot)
         self._update_runtime_items(snapshot)
         self._update_dashboard_stats(snapshot, level, status_text)
         self._update_network_mode_items(snapshot)
@@ -4990,22 +5082,26 @@ class App(tk.Tk):
         LOCAL_STATE.mkdir(parents=True, exist_ok=True)
         report_path = LOCAL_STATE / "decision-report.latest.json"
         target = self.dns_domain.get().strip() or "www.google.com"
+        config_path = self.active_config_path()
+        profile_intent = self._active_profile_intent()
         self.run_async(
             "Decision report",
             py_script(
                 "decision_report.py",
                 "--config",
-                str(CONFIG),
+                str(config_path),
                 "--cert",
                 str(CERT),
                 "--key",
                 str(KEY),
                 "--profile",
-                "balanced",
+                profile_intent,
                 "--target",
                 target,
                 "--provider-family",
                 "unknown",
+                "--session-counter",
+                str(self.status_refresh_count),
                 "--json-out",
                 str(report_path),
             ),
@@ -5043,13 +5139,17 @@ class App(tk.Tk):
         recommendation = phase_diag.get("actionable_recommendation", {})
         action = recommendation.get("action", "manual_review_required") if isinstance(recommendation, dict) else "manual_review_required"
         reason = recommendation.get("reason", "") if isinstance(recommendation, dict) else ""
+        strategy = data.get("strategy_recommendation") if isinstance(data.get("strategy_recommendation"), dict) else {}
+        strategy_id = strategy.get("selected_profile_id", "")
+        strategy_reason = strategy.get("reason", "")
         self._append_output(
             "\nPhase diagnostics summary:\n"
             f"  phase: {phase}\n"
             f"  confidence: {confidence}\n"
             f"  action: {action}\n"
             f"  reason: {reason}\n"
-            f"  report file: {short_path(report_path)}\n",
+            + (f"  strategy_profile: {strategy_id}\n  strategy_reason: {strategy_reason}\n" if strategy_id else "")
+            + f"  report file: {short_path(report_path)}\n",
             stream="audit",
         )
 
@@ -5378,6 +5478,110 @@ class App(tk.Tk):
                 f"Or click Install Fingerprint Tools in Repair.\nProject: {CLOAKBROWSER_URL}\n"
             )
             self.current_process_label.set("CloakBrowser: not installed")
+
+    def _active_profile_intent(self) -> str:
+        path = self.active_config_path()
+        stem = path.stem
+        if stem == "MITM-DomainFronting":
+            return "balanced"
+        suffix = stem.replace("MITM-DomainFronting.", "", 1)
+        base = suffix.split(".")[0] if suffix else "balanced"
+        if base in {"strict", "balanced", "compatibility", "debug"}:
+            return base
+        return "balanced"
+
+    def apply_recommended_profile(self) -> None:
+        report_path = LOCAL_STATE / "decision-report.latest.json"
+        labels: tuple[str, ...] = ()
+        intent = self._active_profile_intent()
+        strategy_block: dict[str, object] | None = None
+        if report_path.exists():
+            try:
+                report = json.loads(report_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                report = {}
+            if isinstance(report, dict):
+                intent = str(report.get("profile") or intent)
+                raw_strategy = report.get("strategy_recommendation")
+                if isinstance(raw_strategy, dict):
+                    strategy_block = raw_strategy
+                    labels = tuple(raw_strategy.get("failure_labels") or ())
+                phase_diag = report.get("phase_diagnostics")
+                if isinstance(phase_diag, dict) and not labels:
+                    from core.failure_classifier import derive_strategy_labels
+
+                    labels = derive_strategy_labels(phase=str(phase_diag.get("phase_classification") or ""))
+        if strategy_block and strategy_block.get("selected_profile_id"):
+            profile_id = str(strategy_block["selected_profile_id"])
+            reason = str(strategy_block.get("reason") or "strategy recommendation")
+            confidence = str(strategy_block.get("confidence") or "unknown")
+        else:
+            try:
+                decision = recommend_profile(
+                    failure_labels=labels,
+                    operator_intent=intent,
+                    session_counter=self.status_refresh_count,
+                )
+            except ValueError as exc:
+                messagebox.showerror("Strategy profile", str(exc))
+                return
+            profile_id = decision.selected_profile_id
+            reason = decision.reason
+            confidence = decision.confidence
+        target = ROOT / "Xray-config" / f"MITM-DomainFronting.{profile_id}.json"
+        if not target.exists():
+            messagebox.showwarning("Profile missing", f"Recommended profile file not found: {short_path(target)}")
+            return
+        label = self._profile_display_name(target)
+        if label not in self._profile_choices():
+            messagebox.showwarning("Profile unavailable", f"{label} is not in the profile picker.")
+            return
+        if not messagebox.askyesno(
+            "Apply strategy profile",
+            f"Switch to {label}?\n\nReason: {reason}\nConfidence: {confidence}",
+        ):
+            return
+        self.profile_selection.set(label)
+        self._select_profile()
+        self.record_telemetry("strategy_profile_applied", "info", profile_id, {"reason": reason, "confidence": confidence})
+        if self._xray_running_from_gui() and messagebox.askyesno("Restart core", "Restart the app core with the new profile now?"):
+            self.disconnect_xray()
+            self.connect_xray()
+
+    def restrict_private_key_acl(self) -> None:
+        if not KEY.exists():
+            messagebox.showwarning("Missing key", f"Private key not found: {short_path(KEY)}")
+            return
+        if not messagebox.askyesno(
+            "Restrict private key",
+            "Tighten ACL on mycert.key to the current user (Windows) or chmod 600 (Unix)?",
+        ):
+            return
+        self.run_async(
+            "Restrict private key ACL",
+            py_script("mitm_trust.py", "restrict-key", "--key", str(KEY), "--json"),
+            timeout=30,
+            after=lambda code, output: self.refresh_status() if code == 0 else None,
+        )
+
+    def run_full_preflight(self) -> None:
+        config_path = self.active_config_path()
+        self.run_async(
+            "Full preflight",
+            py_script(
+                "preflight.py",
+                "--config",
+                str(config_path),
+                "--cert",
+                str(CERT),
+                "--key",
+                str(KEY),
+                "--json-out",
+                str(LOCAL_STATE / "preflight.latest.json"),
+            ),
+            timeout=120,
+            after=lambda _code, _output: self.refresh_status(),
+        )
 
     def launch_isolated_chromium(self) -> None:
         if not CERT.exists():

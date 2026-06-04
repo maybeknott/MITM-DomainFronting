@@ -138,6 +138,23 @@ def reality_stub(root: Path) -> int:
     return status_report("reality-stub", status, {"reality_outbounds": reality_hits})
 
 
+def fakedns_policy(root: Path) -> int:
+    fragment = root / "config-src" / "fragments" / "fakedns-19818-trap.json"
+    base = root / "Xray-config" / "MITM-DomainFronting.json"
+    checks: dict[str, object] = {"fragment_present": fragment.exists(), "runtime_fakedns": False, "ip_pool": ""}
+    if base.exists():
+        data = json.loads(base.read_text(encoding="utf-8"))
+        servers = data.get("dns", {}).get("servers", []) if isinstance(data.get("dns"), dict) else []
+        checks["runtime_fakedns"] = any(isinstance(item, dict) and item.get("address") == "fakedns" for item in servers)
+    if fragment.exists():
+        frag = json.loads(fragment.read_text(encoding="utf-8"))
+        pool = frag.get("dns", {}).get("fakedns", {}) if isinstance(frag.get("dns"), dict) else {}
+        if isinstance(pool, dict):
+            checks["ip_pool"] = pool.get("ipPool", "")
+    status = "pass" if checks["fragment_present"] and checks["runtime_fakedns"] and checks["ip_pool"] == "198.18.0.0/15" else "warn"
+    return status_report("fakedns-policy", status, checks)
+
+
 def udp443_policy(config_dir: Path) -> int:
     checks: List[Dict[str, object]] = []
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
@@ -161,7 +178,7 @@ def udp443_policy(config_dir: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol smoke probes and emit redacted JSON")
-    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub"], required=True)
+    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy"], required=True)
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--port", type=int, default=443)
     parser.add_argument("--path", default="/")
@@ -184,6 +201,8 @@ def main() -> int:
         return fragment_policy(Path("."))
     if args.scenario == "reality-stub":
         return reality_stub(Path("."))
+    if args.scenario == "fakedns-policy":
+        return fakedns_policy(Path("."))
     return udp443_policy(args.config_dir)
 
 

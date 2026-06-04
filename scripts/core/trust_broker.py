@@ -75,7 +75,20 @@ def session_manifest(session: BrowserTrustSession) -> str:
         "This broker only launches an isolated profile. Import/trust of the local CA "
         "must remain user-confirmed and profile-scoped."
     )
+    payload["cdp_trust_steps"] = cdp_cert_import_steps(session)
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def cdp_cert_import_steps(session: BrowserTrustSession) -> list[str]:
+    """Operator-visible CDP/profile trust steps — no silent store writes."""
+    port = session.remote_debugging_port
+    return [
+        f"Launch the isolated profile (command already prepared for port {port}).",
+        "Open chrome://settings/security or edge://settings/privacy in that profile.",
+        f"Import {session.cert_path} as a user-trusted CA for this profile only.",
+        "Verify MITM only after explicit import; the broker never patches cert9.db or system stores.",
+        f"Optional CDP endpoint: http://127.0.0.1:{port}/json/version (inspect only; no auto-import).",
+    ]
 
 
 def _find_chromium_binary(browser: str) -> str:
