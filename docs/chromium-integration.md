@@ -67,10 +67,10 @@ operator action via `scripts/mitm_trust.py`.
 | Mode | Forensic footprint | Status |
 |---|---|---|
 | **OS-wide CA** | Windows CryptoAPI / macOS Keychain entry | Shipped — opt-in with guides |
-| **Profile-scoped** | Trust only in isolated browser profile | Track D — preferred for High Stealth |
+| **Profile-scoped** | Trust only in isolated browser profile | Shipped — CDP assist + manual import |
 | **Covert hooking** | `LD_PRELOAD`, DLL injection, mmap `cert9.db` | **Rejected** — EDR-visible |
 
-### Profile-scoped trust (Track D — planned)
+### Profile-scoped trust (shipped)
 
 Launch Chromium in an isolated profile and apply trust **inside that profile only**
 (via Chrome DevTools Protocol (CDP) broker or documented manual import):

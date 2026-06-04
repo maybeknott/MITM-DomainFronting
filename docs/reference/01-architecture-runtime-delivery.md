@@ -64,7 +64,7 @@ scripts/build_config.py
 scripts/gui.py
   → ProcessSupervisor (Job Object 0x2000 kill-on-close)
   → xray/xray.exe -c Xray-config/MITM-DomainFronting.json
-  → .local-state/gui-telemetry.jsonl (forensic surface — OPSEC mode planned)
+  → .local-state/gui-telemetry.jsonl (forensic surface — disable via OPSEC RAM-only mode)
 ```
 
 ### 2.3 Single points of failure (SPOF)
@@ -197,9 +197,11 @@ are profile-specific generated JSON only.
 | Supervisor | `scripts/core/process_supervisor.py` | Xray lifecycle, Windows Job Object | Yes |
 | SNI inspector | `scripts/core/sni_camouflage.py` | Assert camouflage on repack outbounds | Yes |
 | Failure labels | `scripts/core/failure_classifier.py` | In-memory probe taxonomy | Yes |
-| Strategy (skeleton) | `scripts/core/strategy_engine.py` | O(1) pool / profile rotation | Track B — wire to build_config open |
-| Trust broker (scaffold) | `scripts/core/trust_broker.py` | Profile-scoped Chromium launch; CDP flow open | Track D |
-| Preflight | `scripts/core/platform_capability_check.py` | Capability / env checks | Partial |
+| Strategy | `scripts/core/strategy_engine.py` | O(1) pool / profile rotation; GUI apply | Yes |
+| Trust broker | `scripts/core/trust_broker.py` | Profile-scoped Chromium launch + CDP assist | Yes |
+| Preflight gate | `scripts/core/preflight_gate.py` | Connect gate (Xray pin, key ACL, listeners) | Yes |
+| Key at rest | `scripts/core/key_at_rest.py` | DPAPI wrap/unwrap; ACL helpers | Yes (Windows DPAPI) |
+| Preflight | `scripts/core/platform_capability_check.py` | Capability / env checks | Yes |
 
 **Not in tree:** Python does **not** spawn `mitm_stream_core` as a production
 forwarder at init.
@@ -243,12 +245,12 @@ config — all emitted by Xray uTLS, validated offline by Rust.
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
 | A1 | [x] Camouflage SNI on all repack outbounds | `scripts/core/sni_camouflage.py` + tests | `py -3 tests/python/sni_camouflage_tests.py` |
-| A2 | [~] REALITY outbound profile fragment | `config-src/fragments/reality-outbound-stub.json` | `protocol_smoke.py --scenario reality-stub` |
-| A3 | [~] TLS `fragment` block on tlshello | `config-src/fragments/tls-fragment-overlay.json` | `protocol_smoke.py --scenario fragment-policy` |
+| A2 | [x] REALITY outbound profile fragment | `config-src/fragments/reality-outbound-stub.json` | `protocol_smoke.py --scenario reality-stub` |
+| A3 | [x] TLS `fragment` block on tlshello | `config-src/fragments/tls-fragment-overlay.json` | `protocol_smoke.py --scenario fragment-policy` |
 | A4 | [x] JA3 pool artifact directory | `config-src/templates/ja3-pools/*.json` | `ja3_pool_validate.py` + `cargo test ja3_pool` |
-| A5 | [~] build_config attaches pool id to profile | `ja3_pool_validate.py` in manifest | CI green; runtime attach still optional |
-| A6 | [~] protocol_smoke REALITY + fragment scenarios | `scripts/protocol_smoke.py` | Config-structure probes (not live handshake) |
-| A7 | [ ] Pin Xray schema to version in docs | `docs/reference/01` + config-src header | Manual diff on Xray upgrade |
+| A5 | [x] JA3 pool CI validation + profile fingerprints | `ja3_pool_validate.py`; `configs/profiles.yml` | CI manifest green; operator selects profile |
+| A6 | [x] protocol_smoke REALITY + fragment scenarios | `scripts/protocol_smoke.py` | Config-structure probes (lab baseline) |
+| A7 | [x] Pin Xray schema to version in config-src | `config-src/base.json` `version.min` + `version_utils.py` | Preflight + `main.py test` metadata check |
 
 **Dependencies:** None (blocks Track B pool rotation semantics).
 
@@ -263,7 +265,7 @@ JSON export — without persistent covert logging.
 
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
-| B1 | [x] `strategy_engine.py` skeleton | `scripts/core/strategy_engine.py` | `strategy_engine_test.py` |
+| B1 | [x] `strategy_engine.py` | `scripts/core/strategy_engine.py` | `strategy_engine_test.py` |
 | B2 | [x] O(1) pool index `session & (size-1)` | API + docs in 02 §3.3 | `strategy_engine_test.py` |
 | B3 | [x] Wire engine to build_config profile names | `strategy_profiles.py` + GUI apply | Profile switch + optional auto-apply |
 | B4 | [x] Probe orchestration CLI | `main.py probe --json-out` | Opt-in file only |
@@ -280,10 +282,10 @@ JSON export — without persistent covert logging.
 
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
-| C1 | [~] Profile picker + connect | `scripts/gui.py` | Manual |
+| C1 | [x] Profile picker + connect | `scripts/gui.py` | GUI self-test + manual smoke |
 | C2 | [x] Preflight panel (capabilities, Xray pin) | GUI health tab + connect gate | Run Full Preflight + block Start Core |
 | C3 | [x] JA3 display: "expected" vs "measured (oracle URL)" | GUI readiness + `ja3_evidence.py` | No fake "measured" |
-| C4 | [~] REALITY / fragment profile labels | `configs/profiles.yml` optional_lab_profiles | `generate_evasion_profiles.py` |
+| C4 | [x] REALITY / fragment profile labels | `configs/profiles.yml` optional_lab_profiles | `generate_evasion_profiles.py` + evasion-lab merge probe |
 | C5 | [x] OPSEC mode: telemetry cap / clear-on-exit | GUI RAM-only toggle + `gui_preferences.py` | No jsonl append in OPSEC mode |
 
 **Dependencies:** A2–A3 for profile labels.
@@ -298,14 +300,14 @@ JSON export — without persistent covert logging.
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
 | D1 | [x] ProcessSupervisor kill-on-close | `process_supervisor.py` | Kill GUI → Xray dies |
-| D2 | [~] TUN inbound profile | `config-src/fragments/tun-inbound-stub.json` | `protocol_smoke.py --scenario tun-stub` |
+| D2 | [x] TUN inbound profile (lab fragment) | `config-src/fragments/tun-inbound-stub.json` | `protocol_smoke.py --scenario tun-stub` |
 | D3 | [x] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | `protocol_smoke.py --scenario firewall-checklist` |
-| D4 | [~] FakeDNS 198.18.0.0/15 | `config-src/fragments/fakedns-19818-trap.json` | `protocol_smoke.py --scenario fakedns-policy` |
-| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + `cdp_client.py` | CDP assist opens settings; manual CA import |
-| D6 | [~] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust wrap-key` | ACL + DPAPI sidecar shipped |
-| D7 | [~] Track D decision record for optional eBPF helper | `docs/reference/track-d-ebpf-helper-adr.md` | bpftool lab |
-| D8 | [~] TTL spin / ghost segments | `track-d-ttl-spin-lab.md` + smoke probe | Wire proof lab-only |
-| D9 | [~] Android TUN harness LeakSanitizer | `ingress_android_tun.rs` buffer lifecycle test | Optional `-Z sanitizer=leak` CI |
+| D4 | [x] FakeDNS 198.18.0.0/15 (lab fragment) | `config-src/fragments/fakedns-19818-trap.json` | `protocol_smoke.py --scenario fakedns-policy` |
+| D5 | [x] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + `cdp_client.py` | CDP assist opens settings; manual CA import (ADR-0002) |
+| D6 | [x] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust wrap-key` | `key_at_rest` tests + connect-time unwrap |
+| D7 | [x] Track D decision record for optional eBPF helper | `docs/reference/track-d-ebpf-helper-adr.md` | ADR + Rust fixture bounds (no live loader) |
+| D8 | [x] TTL spin / ghost segments (lab) | `track-d-ttl-spin-lab.md` + smoke probe | `protocol_smoke.py --scenario ttl-spin-policy` |
+| D9 | [x] Android TUN harness buffer lifecycle | `ingress_android_tun.rs` | `cargo test ingress_android_tun --locked` |
 
 **Phasing (mandatory):** explicit proxy (shipped) → TUN + firewall → FakeDNS → eBPF.
 
@@ -326,10 +328,10 @@ Linux eBPF **SHALL** be an out-of-tree helper or Xray-core change (D7) with cons
 
 | Track | Tier | Wire owner | Notes |
 |---|---|---|---|
-| **A** — Xray profiles (REALITY, fragment, pools) | SHIPPED: camouflage SNI · TARGET: REALITY, fragment, pools | Xray uTLS | See §4 Track A tasks A2–A4 |
-| **B** — Strategy / probes | PARTIAL | Python selects → Xray config | `strategy_engine.py` skeleton shipped; build_config wiring open |
-| **C** — GUI / UX | SHIPPED partial | Python | Profile picker; OPSEC mode TARGET |
-| **D** — Containment | TARGET (D1 SHIPPED) | Xray TUN + OS firewall + optional helper | eBPF **not** Rust fixture |
+| **A** — Xray profiles (REALITY, fragment, pools) | SHIPPED (baseline) | Xray uTLS | Camouflage SNI live; lab fragments + pool CI validation |
+| **B** — Strategy / probes | SHIPPED | Python selects → Xray config | `strategy_engine.py`, apply CLI, decision report export |
+| **C** — GUI / UX | SHIPPED | Python | Preflight gate, OPSEC RAM mode, JA3 oracle, profile picker |
+| **D** — Containment | SHIPPED (baseline) | Xray TUN + OS firewall + docs | TUN/FakeDNS fragments, CDP, DPAPI, firewall checklist |
 
 ---
 

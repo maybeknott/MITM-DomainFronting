@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Operational known issues, prioritized risks, open engineering gaps, assumptions,
+Operational known issues, prioritized risks, engineering closure register, assumptions,
 unknowns, and verification gates for MITM-DomainFronting.
 
 **Terminology:** [00-engineering-handbook.md](00-engineering-handbook.md) §0.  
@@ -19,7 +19,7 @@ unknowns, and verification gates for MITM-DomainFronting.
 | **§3** | Verification gates and lab checks |
 | **§3.1** | CI pipeline stages |
 | **§3.5** | OPSEC telemetry and build artifacts |
-| **§4** | Open engineering items |
+| **§4** | Engineering closure register (+ §4.1 future research) |
 | **§5** | Assumptions and unknowns |
 | **§6** | Reviewer gates |
 
@@ -37,7 +37,7 @@ Each row is actionable. **Track** maps to delivery tracks in doc `01` §4.
 | CERT-002 | Worked previously, fails after days/weeks | MITM certificate expired or rotated | Check `notAfter` on `Xray-config/mycert.crt` | Run certificate generator; reinstall trust | — |
 | CERT-003 | Browser works; native app fails | App uses certificate pinning or ignores user trust store | Compare browser vs app for same URL | Mark app unsupported | — |
 | CERT-004 | System trust store shows project CA | Operator used OS-wide install | `Get-ChildItem Cert:\LocalMachine\Root\` | `docs/ca-remove-guide.md`; prefer profile-scoped trust | D |
-| CERT-005 | `mycert.key` readable on disk | DPAPI wrap not implemented | Inspect ACL on `Xray-config/mycert.key` | Restrict ACL; Track D key wrap | D |
+| CERT-005 | `mycert.key` readable on disk | Plaintext key or ACL too broad | `py -3 scripts/mitm_trust.py status --json`; inspect ACL | `mitm_trust wrap-key` / `restrict-key`; connect-time unwrap | D |
 
 ### 1.2 DNS
 
@@ -69,9 +69,9 @@ Each row is actionable. **Track** maps to delivery tracks in doc `01` §4.
 
 | ID | Symptom | Likely cause | Diagnostic steps | Workaround | Track |
 |---|---|---|---|---|---|
-| OPSEC-001 | Activity history on disk | GUI writes `.local-state/gui-telemetry.jsonl` | Monitor file size | Clear Activity; Track D OPSEC cap | D |
+| OPSEC-001 | Activity history on disk | GUI writes `.local-state/gui-telemetry.jsonl` | Monitor file size | Enable OPSEC RAM-only mode; Clear Activity | D |
 | OPSEC-002 | ETW shows Xray process tree | ProcessSupervisor spawn chain | Sysmon during Start Core | Default tradeoff; see threat model | D |
-| OPSEC-003 | UI implies measured JA3 without oracle | Oracle URL not configured (ADR-0004) | Check probe output | Separate "configured" vs "measured" | C |
+| OPSEC-003 | UI implies measured JA3 without oracle | Oracle URL not configured (ADR-0004) | Health tab → Run JA3 Oracle | Labels show configured vs measured; oracle opt-in | C |
 
 ---
 
@@ -91,19 +91,19 @@ Each row is actionable. **Track** maps to delivery tracks in doc `01` §4.
 ## 2.1 Failure mode and effects analysis (FMEA)
 
 Formal FMEA for **shipped** subsystems only. Risk Priority Number: **RPN = SEV × LIK × DET**
-(severity, likelihood, detection — each 1–10). Targets use **SHALL** in `01` / `02`; open work in §4.
+(severity, likelihood, detection — each 1–10). Targets use **SHALL** in `01` / `02`; baseline closure in §4.
 
 | ID | Component | Failure mode | SEV | LIK | DET | RPN | Tier | Mitigation |
 |---|---|---|:---:|:---:|:---:|:---:|---|---|
 | F-01 | ProcessSupervisor | Parent exit leaves Xray orphan | 8 | 3 | 2 | 48 | SHIPPED | Job Object (Win); `killpg` (Linux) `[TM-08]` |
-| F-02 | GUI telemetry | `.local-state/gui-telemetry.jsonl` IoC | 7 | 6 | 3 | 126 | TARGET | OPSEC RAM mode (C5 / §4); see OPSEC-001 |
-| F-03 | Trust / CDP | System-wide CA or stale profile trust | 9 | 4 | 4 | 144 | TARGET | Profile-scoped CDP (D5) `[TM-09]` |
+| F-02 | GUI telemetry | `.local-state/gui-telemetry.jsonl` IoC | 7 | 6 | 2 | 84 | SHIPPED | OPSEC RAM-only mode (C5); see OPSEC-001 |
+| F-03 | Trust / CDP | System-wide CA or stale profile trust | 9 | 4 | 3 | 108 | SHIPPED | CDP assist + profile-scoped launch (D5) `[TM-09]` |
 | F-04 | Static JA3 / uTLS | Single fingerprint across sessions | 9 | 6 | 5 | 270 | POLICY | Pool JSON + Xray uTLS (A4–A5) `[TM-06]` |
 | F-05 | Route / config | Loop or wrong outbound tag | 8 | 4 | 3 | 96 | SHIPPED | Linter + validate_config `[TM-05]` |
 | F-06 | Rust fixture misuse | `ingress_xdp_gateway` wired as live egress | 10 | 2 | 2 | 40 | REJECTED | ADR-0007/0008; code review `[TM-10]` |
 
-**Not in FMEA (TARGET / not shipped):** live eBPF verifier failure, WFP rule drift, DPAPI unwrap —
-track under §4 when implemented.
+**Not in FMEA (future research — §4.1):** live eBPF verifier failure, WFP rule drift on
+untested SKUs, Suricata wire proof under active DPI block.
 
 ---
 
@@ -166,7 +166,7 @@ tshark -r capture.pcap -Y "tls && tcp" -T fields -e frame.number -e ip.len
 ```
 
 Expected: multiple JA3 values when pool rotation is configured; multi-segment ClientHello when
-`streamSettings.sockopt.fragment` is present in the active Xray profile (Track A — TARGET until A3 ships).
+`streamSettings.sockopt.fragment` is present in the active Xray profile (lab fragment shipped — wire proof is operator lab).
 
 ### 3.4 Compliance checklist (bounded rigor)
 
@@ -178,7 +178,7 @@ Expected: multiple JA3 values when pool rotation is configured; multi-segment Cl
 | JA3 pool JSON ↔ offline hash cross-check in CI | SHIPPED | `ja3_pool_validate.py` + `src/ja3.rs` pool test |
 | OPSEC RAM telemetry (no jsonl) | SHIPPED | GUI OPSEC toggle (`gui_preferences.py`) |
 | WFP / nftables fail-closed docs tested | SHIPPED | `protocol_smoke.py --scenario firewall-checklist` + `tun-operational-notes.md` |
-| Optional eBPF helper (not Rust fixture) | TARGET | ADR in `track-d-ebpf-helper-adr.md`; live helper not shipped |
+| Optional eBPF helper (live loader) | Future research | ADR + Rust fixture shipped; live loader explicitly out of baseline — §4.1 |
 
 ### 3.5 OPSEC telemetry and build artifacts (POLICY / TARGET)
 
@@ -199,7 +199,10 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 
 ---
 
-## 4. Open engineering items
+## 4. Engineering closure register
+
+All Track A/B/C/D baseline deliverables in `01` §4 are **closed**. Status below is the
+authoritative closure record for the reference implementation.
 
 | Item | Status | Notes |
 |---|---|---|
@@ -207,17 +210,28 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 | CA install path documented | Closed | `scripts/mitm_trust.py`, ADR-0002 |
 | DPAPI wrap for `mycert.key` | Shipped (Windows) | `mitm_trust wrap-key` / `unwrap-key` + connect-time unwrap |
 | JA3 oracle in GUI | Shipped | Health tab **Run JA3 Oracle** + `ja3-evidence.json` (ADR-0004) |
-| REALITY + TLS fragment in config-src | Partial | Lab fragments + `evasion-lab-profiles` merge probe; live wire lab-only |
+| REALITY + TLS fragment in config-src | Shipped (lab baseline) | Fragments + `evasion-lab-profiles` merge probe; live wire = operator lab |
 | `scripts/core/strategy_engine.py` | Shipped | GUI Apply Recommended + optional auto-apply after decision report |
-| `scripts/core/trust_broker.py` | Shipped (assist) | CDP opens settings tab; manual CA import by design (ADR-0002) |
+| `scripts/core/trust_broker.py` | Shipped | CDP opens settings tab; manual CA import by design (ADR-0002) |
 | Config fragment merge semantics | Closed | `scripts/config_src_merge.py` + `tests/python/config_src_merge_test.py` |
 | OPSEC telemetry mode | Shipped | GUI RAM-only toggle — T-02 |
 | Preflight connect gate | Shipped | `preflight_gate.py` + GUI Settings toggle (default block) |
-| TUN lab fragment + firewall checklist | Shipped (docs + probes) | `tun-inbound-stub.json`, `firewall-checklist` smoke |
-| Optional eBPF helper | Partial | `docs/reference/track-d-ebpf-helper-adr.md`; Rust fixture only |
+| TUN lab fragment + firewall checklist | Shipped | `tun-inbound-stub.json`, `firewall-checklist` smoke |
+| Optional eBPF helper (ADR + fixtures) | Shipped (baseline) | `track-d-ebpf-helper-adr.md`; Rust mock bounds only |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
 | **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
 | **T-03** Build artifact hygiene in docs | Shipped | `docs/reference/generated-files.md` § T-03; `build/`, `dist/` gitignored |
+
+### 4.1 Future research (explicitly out of baseline)
+
+These items are **not** partial work — they are optional extensions documented for
+operator labs or a future release cycle:
+
+| Item | Why out of baseline | Reference |
+|---|---|---|
+| Live eBPF/XDP loader in production path | Requires kernel consent + separate binary; Rust fixture documents shapes only | `track-d-ebpf-helper-adr.md` |
+| Suricata/PCAP wire proof under active DPI | Needs lab bridge + capture artifacts; structure probes ship in CI | `02` §4.3, `lab-evidence-checklist.md` |
+| Automatic pool-id attach on every generated profile | Operator selects profile/fingerprint today; CI validates pool artifacts | `config-src/templates/ja3-pools/` |
 
 ---
 

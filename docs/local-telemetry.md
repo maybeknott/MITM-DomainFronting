@@ -67,16 +67,17 @@ running Xray processes.
 
 ---
 
-## OPSEC modes (current vs planned)
+## OPSEC modes
 
-| Setting | Standard default | High Stealth OPSEC (Track D — planned) |
+| Setting | Standard default | High Stealth OPSEC (shipped) |
 |---|---|---|
-| Retention | Append until user clears | Cap file size / rotate after N events |
+| Retention | Append until user clears | RAM-only — no jsonl append when enabled |
 | On exit | File persists | Optional clear-on-exit preference |
 | Export | User-initiated only | Same — never silent upload |
 | Labels | `source: local-gui` on every record | Unchanged |
 
-Implementation target: `scripts/gui.py` preferences when Track D ships.
+Toggle in GUI Settings: **OPSEC mode (RAM-only telemetry)**. Implementation:
+`scripts/gui.py` + `scripts/core/gui_preferences.py`.
 
 ---
 

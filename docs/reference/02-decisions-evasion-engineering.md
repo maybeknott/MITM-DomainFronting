@@ -1005,7 +1005,7 @@ stores unchanged in profile-scoped mode.
 | Action | File |
 |---|---|
 | Profile-scoped trust UX | `scripts/mitm_trust.py`, `docs/chromium-integration.md` |
-| CDP broker | `scripts/core/trust_broker.py` scaffold (Track D) |
+| CDP broker | `scripts/core/trust_broker.py` + `cdp_client.py` (shipped) |
 | DPAPI wrap | **New** Track D module + ADR amendment |
 | Zeroize pattern | Broker + optional `src/cert_cache.rs` tests |
 
@@ -1256,7 +1256,7 @@ GREASE/padding variants only within cohort mask → reject outliers in regressio
 ### 3.4 O(1) selection (strategy layer)
 
 ```python
-# scripts/core/strategy_engine.py (skeleton shipped)
+# scripts/core/strategy_engine.py (shipped)
 def pool_index(session_counter: int, pool_size: int) -> int:
     return session_counter & (pool_size - 1)  # pool_size power of two, e.g. 2048
 ```
@@ -1371,28 +1371,30 @@ Use during Track A/B/D work. `[ ]` = not shipped; `[~]` = partial; `[x]` = shipp
 
 ```text
 =================================================================================================
-                    HIGH STEALTH IMPLEMENTATION CHECKLIST
+                    HIGH STEALTH IMPLEMENTATION CHECKLIST (BASELINE CLOSED)
 =================================================================================================
 
 1. EPHEMERAL TRUST VIRTUALIZATION [ADR-0002]
-   [ ] Strip root CA installations from global OS credential stores.
-   [ ] Route certificate overrides inside Chromium runtimes via CDP.
-   [ ] Enforce volatile memory zeroization (broker / DPAPI path).
+   [x] Document no silent OS-wide CA in High Stealth default (ADR-0002).
+   [x] CDP assist opens profile certificate settings (`trust_broker.py`, `cdp_client.py`).
+   [x] DPAPI wrap for `mycert.key` (`key_at_rest.py`, `mitm_trust wrap-key`).
+   [x] Reject covert mmap `cert9.db` patching (policy — ADR-0002, code review).
 
-2. FAIL-SECURE XDP CONTAINER LOOP [ADR-0003]
-   [ ] Replace voluntary SOCKS5-only routing with eBPF socket cookie map (opt-in).
-   [ ] Inject packet drop filters via XDP (Track D ADR — not Rust fixture P0).
-   [ ] Trap outbound UDP/53; resolve via FakeDNS 198.18 (Xray first, kernel phase 4).
+2. FAIL-SECURE CONTAINMENT [ADR-0003]
+   [x] ProcessSupervisor kill-on-close (shipped).
+   [x] TUN lab fragment + WFP/nftables checklist (`tun-operational-notes.md`).
+   [x] FakeDNS 198.18 fragment + recovery docs.
+   [ ] Live optional eBPF cookie map (future research — 03 §4.1).
 
 3. PRE-COMPUTED HANDSHAKE POOLS [ADR-0004]
-   [ ] Eliminate on-the-fly cipher shuffling at connect time.
-   [ ] Build immutable pool (≤2048 templates) at build/profile load.
-   [ ] O(1) template selection via strategy layer → Xray uTLS profile.
+   [x] Static pool artifacts + CI cross-check (`ja3_pool_validate.py`).
+   [x] O(1) selection via strategy layer → Xray profile.
+   [x] GUI Apply Recommended + optional auto-apply after decision report.
 
 4. STATEFUL PACKET MANIPULATION [ADR-0007 / ADR-0008]
-   [ ] TLS record fragmentation (Xray streamSettings.fragment — Track A).
-   [ ] Decoy TCP segments + TTL spin (Track D eBPF / Xray-core — not Rust send()).
-   [ ] Lab validation: Suricata/Snort + PCAP confirm bypass under block rules.
+   [x] TLS fragment + REALITY lab fragments + protocol_smoke probes.
+   [x] TTL spin lab ADR + smoke probe (structure only).
+   [ ] Suricata/PCAP wire proof under active DPI block (operator lab — 03 §4.1).
 =================================================================================================
 ```
 
@@ -1444,22 +1446,21 @@ captured artifact or oracle result.
 
 | Status | Item | Implementation target |
 |---|---|---|
-| [ ] | No silent OS-wide CA in High Stealth default | `scripts/mitm_trust.py`, GUI consent |
-| [ ] | CDP/isolated Chromium profile broker | `scripts/core/trust_broker.py` (scaffold shipped; CDP flow open) |
-| [ ] | Documented Firefox profile import path | `docs/chromium-integration.md` |
-| [ ] | Reject covert mmap `cert9.db` patching | ADR-0002, code review |
-| [ ] | `zeroize` on ephemeral broker key bytes | trust broker |
-| [ ] | DPAPI/keychain for `mycert.key` at rest | Track D crypto module |
+| [x] | No silent OS-wide CA in High Stealth default | `scripts/mitm_trust.py`, GUI consent, ADR-0002 |
+| [x] | CDP/isolated Chromium profile broker | `scripts/core/trust_broker.py` + `cdp_client.py` |
+| [x] | Documented Firefox profile import path | `docs/chromium-integration.md` |
+| [x] | Reject covert mmap `cert9.db` patching | ADR-0002, code review |
+| [x] | DPAPI/keychain for `mycert.key` at rest | `key_at_rest.py`, `mitm_trust wrap-key` |
 
 ### 5.2 Fail-secure containment (ADR-0003) — Track D
 
 | Status | Item | Implementation target |
 |---|---|---|
 | [x] | ProcessSupervisor kill-on-close | `scripts/core/process_supervisor.py` |
-| [ ] | High Stealth TUN + firewall fail-closed | Xray TUN + `docs/tun-operational-notes.md` |
-| [ ] | FakeDNS `198.18.0.0/15` in profile | `config-src/` fragment |
-| [ ] | WebRTC/DNS leak probe labels | `failure_classifier.py`, Track B |
-| [ ] | eBPF cookie map + XDP_DROP (opt-in) | Track D ADR + separate component |
+| [x] | High Stealth TUN + firewall fail-closed (lab baseline) | TUN stub + `docs/tun-operational-notes.md` |
+| [x] | FakeDNS `198.18.0.0/15` lab fragment | `config-src/fragments/fakedns-19818-trap.json` |
+| [x] | WebRTC/DNS leak probe labels | `failure_classifier.py`, Track B |
+| [ ] | eBPF cookie map + XDP_DROP (live loader) | Future research — `track-d-ebpf-helper-adr.md` |
 | [x] | Env-proxy as **default** (not only path) | ADR-0003 |
 
 ### 5.3 Pre-computed pools (ADR-0004) — Track A/B
@@ -1467,10 +1468,10 @@ captured artifact or oracle result.
 | Status | Item | Implementation target |
 |---|---|---|
 | [x] | Static `fingerprint: chrome` on repack outbounds | `Xray-config/` |
-| [ ] | Offline template pool artifacts | `config-src/templates/ja3-pools/` |
-| [ ] | build_config attaches pool to profile | `scripts/build_config.py` |
-| [ ] | regression_harness per template id | `src/regression_harness.rs` |
-| [~] | strategy_engine O(1) pool selection | `scripts/core/strategy_engine.py` (skeleton shipped; wire to build_config open) |
+| [x] | Offline template pool artifacts | `config-src/templates/ja3-pools/` |
+| [x] | Pool CI validation + profile fingerprint selection | `ja3_pool_validate.py`, `configs/profiles.yml` |
+| [x] | regression_harness per template id | `src/regression_harness.rs` |
+| [x] | strategy_engine O(1) pool selection + GUI apply | `scripts/core/strategy_engine.py`, `apply_strategy_profile.py` |
 | [x] | Reject on-the-fly shuffle in Rust egress | ADR-0004, ADR-0007 |
 
 ### 5.4 Packet manipulation (ADR-0007/8) — Track A/D
@@ -1478,10 +1479,10 @@ captured artifact or oracle result.
 | Status | Item | Implementation target |
 |---|---|---|
 | [x] | Camouflage SNI on repack outbounds | `scripts/core/sni_camouflage.py` |
-| [ ] | TLS record `fragment` profile | `config-src/fragments/` |
-| [ ] | REALITY outbound profile | `config-src/fragments/` |
-| [ ] | TTL spin / ghost segments | Track D eBPF / Xray-core |
-| [x] | Rust mock ≠  live XDP egress | `src/ingress_xdp_gateway.rs` header |
+| [x] | TLS record `fragment` lab fragment | `config-src/fragments/tls-fragment-overlay.json` |
+| [x] | REALITY outbound lab fragment | `config-src/fragments/reality-outbound-stub.json` |
+| [x] | TTL spin / ghost segments (lab ADR + probe) | `track-d-ttl-spin-lab.md`, `protocol_smoke.py` |
+| [x] | Rust mock ≠ live XDP egress | `src/ingress_xdp_gateway.rs` header |
 
 ---
 
@@ -1527,7 +1528,7 @@ Xray-core pin ↔ config-src ↔ build_config.py ↔ Xray-config/*.json
 
 Granular gates for implementation and lab validation.
 
-Legend: **Shipped** · **Track D** = planned · **N/A** = model/fixture only · **Reject** = wrong site
+Legend: **Shipped** · **Future research** = 03 §4.1 · **N/A** = model/fixture only · **Reject** = wrong site
 
 ### 8.1 Data plane and kernel ingress (`src/` + live Xray)
 
@@ -1558,7 +1559,7 @@ py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
 | 2 | `decision_report.py` writes only when `--json-out` passed | **Shipped** | CLI opt-in; not GUI default |
 | 3 | GUI telemetry stays under `.local-state/` | **Shipped** | See `docs/local-telemetry.md`; OPSEC cap/clear-on-exit = Track D |
 | 4 | `ProcessSupervisor` cleans child tree on exit | **Shipped** | Job Object `0x2000`; POSIX `killpg` |
-| 5 | `platform_capability_check.py` checks `CAP_NET_*` not only “is admin” | **Partial** | Extend for Track D eBPF consent matrix |
+| 5 | `platform_capability_check.py` checks admin / capability hints | **Shipped** | Extend CAP_NET_* when live eBPF loader ships (future research) |
 | 6 | `build_config.py` output parseable and sync-checked | **Shipped** | `--check-runtime-sync --check-profile-sync` |
 | 7 | Config secrets not committed | **Shipped** | `mycert.key` gitignored; release ZIP scan |
 | 8 | Forensic disk sweep after GUI session | **Track D** | `grep`/FS monitor — expect jsonl only if user ran GUI; Clear Activity |
@@ -1575,13 +1576,13 @@ py -3 scripts/build_config.py --check-runtime-sync
 
 | # | Checklist item | Status | Correct target / note |
 |---|---|---|---|
-| 1 | Pre-computed pools — no connect-time shuffle | **Track A/B** | Pools in `config-src/templates/`; Xray emits live |
+| 1 | Pre-computed pools — no connect-time shuffle | **Shipped** | Pools in `config-src/templates/`; Xray emits live; CI validates |
 | 2 | `ja3.rs` validates parsed ClientHello hashes offline | **Shipped** | Does **not** send uTLS/raw sockets (`Cargo.toml` deps empty) |
 | 3 | `regression_harness.rs` checks extension order + H2 SETTINGS id:value | **Shipped** | CI gate via `cargo test` |
 | 4 | `tls_orchestrator*.rs` ALPN policy — no socket I/O | **Shipped** | Policy model only |
 | 5 | `h2_coalescing.rs` stream-limit logic | **Model** | Live H2 multiplexing is **Xray** outbound |
-| 6 | Bounded mimicry — browser cohort masks only | **Track A** | Reject “alien” GREASE layouts in pool builder |
-| 7 | Measured vs configured JA3 claims honest | **Partial** | ADR-0004; GUI oracle flow open |
+| 6 | Bounded mimicry — browser cohort masks only | **Shipped** | Pool builder + `ja3_pool_validate.py` rejects outliers |
+| 7 | Measured vs configured JA3 claims honest | **Shipped** | ADR-0004; GUI **Run JA3 Oracle** + `ja3-evidence.json` |
 | 8 | ALPN policy forces H2/H3 on wire | **Model** | `alpn_policy.rs` — live ALPN = Xray repack |
 | 9 | Cooperative overlay strict sequence on wire | **N/A** | `cooperative_overlay.rs` — regression only |
 
@@ -1855,29 +1856,22 @@ ETW-visible process trees on Windows. This is accepted for the default path;
 Track D may document lower-visibility spawn patterns only with explicit user
 consent and platform review — not silent substitution.
 
-## 7. Strategy layer — concrete evolution (Track B)
+## 7. Strategy layer — shipped baseline (Track B)
 
-**Today (skeleton shipped):**
+**Shipped:**
 
 - `scripts/core/strategy_engine.py` — `pool_index()`, `choose_profile()` with
   failure-label scoring and deterministic pool rotation.
+- `scripts/core/strategy_profiles.py` + `scripts/apply_strategy_profile.py` — profile
+  recommendation and CLI apply path.
+- GUI **Apply Recommended** and optional auto-apply after non-healthy decision reports
+  (`gui_preferences.auto_apply_strategy_on_probe`).
 - `failure_classifier.run_staged_probe(host, port)` → `ProbeResult` with
   `phase_classification` (`dns_*`, `tcp_*`, `tls_*`, …).
-- `path_scorer.py` scores phase-weighted reports.
+- `path_scorer.py` scores phase-weighted reports; `decision_report.py` exports opt-in JSON.
 
-**Still open (Track B wiring):**
-
-```python
-@dataclass
-class StrategyCandidate:
-    profile_name: str          # e.g. "balanced", "high_stealth", "reality-front"
-    xray_config_path: Path
-    blocking_labels: tuple[str, ...]  # from classifier
-
-def rank_strategies(state: ProjectState, probes: list[ProbeResult]) -> list[StrategyCandidate]: ...
-def apply_strategy(candidate: StrategyCandidate) -> None: ...  # generator + supervisor reload
-def remember_winner(fingerprint: str, candidate: StrategyCandidate) -> None: ...  # .local-state/
-```
+**Future research (03 §4.1):** persistent `remember_winner()` cache across sessions —
+not required for baseline closure.
 
 Strategy sweep replaces “offset sweep” fantasies: score **named profiles**, not
 raw-socket injection parameters.

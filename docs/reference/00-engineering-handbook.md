@@ -28,7 +28,7 @@ threat traceability ID from [THREAT_MODEL.md](../../THREAT_MODEL.md) § Traceabi
 |---|---|---|
 | **SHIPPED** | MUST, MUST NOT | True in the current baseline; cite path + validation command |
 | **POLICY** | MUST, MUST NOT | Architectural boundary (applies now and to future code) |
-| **TARGET** | SHALL, SHOULD | Track A/B/C/D roadmap; open item in `03` §4 |
+| **TARGET** | SHALL, SHOULD | Future research only — see `03` §4.1 |
 | **REJECTED** | MUST NOT | Forbidden pattern; see `01` §7 and `02` ADR-0007/0008 |
 
 **Traceability tag format:** `[Mitigates: TM-NN — short title]`
