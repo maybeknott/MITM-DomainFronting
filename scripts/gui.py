@@ -28,9 +28,11 @@ from tkinter import filedialog, messagebox, ttk
 
 from core.gui_preferences import GuiPreferences, load_preferences, save_preferences
 from core.gui_readiness import GuiReadinessCache, primary_action_spec, readiness_snapshot_fields
+from core.key_at_rest import ensure_key_material_available
+from core.preflight_gate import blocker_messages, evaluate_startup_gate, load_cached_preflight
 from core.process_supervisor import ProcessSupervisor
 from core.strategy_profiles import recommend_profile
-from core.trust_broker import prepare_chromium_session, session_manifest
+from core.trust_broker import launch_session_with_cdp_assist, prepare_chromium_session, session_manifest
 from core.version_utils import version_at_least
 
 IS_FROZEN = bool(getattr(sys, "frozen", False))
@@ -674,6 +676,8 @@ class App(tk.Tk):
         self.last_profile_proxy_url = self.browser_proxy.get()
         self.browser_executable = tk.StringVar(value="")
         self.browser_fingerprint_seed = tk.StringVar(value="")
+        ja3_cfg = browser_cfg.get("ja3_oracle") if isinstance(browser_cfg.get("ja3_oracle"), dict) else {}
+        self.browser_ja3_oracle_url = tk.StringVar(value=str(ja3_cfg.get("default_url") or ""))
         self.browser_headless = tk.BooleanVar(value=False)
         self.browser_geoip = tk.BooleanVar(value=False)
         self.browser_humanize = tk.BooleanVar(value=bool((browser_cfg.get("stealth") or {}).get("default_humanize", True)))
@@ -733,6 +737,8 @@ class App(tk.Tk):
         self.readiness_cache = GuiReadinessCache(root=ROOT, cert_path=CERT, key_path=KEY)
         self.gui_preferences = load_preferences()
         self.opsec_telemetry_mode = tk.BooleanVar(value=self.gui_preferences.ram_only())
+        self.block_connect_on_preflight_fail = tk.BooleanVar(value=self.gui_preferences.block_connect_on_preflight_fail)
+        self.auto_apply_strategy_on_probe = tk.BooleanVar(value=self.gui_preferences.auto_apply_strategy_on_probe)
         self._ram_telemetry_events: list[dict[str, object]] = []
         self._proxy_active_since: float | None = None
         self._network_baseline: tuple[float, int, int, str] | None = None
@@ -1581,6 +1587,24 @@ class App(tk.Tk):
             text="OPSEC mode (RAM-only activity history)",
             variable=self.opsec_telemetry_mode,
             command=self.toggle_opsec_telemetry_mode,
+        ).pack(anchor="w")
+
+        gate_row = tk.Frame(privacy, bg=COLORS["panel"])
+        gate_row.pack(fill="x", pady=(0, self._scaled(6)))
+        ttk.Checkbutton(
+            gate_row,
+            text="Block Start Core when preflight gate fails",
+            variable=self.block_connect_on_preflight_fail,
+            command=self.toggle_connect_preflight_gate,
+        ).pack(anchor="w")
+
+        strategy_row = tk.Frame(privacy, bg=COLORS["panel"])
+        strategy_row.pack(fill="x", pady=(0, self._scaled(6)))
+        ttk.Checkbutton(
+            strategy_row,
+            text="Auto-apply strategy profile after non-healthy decision report",
+            variable=self.auto_apply_strategy_on_probe,
+            command=self.toggle_auto_apply_strategy,
         ).pack(anchor="w")
 
         view = self._rail_panel(rail, "Quick Actions", "bolt")
@@ -3316,7 +3340,7 @@ class App(tk.Tk):
         preflight.pack(fill="x", pady=(0, 12))
         tk.Label(
             preflight,
-            text="Surface Xray pin, platform capability, and private-key ACL before connect. Blocks are advisory until you run full preflight.",
+            text="Surface Xray pin, platform capability, and private-key ACL before connect. When blocking is enabled in Settings, Start Core is refused on gate failure.",
             bg=COLORS["panel"],
             fg=COLORS["muted"],
             wraplength=860,
@@ -3341,9 +3365,34 @@ class App(tk.Tk):
                 ("Run Full Preflight", "Accent.TButton", self.run_full_preflight),
                 ("Apply Strategy Profile", "Soft.TButton", self.apply_recommended_profile),
                 ("Restrict Key ACL", "Soft.TButton", self.restrict_private_key_acl),
+                ("Wrap Key (DPAPI)", "Soft.TButton", self.wrap_private_key_dpapi),
             ],
             preferred_columns=3,
             min_cell_width=190,
+        )
+
+        ja3_card = self._card(self.health_tab, "TLS fingerprint oracle (opt-in)")
+        ja3_card.pack(fill="x", pady=(0, 12))
+        tk.Label(
+            ja3_card,
+            text="Measures wire JA3 through a trusted echo oracle (ADR-0004). Configured vs measured stay separate until this run completes.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=860,
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(4, 8))
+        self._form_row(ja3_card, "Oracle URL", self.browser_ja3_oracle_url)
+        ja3_row = tk.Frame(ja3_card, bg=COLORS["panel"])
+        ja3_row.pack(fill="x", padx=16, pady=(0, 16))
+        self._button_grid(
+            ja3_row,
+            [
+                ("Run JA3 Oracle", "Accent.TButton", self.run_ja3_oracle),
+                ("Open Chromium Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "chromium-integration.md")),
+            ],
+            preferred_columns=2,
+            min_cell_width=180,
         )
 
         health = self._card(self.health_tab, "Local health probe")
@@ -3837,20 +3886,39 @@ class App(tk.Tk):
             return
         self._update_telemetry_labels(payload)
 
-    def toggle_opsec_telemetry_mode(self) -> None:
+    def toggle_connect_preflight_gate(self) -> None:
+        self._save_gui_preferences_from_vars()
+        enabled = self.block_connect_on_preflight_fail.get()
+        summary = "enabled" if enabled else "disabled"
+        self.record_telemetry("preflight_gate_toggle", "info", f"Connect blocking {summary}")
+        self._append_output(f"\nPreflight connect gate: {summary}\n")
+
+    def toggle_auto_apply_strategy(self) -> None:
+        self._save_gui_preferences_from_vars()
+        enabled = self.auto_apply_strategy_on_probe.get()
+        summary = "enabled" if enabled else "disabled"
+        self.record_telemetry("auto_strategy_toggle", "info", f"Auto strategy apply {summary}")
+        self._append_output(f"\nAuto strategy apply: {summary}\n")
+
+    def _save_gui_preferences_from_vars(self) -> None:
         mode = "ram_only" if self.opsec_telemetry_mode.get() else "local_disk"
         self.gui_preferences = GuiPreferences(
             telemetry_mode=mode,
             telemetry_max_events=self.gui_preferences.telemetry_max_events,
+            block_connect_on_preflight_fail=self.block_connect_on_preflight_fail.get(),
+            auto_apply_strategy_on_probe=self.auto_apply_strategy_on_probe.get(),
         )
         save_preferences(self.gui_preferences)
+
+    def toggle_opsec_telemetry_mode(self) -> None:
+        self._save_gui_preferences_from_vars()
         if self.opsec_telemetry_mode.get() and GUI_TELEMETRY.exists():
             try:
                 GUI_TELEMETRY.unlink()
             except OSError:
                 pass
         summary = "RAM-only (no jsonl append)" if self.opsec_telemetry_mode.get() else "Local disk history enabled"
-        self.record_telemetry("telemetry_mode_changed", "info", summary, {"mode": mode})
+        self.record_telemetry("telemetry_mode_changed", "info", summary, {"mode": self.gui_preferences.telemetry_mode})
         self._append_output(f"\nTelemetry mode: {summary}\n")
 
     def _telemetry_events(self, limit: int | None = None) -> list[dict[str, object]]:
@@ -4619,6 +4687,22 @@ class App(tk.Tk):
         if not config_path.exists():
             messagebox.showerror("Missing config", f"Selected config not found: {short_path(config_path)}")
             return
+        key_report = ensure_key_material_available(KEY)
+        if key_report.status != "pass":
+            messagebox.showerror("Private key", key_report.detail)
+            self.record_telemetry("xray_connect", "fail", "Private key unavailable", {"detail": key_report.detail})
+            return
+        if self.gui_preferences.block_connect_on_preflight_fail:
+            snapshot = self._status_snapshot()
+            _level, blockers = evaluate_startup_gate(snapshot, cached_preflight=load_cached_preflight())
+            if blockers:
+                lines = "\n".join(f"• {item}" for item in blocker_messages(blockers))
+                messagebox.showerror(
+                    "Connect blocked",
+                    f"Preflight gate failed:\n\n{lines}\n\nRun Full Preflight, fix the issue, or disable blocking in Settings.",
+                )
+                self.record_telemetry("xray_connect", "fail", "Preflight gate blocked connect", {"blockers": blockers})
+                return
         try:
             self.xray_supervisor = ProcessSupervisor(xray, ["run", "-config", str(config_path)], ROOT)
             self.xray_process = self.xray_supervisor.spawn()
@@ -5152,6 +5236,16 @@ class App(tk.Tk):
             + f"  report file: {short_path(report_path)}\n",
             stream="audit",
         )
+        if (
+            self.gui_preferences.auto_apply_strategy_on_probe
+            and strategy_id
+            and phase not in {"healthy", "unknown", ""}
+        ):
+            self._append_output(
+                f"\nAuto-applying strategy profile {strategy_id} (phase={phase})...\n",
+                stream="audit",
+            )
+            self.apply_recommended_profile(confirm=False, restart=False)
 
     def _after_lab_evidence(self, code: int, output: str, report_path: Path) -> None:
         if code != 0:
@@ -5490,7 +5584,7 @@ class App(tk.Tk):
             return base
         return "balanced"
 
-    def apply_recommended_profile(self) -> None:
+    def apply_recommended_profile(self, *, confirm: bool = True, restart: bool | None = None) -> None:
         report_path = LOCAL_STATE / "decision-report.latest.json"
         labels: tuple[str, ...] = ()
         intent = self._active_profile_intent()
@@ -5536,7 +5630,7 @@ class App(tk.Tk):
         if label not in self._profile_choices():
             messagebox.showwarning("Profile unavailable", f"{label} is not in the profile picker.")
             return
-        if not messagebox.askyesno(
+        if confirm and not messagebox.askyesno(
             "Apply strategy profile",
             f"Switch to {label}?\n\nReason: {reason}\nConfidence: {confidence}",
         ):
@@ -5544,7 +5638,13 @@ class App(tk.Tk):
         self.profile_selection.set(label)
         self._select_profile()
         self.record_telemetry("strategy_profile_applied", "info", profile_id, {"reason": reason, "confidence": confidence})
-        if self._xray_running_from_gui() and messagebox.askyesno("Restart core", "Restart the app core with the new profile now?"):
+        should_restart = restart
+        if should_restart is None:
+            should_restart = self._xray_running_from_gui() and messagebox.askyesno(
+                "Restart core",
+                "Restart the app core with the new profile now?",
+            )
+        if should_restart and self._xray_running_from_gui():
             self.disconnect_xray()
             self.connect_xray()
 
@@ -5560,6 +5660,26 @@ class App(tk.Tk):
         self.run_async(
             "Restrict private key ACL",
             py_script("mitm_trust.py", "restrict-key", "--key", str(KEY), "--json"),
+            timeout=30,
+            after=lambda code, output: self.refresh_status() if code == 0 else None,
+        )
+
+    def wrap_private_key_dpapi(self) -> None:
+        if not KEY.exists():
+            messagebox.showwarning("Missing key", f"Private key not found: {short_path(KEY)}")
+            return
+        if os.name != "nt":
+            messagebox.showinfo("DPAPI", "DPAPI wrap is available on Windows only.")
+            return
+        if not messagebox.askyesno(
+            "Wrap private key",
+            "Write a DPAPI sidecar (mycert.key.dpapi) and tighten ACL on the plaintext key?\n\n"
+            "Plaintext is kept unless you run mitm_trust wrap-key --remove-plaintext.",
+        ):
+            return
+        self.run_async(
+            "Wrap private key (DPAPI)",
+            py_script("mitm_trust.py", "wrap-key", "--key", str(KEY), "--json"),
             timeout=30,
             after=lambda code, output: self.refresh_status() if code == 0 else None,
         )
@@ -5616,15 +5736,92 @@ class App(tk.Tk):
         if not messagebox.askyesno(
             "Launch isolated browser",
             "Launch an isolated Chromium profile now?\n\n"
-            "This does not install system-wide trust or modify browser stores silently.",
+            "CDP assist will open certificate settings in that profile. "
+            "You must still import the local CA manually — no silent trust install.",
+        ):
+            return
+
+        def worker() -> None:
+            try:
+                _proc, assist = launch_session_with_cdp_assist(session)
+            except OSError as exc:
+                self.after(0, lambda: messagebox.showerror("Browser launch", str(exc)))
+                return
+            detail = str(assist.get("detail") or "")
+            status = str(assist.get("status") or "unknown")
+            self.after(
+                0,
+                lambda: (
+                    self._append_output(f"\nCDP trust assist ({status}): {detail}\n"),
+                    self.record_telemetry("isolated_browser_launched", "pass" if status == "pass" else "warn", browser, assist),
+                ),
+            )
+
+        threading.Thread(target=worker, daemon=True).start()
+        self._append_output("\nLaunching isolated Chromium profile with CDP assist...\n")
+
+    def run_ja3_oracle(self) -> None:
+        oracle_url = self.browser_ja3_oracle_url.get().strip()
+        if not oracle_url:
+            messagebox.showwarning("JA3 oracle", "Enter a trusted JA3 echo oracle URL first.")
+            return
+        if not messagebox.askyesno(
+            "JA3 oracle",
+            f"Navigate to the oracle through the local proxy?\n\n{oracle_url}\n\n"
+            "Only proceed if you trust this endpoint.",
         ):
             return
         try:
-            subprocess.Popen(session.command, cwd=str(ROOT))  # noqa: S603
-        except OSError as exc:
-            messagebox.showerror("Browser launch", str(exc))
+            url, proxy = self._browser_common_args()
+        except ValueError as exc:
+            messagebox.showerror("JA3 oracle", str(exc))
             return
-        self.record_telemetry("isolated_browser_launched", "pass", browser, {"profile_dir": session.profile_dir})
+        args = list(
+            py_script(
+                "browser_diagnostics.py",
+                "--url",
+                url,
+                "--proxy",
+                proxy,
+                "--cert",
+                str(CERT),
+                "--ja3-oracle",
+                oracle_url,
+                prefer_host=True,
+            )
+        )
+        executable = self.browser_executable.get().strip()
+        if executable:
+            args.extend(["--executable", executable])
+        if self.browser_headless.get():
+            args.append("--headless")
+        snapshot = self._status_snapshot()
+        expected = str(snapshot.get("ja3_expected") or "").strip()
+        if expected:
+            args.extend(["--expected-ja3", expected])
+        self.run_async("JA3 oracle measurement", args, timeout=180, after=self._after_ja3_oracle)
+
+    def _after_ja3_oracle(self, code: int, output: str) -> None:
+        self.refresh_status()
+        if code != 0:
+            self._append_output("\nJA3 oracle run failed — see output above.\n", stream="audit")
+            return
+        try:
+            data = json.loads(output)
+        except json.JSONDecodeError:
+            self._append_output("\nJA3 oracle finished but JSON output was not parseable.\n", stream="audit")
+            return
+        fp = data.get("fingerprint_validation") if isinstance(data.get("fingerprint_validation"), dict) else {}
+        observed = fp.get("observed_ja3") or fp.get("ja3") or ""
+        match = fp.get("tls_fingerprint_ja3_matches_browser")
+        method = fp.get("verification_method") or "unknown"
+        self._append_output(
+            "\nJA3 oracle summary:\n"
+            f"  verification_method: {method}\n"
+            f"  observed: {observed or 'none'}\n"
+            f"  match: {match}\n",
+            stream="audit",
+        )
 
     def launch_diagnostics_chrome_ps(self) -> None:
         ps1 = SCRIPTS / "launch_browser_mitm.ps1"

@@ -28,5 +28,9 @@
     "default_mode": "local_disk",
     "opsec_mode": "ram_only",
     "max_events": 500
+  },
+  "ja3_oracle": {
+    "default_url": "https://tls.peet.ws/api/all",
+    "notes": "Opt-in measurement only (ADR-0004). Operator must trust the oracle endpoint."
   }
 }

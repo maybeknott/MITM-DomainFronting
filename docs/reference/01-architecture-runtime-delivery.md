@@ -298,14 +298,14 @@ JSON export — without persistent covert logging.
 | ID | Task | Deliverable | Validate |
 |---|---|---|---|
 | D1 | [x] ProcessSupervisor kill-on-close | `process_supervisor.py` | Kill GUI → Xray dies |
-| D2 | [ ] TUN inbound profile | `config-src/tun-*.yml` | `tun-operational-notes.md` |
-| D3 | [ ] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | Leak test Xray down |
+| D2 | [~] TUN inbound profile | `config-src/fragments/tun-inbound-stub.json` | `protocol_smoke.py --scenario tun-stub` |
+| D3 | [~] Host firewall checklist (WFP / nftables) | `docs/tun-operational-notes.md` | Leak test Xray down |
 | D4 | [~] FakeDNS 198.18.0.0/15 | `config-src/fragments/fakedns-19818-trap.json` | `protocol_smoke.py --scenario fakedns-policy` |
-| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + GUI | CDP steps documented; auto-import open |
-| D6 | [~] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust restrict-key` | ACL tighten shipped; DPAPI reserved |
-| D7 | [ ] Track D decision record for optional eBPF helper | `track-d/` or new ADR section in 02 | bpftool lab |
-| D8 | [ ] TTL spin / ghost segments | Xray-core or eBPF | Suricata lab |
-| D9 | [ ] Android TUN harness LeakSanitizer | `ingress_android_tun.rs` tests | CI optional |
+| D5 | [~] `trust_broker.py` profile-scoped launch | `scripts/core/trust_broker.py` + `cdp_client.py` | CDP assist opens settings; manual CA import |
+| D6 | [~] DPAPI wrap `mycert.key` | `key_at_rest.py` + `mitm_trust wrap-key` | ACL + DPAPI sidecar shipped |
+| D7 | [~] Track D decision record for optional eBPF helper | `docs/reference/track-d-ebpf-helper-adr.md` | bpftool lab |
+| D8 | [~] TTL spin / ghost segments | `track-d-ttl-spin-lab.md` + smoke probe | Wire proof lab-only |
+| D9 | [~] Android TUN harness LeakSanitizer | `ingress_android_tun.rs` buffer lifecycle test | Optional `-Z sanitizer=leak` CI |
 
 **Phasing (mandatory):** explicit proxy (shipped) → TUN + firewall → FakeDNS → eBPF.
 

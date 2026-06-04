@@ -360,6 +360,22 @@ def main() -> int:
     rk.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     rk.add_argument("--json", action="store_true")
 
+    wk = sub.add_parser("wrap-key", help="wrap private key with Windows DPAPI sidecar (.key.dpapi)")
+    wk.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
+    wk.add_argument("--remove-plaintext", action="store_true")
+    wk.add_argument("--json", action="store_true")
+
+    uk = sub.add_parser("unwrap-key", help="restore plaintext private key from DPAPI sidecar")
+    uk.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
+    uk.add_argument("--json", action="store_true")
+
+    ca = sub.add_parser("cdp-assist", help="open certificate settings via CDP in an already-running isolated profile")
+    ca.add_argument("--port", type=int, default=9222)
+    ca.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
+    ca.add_argument("--browser", default="chromium")
+    ca.add_argument("--wait-timeout", type=float, default=12.0)
+    ca.add_argument("--json", action="store_true")
+
     args = parser.parse_args()
     if args.cmd == "status":
         return status(args.cert, args.key, args.warn_expiry_days, args.json)
@@ -386,6 +402,66 @@ def main() -> int:
             "status": report.status,
             "detail": report.detail,
             "dpapi_available": report.dpapi_available,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(f"status: {report.status}")
+            print(f"detail: {report.detail}")
+        return 0 if report.status == "pass" else 2
+    if args.cmd == "wrap-key":
+        from core.key_at_rest import wrap_key_dpapi
+
+        report = wrap_key_dpapi(args.key, remove_plaintext=args.remove_plaintext)
+        payload = {
+            "path": report.path,
+            "platform": report.platform,
+            "action": report.action,
+            "status": report.status,
+            "detail": report.detail,
+            "dpapi_available": report.dpapi_available,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(f"status: {report.status}")
+            print(f"detail: {report.detail}")
+        return 0 if report.status == "pass" else 2
+    if args.cmd == "unwrap-key":
+        from core.key_at_rest import unwrap_key_dpapi
+
+        report = unwrap_key_dpapi(args.key)
+        payload = {
+            "path": report.path,
+            "platform": report.platform,
+            "action": report.action,
+            "status": report.status,
+            "detail": report.detail,
+            "dpapi_available": report.dpapi_available,
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            print(f"status: {report.status}")
+            print(f"detail: {report.detail}")
+        return 0 if report.status == "pass" else 2
+    if args.cmd == "cdp-assist":
+        from core.cdp_client import assist_profile_trust_setup
+
+        report = assist_profile_trust_setup(
+            port=args.port,
+            cert_path=str(args.cert.expanduser().resolve()),
+            browser=args.browser,
+            wait_timeout_s=args.wait_timeout,
+        )
+        payload = {
+            "port": report.port,
+            "action": report.action,
+            "status": report.status,
+            "detail": report.detail,
+            "browser": report.browser,
+            "web_socket_url": report.web_socket_url,
+            "opened_url": report.opened_url,
         }
         if args.json:
             print(json.dumps(payload, indent=2, ensure_ascii=False))

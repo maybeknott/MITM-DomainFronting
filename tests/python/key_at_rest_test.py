@@ -26,9 +26,29 @@ def test_restrict_key_permissions_posix() -> None:
         assert mode == 0o600
 
 
+def test_dpapi_wrap_unwrap_roundtrip() -> None:
+    from core.key_at_rest import dpapi_available, dpapi_sidecar_path, unwrap_key_dpapi, wrap_key_dpapi
+
+    if not dpapi_available():
+        print("SKIP test_dpapi_wrap_unwrap_roundtrip (non-Windows)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        key = Path(tmp) / "mycert.key"
+        key.write_text("secret-key-material", encoding="utf-8")
+        wrap = wrap_key_dpapi(key)
+        assert wrap.status == "pass"
+        assert dpapi_sidecar_path(key).exists()
+        key.unlink()
+        unwrap = unwrap_key_dpapi(key)
+        assert unwrap.status == "pass"
+        assert key.read_text(encoding="utf-8") == "secret-key-material"
+
+
 def main() -> int:
     test_restrict_key_permissions_posix()
     print("PASS test_restrict_key_permissions_posix")
+    test_dpapi_wrap_unwrap_roundtrip()
+    print("PASS test_dpapi_wrap_unwrap_roundtrip")
     return 0
 
 

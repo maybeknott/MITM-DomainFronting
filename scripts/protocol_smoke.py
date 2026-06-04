@@ -155,6 +155,33 @@ def fakedns_policy(root: Path) -> int:
     return status_report("fakedns-policy", status, checks)
 
 
+def tun_stub(root: Path) -> int:
+    fragment = root / "config-src" / "fragments" / "tun-inbound-stub.json"
+    checks: dict[str, object] = {"fragment_present": fragment.exists(), "tun_tag": "", "tun_protocol": ""}
+    if fragment.exists():
+        frag = json.loads(fragment.read_text(encoding="utf-8"))
+        inbounds = frag.get("inbounds", []) if isinstance(frag.get("inbounds"), list) else []
+        for inbound in inbounds:
+            if isinstance(inbound, dict) and str(inbound.get("protocol", "")).lower() == "tun":
+                checks["tun_tag"] = inbound.get("tag", "")
+                checks["tun_protocol"] = inbound.get("protocol", "")
+                break
+    status = "pass" if checks["fragment_present"] and checks["tun_protocol"] == "tun" else "warn"
+    return status_report("tun-stub", status, checks)
+
+
+def ttl_spin_policy(root: Path) -> int:
+    doc = root / "docs" / "reference" / "track-d-ttl-spin-lab.md"
+    fragment = root / "config-src" / "fragments" / "tls-fragment-overlay.json"
+    checks: dict[str, object] = {
+        "lab_doc_present": doc.exists(),
+        "fragment_present": fragment.exists(),
+        "note": "TTL spin is lab-only; validate with pcap/TTL inspection outside CI",
+    }
+    status = "pass" if checks["lab_doc_present"] and checks["fragment_present"] else "warn"
+    return status_report("ttl-spin-policy", status, checks)
+
+
 def udp443_policy(config_dir: Path) -> int:
     checks: List[Dict[str, object]] = []
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
@@ -178,7 +205,7 @@ def udp443_policy(config_dir: Path) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run protocol smoke probes and emit redacted JSON")
-    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy"], required=True)
+    parser.add_argument("--scenario", choices=["tcp-connect", "websocket-handshake", "grpc-alpn", "http2-alpn", "ipv6-connect", "udp443-policy", "fragment-policy", "reality-stub", "fakedns-policy", "tun-stub", "ttl-spin-policy"], required=True)
     parser.add_argument("--host", default="example.com")
     parser.add_argument("--port", type=int, default=443)
     parser.add_argument("--path", default="/")
@@ -203,6 +230,10 @@ def main() -> int:
         return reality_stub(Path("."))
     if args.scenario == "fakedns-policy":
         return fakedns_policy(Path("."))
+    if args.scenario == "tun-stub":
+        return tun_stub(Path("."))
+    if args.scenario == "ttl-spin-policy":
+        return ttl_spin_policy(Path("."))
     return udp443_policy(args.config_dir)
 
 

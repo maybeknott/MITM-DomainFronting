@@ -82,11 +82,11 @@ chrome.exe --remote-debugging-port=9222 `
   --proxy-server=socks5://127.0.0.1:10808
 ```
 
-**CDP workflow** (planned owner: `scripts/core/trust_broker.py`):
+**CDP workflow** (owner: `scripts/core/trust_broker.py` + `scripts/core/cdp_client.py`):
 
 1. Read WebSocket URL from `http://127.0.0.1:9222/json/version`.
-2. Enable `Network` domain.
-3. Apply certificate override for the MITM CA in the isolated profile only.
+2. CDP assist opens `chrome://settings/security` in the isolated profile (GUI **Launch isolated Chromium** or `mitm_trust cdp-assist`).
+3. Operator imports `mycert.crt` manually for that profile only.
 4. On session end: close browser; optionally delete the ephemeral profile directory.
 
 **Verify system store stays clean** (profile-scoped mode):

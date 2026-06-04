@@ -11,8 +11,11 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+from core.cdp_client import assist_profile_trust_setup
 
 
 @dataclass(frozen=True)
@@ -84,11 +87,45 @@ def cdp_cert_import_steps(session: BrowserTrustSession) -> list[str]:
     port = session.remote_debugging_port
     return [
         f"Launch the isolated profile (command already prepared for port {port}).",
-        "Open chrome://settings/security or edge://settings/privacy in that profile.",
+        "Run CDP assist (GUI or mitm_trust cdp-assist) to open chrome://settings/security in that profile.",
         f"Import {session.cert_path} as a user-trusted CA for this profile only.",
         "Verify MITM only after explicit import; the broker never patches cert9.db or system stores.",
-        f"Optional CDP endpoint: http://127.0.0.1:{port}/json/version (inspect only; no auto-import).",
+        f"CDP endpoint: http://127.0.0.1:{port}/json/version",
     ]
+
+
+def run_cdp_trust_assist(
+    session: BrowserTrustSession,
+    *,
+    wait_timeout_s: float = 12.0,
+) -> dict[str, object]:
+    report = assist_profile_trust_setup(
+        port=session.remote_debugging_port,
+        cert_path=session.cert_path,
+        browser=session.browser,
+        wait_timeout_s=wait_timeout_s,
+    )
+    return {
+        "port": report.port,
+        "action": report.action,
+        "status": report.status,
+        "detail": report.detail,
+        "browser": report.browser,
+        "web_socket_url": report.web_socket_url,
+        "opened_url": report.opened_url,
+    }
+
+
+def launch_session_with_cdp_assist(
+    session: BrowserTrustSession,
+    *,
+    wait_timeout_s: float = 12.0,
+    startup_delay_s: float = 1.0,
+) -> tuple[subprocess.Popen[bytes], dict[str, object]]:
+    proc = launch_session(session)
+    time.sleep(startup_delay_s)
+    assist = run_cdp_trust_assist(session, wait_timeout_s=wait_timeout_s)
+    return proc, assist
 
 
 def _find_chromium_binary(browser: str) -> str:

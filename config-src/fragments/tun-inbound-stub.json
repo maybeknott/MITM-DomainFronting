@@ -1,0 +1,21 @@
+{
+  "__comment": "Reference TUN inbound for High Stealth lab profiles — requires OS privileges and firewall checklist.",
+  "__merge_strategy__": {
+    "inbounds": "append_unique_by_tag"
+  },
+  "inbounds": [
+    {
+      "tag": "tun-in",
+      "protocol": "tun",
+      "settings": {
+        "name": "mitm-domainfronting-tun",
+        "MTU": 1500,
+        "stack": "system"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    }
+  ]
+}

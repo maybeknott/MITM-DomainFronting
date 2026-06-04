@@ -61,6 +61,45 @@ Do not mark an app as supported only because a browser works on the same device.
 | `desktop-full-system-strict` | Full-system capture | No | `dns-strict` | Stop on VPN, proxy, or DNS conflict |
 | `desktop-split-tunnel` | Selected routes | No | `dns-local-first` | Keep private LAN direct and review DNS capture |
 
+## Fail-closed firewall checklist (High Stealth / TUN lab)
+
+Run these **after** TUN is enabled and **before** claiming leak protection. Adjust interface names and app paths for your host.
+
+### Windows (WFP)
+
+1. Confirm only the intended TUN/VPN interface carries default-route traffic (`Get-NetRoute -DestinationPrefix 0.0.0.0/0`).
+2. Block browser WebRTC STUN on UDP/3478 when testing proxy-only paths:
+
+```powershell
+New-NetFirewallRule -DisplayName "MITM-lab-block-stun-udp3478" -Direction Outbound -Action Block -Protocol UDP -RemotePort 3478
+```
+
+3. Optional: block QUIC/UDP443 egress during strict lab runs (restore after test):
+
+```powershell
+New-NetFirewallRule -DisplayName "MITM-lab-block-udp443" -Direction Outbound -Action Block -Protocol UDP -RemotePort 443
+```
+
+4. Remove lab rules when finished:
+
+```powershell
+Remove-NetFirewallRule -DisplayName "MITM-lab-block-stun-udp3478"
+Remove-NetFirewallRule -DisplayName "MITM-lab-block-udp443"
+```
+
+### Linux (nftables)
+
+```bash
+# Block STUN during lab
+sudo nft add rule inet filter output udp dport 3478 counter drop
+# Optional QUIC block
+sudo nft add rule inet filter output udp dport 443 counter drop
+# List and delete by handle after the run
+sudo nft -a list chain inet filter output
+```
+
+Validate with browser leak tests plus `tcpdump udp port 3478` on the egress interface. Do not treat firewall rules as a substitute for route/DNS correctness — they are a lab gate only.
+
 ## Related documents
 
 | Document | Topic |

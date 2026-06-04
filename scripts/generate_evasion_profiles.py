@@ -12,6 +12,7 @@ BASE = ROOT / "Xray-config" / "MITM-DomainFronting.json"
 FRAGMENTS = {
     "evasion-fragment": ROOT / "config-src" / "fragments" / "tls-fragment-overlay.json",
     "evasion-reality-stub": ROOT / "config-src" / "fragments" / "reality-outbound-stub.json",
+    "evasion-tun-stub": ROOT / "config-src" / "fragments" / "tun-inbound-stub.json",
 }
 
 sys.path.insert(0, str(ROOT / "scripts"))

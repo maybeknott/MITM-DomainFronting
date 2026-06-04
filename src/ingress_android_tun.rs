@@ -136,4 +136,29 @@ mod tests {
         assert_eq!(sent, 1);
         assert_eq!(ingress.take_tx_packet_for_test(), Some(vec![1, 2, 3, 4]));
     }
+
+    /// D9 harness: after send_batch drains injected RX, no stale TX remains and a
+    /// second recv returns zero packets (buffer lifecycle sanity — optional CI LSan
+    /// can wrap `cargo test -Z sanitizer=leak` on Android targets separately).
+    #[test]
+    fn batch_buffer_does_not_retain_stale_packets() {
+        let mut ingress = AndroidTunIngress::new(AndroidTunOptions {
+            enabled: true,
+            tun_fd: Some(11),
+            max_packet_size: 512,
+        });
+        ingress.availability = AndroidTunAvailability::Enabled;
+        ingress
+            .inject_rx_packet_for_test(vec![9, 8, 7])
+            .expect("inject");
+        let mut refs = [PacketRef { offset: 0, len: 0 }; 4];
+        let count = ingress.recv_batch(&mut refs).expect("recv");
+        assert_eq!(count, 1);
+        let sent = ingress.send_batch(&refs[..count]).expect("send");
+        assert_eq!(sent, 1);
+        assert_eq!(ingress.take_tx_packet_for_test(), Some(vec![9, 8, 7]));
+        assert!(ingress.take_tx_packet_for_test().is_none());
+        let again = ingress.recv_batch(&mut refs).expect("recv again");
+        assert_eq!(again, 0);
+    }
 }

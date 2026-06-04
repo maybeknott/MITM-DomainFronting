@@ -4,7 +4,7 @@
 
 Optional overlay JSON objects merged onto the primary config during `scripts/build_config.py`. Use fragments for incremental route or outbound changes without editing the full base JSON by hand.
 
-Reference-only lab fragments (`reality-outbound-stub.json`, `tls-fragment-overlay.json`) are **not** listed in `manifest.json` until an operator explicitly opts in. Generate optional lab profiles with:
+Reference-only lab fragments (`reality-outbound-stub.json`, `tls-fragment-overlay.json`, `tun-inbound-stub.json`, `fakedns-19818-trap.json`) are **not** listed in `manifest.json` until an operator explicitly opts in. Generate optional lab profiles with:
 
 ```bash
 py -3 scripts/generate_evasion_profiles.py

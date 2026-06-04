@@ -34,3 +34,7 @@ optional_lab_profiles:
     purpose: reality_outbound_reference_stub
     generator: scripts/generate_evasion_profiles.py
     fragment: config-src/fragments/reality-outbound-stub.json
+  evasion-tun-stub:
+    purpose: tun_inbound_reference_stub
+    generator: scripts/generate_evasion_profiles.py
+    fragment: config-src/fragments/tun-inbound-stub.json

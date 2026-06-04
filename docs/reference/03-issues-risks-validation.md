@@ -205,14 +205,16 @@ py -3 scripts/lab_evidence_validate.py lab-evidence.bundle.json
 |---|---|---|
 | Xray binary verification | Closed | `scripts/verify_release_artifact.py` |
 | CA install path documented | Closed | `scripts/mitm_trust.py`, ADR-0002 |
-| DPAPI wrap for `mycert.key` | Partial | `mitm_trust restrict-key` + `key_at_rest.py` (ACL only; DPAPI reserved) |
-| JA3 oracle in GUI | Open | ADR-0004 |
-| REALITY + TLS fragment in config-src | Open | Track A |
-| `scripts/core/strategy_engine.py` | Partial | Wired to `decision_report.py` via `strategy_profiles.py`; GUI hot-swap open |
-| `scripts/core/trust_broker.py` | Partial | Profile-scoped launch + GUI action; CDP cert import open |
+| DPAPI wrap for `mycert.key` | Partial | `mitm_trust wrap-key` / `unwrap-key` + connect-time unwrap via `ensure_key_material_available` |
+| JA3 oracle in GUI | Shipped | Health tab **Run JA3 Oracle** + `ja3-evidence.json` (ADR-0004) |
+| REALITY + TLS fragment in config-src | Partial | Lab fragments + `generate_evasion_profiles.py`; live handshake probes structure-only |
+| `scripts/core/strategy_engine.py` | Partial | GUI Apply Recommended + optional auto-apply after decision report |
+| `scripts/core/trust_broker.py` | Partial | CDP assist opens settings tab; manual CA import still required |
 | Config fragment merge semantics | Closed | `scripts/config_src_merge.py` + `tests/python/config_src_merge_test.py` |
 | OPSEC telemetry mode | Shipped | GUI RAM-only toggle — T-02 |
-| Optional eBPF helper | Open | Track D; separate from Rust fixture |
+| Preflight connect gate | Shipped | `preflight_gate.py` + GUI Settings toggle (default block) |
+| TUN lab fragment + firewall checklist | Partial | `tun-inbound-stub.json` + `docs/tun-operational-notes.md` WFP/nftables |
+| Optional eBPF helper | Open | `docs/reference/track-d-ebpf-helper-adr.md`; Rust fixture only |
 | **T-01** JA3 pool JSON ↔ `ja3.rs` CI cross-check | Shipped | `ja3_pool_validate.py` manifest step |
 | **T-02** OPSEC RAM-only GUI telemetry | Shipped | `scripts/gui.py` + `gui_preferences.py` |
 | **T-03** Build artifact hygiene in docs | Open | Track C — `build/`, `dist/` excluded |
