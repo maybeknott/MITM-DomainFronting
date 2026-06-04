@@ -1,60 +1,48 @@
-# Emergency Key-Compromise Guide
+# راهنمای اضطراری نشت کلید خصوصی گواهی (CA)
 
-## Purpose
+## هدف
 
-Respond when `mycert.key` may have been exposed through git, issues, chat, screenshots, or an untrusted environment. Treat the old CA as compromised: remove trust, rotate locally, and verify the new fingerprint before resuming.
+اقدام فوری در زمانی که فایل کلید خصوصی `mycert.key` در گیت‌هاب، کامنت‌ها، چت، اسکرین‌شات‌ها یا در یک محیط غیر قابل اعتماد نشت کرده است. در این حالت گواهی ریشه قبلی را کاملاً ناامن (Compromised) تلقی کرده و مراحل حذف اعتماد، چرخش محلی و تأیید اثر انگشت جدید را انجام دهید.
 
-## Trigger
+## چه زمانی از این راهنما استفاده کنید؟
 
-Use this guide if `mycert.key` was uploaded, pasted, emailed, committed to git, screenshotted, shared, or generated on an untrusted website.
+اگر فایل یا متن کلید خصوصی `mycert.key` آپلود شده، کپی‌پیست شده، ایمیل شده، به گیت متعهد (committed) شده، اسکرین‌شات گرفته شده یا روی وب‌سایت‌های آنلاین تولید شده است.
 
-## Impact
+## پیامدها
 
-Anyone with the private key and a trusted copy of the matching CA context may impersonate certificates within that local trust boundary. Treat the old CA as compromised.
+هر شخصی که به کلید خصوصی گواهی ریشه معتبر سیستم شما دسترسی داشته باشد، می‌تواند ترافیک رمزگذاری شده سیستم شما را در محدوده آن گواهی جعل یا شنود کند. گواهی قبلی باید فاقد اعتبار شود.
 
-## Immediate actions
+## اقدامات فوری
 
-1. Stop the client.
-2. Disconnect from untrusted networks if concerned.
-3. Remove the old CA from OS/browser trust stores.
-4. Delete old `mycert.crt` and `mycert.key` from the active config folder.
-5. Generate a new CA locally.
-6. Install the new CA.
-7. Verify new fingerprint.
-8. Search the repository and issue history for accidental key exposure.
+1. کلاینت را متوقف کنید.
+2. گواهی ریشه قدیمی را از مخزن گواهی‌های معتبر سیستم‌عامل و مرورگر پاک کنید.
+3. فایلهای قدیمی `mycert.crt` و `mycert.key` را از پوشه پیکربندی حذف کنید.
+4. گواهی جدید را به صورت کاملاً محلی تولید کنید.
+5. گواهی جدید را نصب کنید.
+6. اثر انگشت جدید را تأیید کنید.
+7. تاریخچه گیت‌هاب یا تیکت‌ها را برای اطمینان از پاک شدن کلید نشت‌کرده بررسی کنید.
 
-## Commands
+## دستورات چرخش اضطراری گواهی محلی
+
+دستور زیر را در ترمینال اجرا کنید:
 
 ```bash
 python scripts/mitm_trust.py emergency --out-dir Xray-config
 ```
 
-This command rotates local files. You must still remove the old trusted CA from each OS/browser trust store manually.
+این دستور فایلهای محلی را تعویض می‌کند. شما همچنان باید گواهی قدیمی نصب‌شده را به صورت دستی از سیستم‌عامل یا مرورگر خود حذف کنید.
 
-## Git exposure response
+## نشت کلید در گیت (Git Commit)
 
-If a key was committed:
+اگر کلید را در گیت کامیت کرده‌اید:
+1. آن را سریعاً از آخرین کامیت حذف کنید.
+2. گواهی ریشه را بلافاصله چرخش دهید (تعویض کنید).
+3. کلید قبلی را برای همیشه ناامن فرض کنید.
+4. مطمئن شوید فایلهای `.crt` و `.key` در فایل `.gitignore` قرار دارند.
 
-1. Remove it from the latest commit.
-2. Rotate the CA immediately.
-3. Treat the old key as permanently compromised.
-4. Add `.gitignore` protection.
-5. Consider repository history cleanup if appropriate.
+## مستندات مرتبط
 
-## Issue exposure response
-
-If a user posts a key in an issue:
-
-1. Hide/delete the comment if possible.
-2. Tell the user to rotate immediately.
-3. Do not reuse that key.
-4. Do not download or test the user's key.
-
-## Related documents
-
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Standard rotation steps |
-| [`ca-remove-guide.md`](ca-remove-guide.md) | Remove compromised CA from trust stores |
-| [`SECURITY.md`](../SECURITY.md) | Vulnerability and secret-handling policy |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Key exposure lifecycle state |
+| [`ca-remove-guide.md`](ca-remove-guide.md) | نحوه پاک کردن گواهی ناامن از سیستم |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | مدیریت چرخه عمر و امنیت کلید خصوصی |

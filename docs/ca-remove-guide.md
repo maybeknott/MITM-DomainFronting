@@ -1,69 +1,59 @@
-# CA Remove Guide
+# راهنمای حذف گواهی (CA)
 
-## Purpose
+## هدف
 
-Remove the local test CA from OS and browser trust stores and delete local certificate files when you stop using the method. Complete all steps so stale trust entries do not cause privacy errors or unexpected TLS behavior on normal browsing.
+پاک‌سازی و حذف گواهی ریشه تستی محلی از سیستم‌عامل و مرورگرها و حذف فایل‌های گواهی پس از اتمام استفاده از متد. تمامی مراحل را طی کنید تا باقی ماندن گواهی‌های قدیمی باعث خطای امنیتی یا رفتارهای غیرمنتظره در مرورگر نشود.
 
-## Step 1: stop the client
+## مرحله ۱: متوقف کردن کلاینت
 
-Stop v2rayN, v2rayNG, Xray, or any client using the config.
+برنامه v2rayN، v2rayNG، Xray یا هر کلاینت دیگری که از فایل کانفیگ استفاده می‌کند را متوقف کنید.
 
-## Step 2: remove proxy/TUN settings
+## مرحله ۲: غیرفعال کردن تنظیمات پروکسی / VPN
 
-Disable system proxy or TUN/VPN mode in the client.
+پروکسی سیستم (System Proxy) یا حالت TUN/VPN را در کلاینت خاموش کنید.
 
-## Step 3: remove trusted CA
+## مرحله ۳: حذف گواهی نصب‌شده از مخازن اعتماد سیستم
 
-Windows:
+ویندوز:
+1. بخش مدیریت گواهی‌های سیستم را باز کنید (از طریق جستجوی `Manage User Certificates` در منوی استارت).
+2. به بخش Trusted Root Certification Authorities رفته و روی Certificates کلیک کنید.
+3. گواهی صادر شده با نام گواهی خودتان را پیدا کنید.
+4. آن را حذف (Delete) کنید.
 
-1. Open certificate manager.
-2. Go to Trusted Root Certification Authorities.
-3. Find the certificate matching your `mycert.crt` fingerprint.
-4. Delete it.
+مک (macOS):
+1. برنامه **Keychain Access** را باز کنید.
+2. گواهی مورد نظر را پیدا کنید.
+3. آن را حذف کنید.
 
-macOS:
-
-1. Open Keychain Access.
-2. Find the certificate.
-3. Delete or set trust back to default.
-
-Linux:
-
-Debian/Ubuntu:
-
+لینوکس (Linux):
+دبیان / اوبونتو (Debian/Ubuntu):
 ```bash
 sudo rm -f /usr/local/share/ca-certificates/mitm-domainfronting-mycert.crt
 sudo update-ca-certificates --fresh
 ```
 
-Fedora/RHEL-like:
-
+فدورا / رد‌هت (Fedora/RHEL):
 ```bash
 sudo rm -f /etc/pki/ca-trust/source/anchors/mitm-domainfronting-mycert.crt
 sudo update-ca-trust
 ```
 
-Android:
+اندروید (Android):
+1. تنظیمات گوشی (Settings) را باز کنید.
+2. به بخش گواهی‌های امنیتی / گواهی‌های کاربر (Security Certificates / User Credentials) بروید.
+3. گواهی نصب‌شده را پیدا کرده و حذف (Remove) کنید.
 
-1. Open Settings.
-2. Go to security certificates / user credentials.
-3. Remove the installed user CA.
+## مرحله ۴: حذف فایلهای محلی
 
-## Step 4: remove local files
+دستور زیر را در ترمینال اجرا کنید تا فایل‌های گواهی و کلید خصوصی از پوشه برنامه حذف شوند:
 
 ```bash
 python scripts/mitm_trust.py remove-local --cert Xray-config/mycert.crt --key Xray-config/mycert.key --yes
 ```
 
-## Step 5: FakeDNS/network recovery
+## مستندات مرتبط
 
-Follow [`fakedns-recovery.md`](fakedns-recovery.md) to flush stale DNS caches if internet access is broken after disabling the method.
-
-## Related documents
-
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`uninstall.md`](uninstall.md) | Disable proxy, remove trust, and recover network |
-| [`ca-verify-guide.md`](ca-verify-guide.md) | Confirm removal and fingerprint mismatch |
-| [`fakedns-recovery.md`](fakedns-recovery.md) | DNS cache recovery after exit |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Local file and trust lifecycle |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | بررسی حذف صحیح و عدم تطابق اثر انگشت |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | چرخه عمر فایل‌ها و مدیریت گواهی ریشه |

@@ -1,48 +1,38 @@
-# Expired Certificate Recovery
+# بازیابی گواهی منقضی شده (CA)
 
-## Purpose
+## هدف
 
-Recover when the local CA has expired and the browser begins showing certificate or privacy errors. Check expiry with `mitm_trust.py`, rotate to a new pair, reinstall trust, and verify before restarting the client.
+اقدام لازم در زمان انقضای گواهی ریشه محلی و نمایش خطای امنیتی یا حریم خصوصی در مرورگر. انقضا را با اسکریپت `mitm_trust.py` بررسی کنید، گواهی جدید بسازید، آن را مجدداً نصب و اعتماددهی کنید.
 
-## Symptoms
+## نشانه‌های انقضای گواهی
 
-- Browser suddenly shows certificate/privacy errors.
-- Previously working setup fails after a date change.
-- `mitm_trust.py status` shows the certificate is expired.
+- مرورگر به‌طور ناگهانی خطاهای گواهی/حریم خصوصی (Privacy Error) نشان می‌دهد.
+- اتصال پروکسی که قبلاً به‌خوبی کار می‌کرد، قطع می‌شود.
+- در خروجی دستور `python scripts/mitm_trust.py status` وضعیت گواهی برابر با expired (منقضی شده) نشان داده می‌شود.
 
-## Check expiry
+## روش بازیابی
 
-```bash
-python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
-```
-
-If OpenSSL is installed, the script prints certificate expiry.
-
-## Recovery
-
-1. Stop the client.
-2. Rotate certificate and key:
+1. کلاینت v2rayN/v2rayNG/Xray را متوقف کنید.
+2. گواهی ریشه و کلید جدید تولید کنید:
 
 ```bash
 python scripts/mitm_trust.py rotate --out-dir Xray-config
 ```
 
-3. Remove the expired CA from OS/browser trust store.
-4. Install the new CA.
-5. Verify fingerprint.
-6. Restart the client.
-7. Test a supported browser flow.
+3. گواهی منقضی شده قدیمی را از مخزن سیستم‌عامل و مرورگر خود کاملاً پاک کنید.
+4. گواهی جدید `mycert.crt` را نصب و اعتماددهی کنید.
+5. اثر انگشت گواهی جدید را تأیید کنید.
+6. کلاینت را دوباره اجرا کرده و تست کنید.
 
-## Prevent recurrence
+## پیشگیری
 
-- Add expiry date to local notes.
-- Check expiry before each release or major troubleshooting session.
-- Prefer rotation over trying to extend an old CA.
+- بررسی انقضا را قبل از عیب‌یابی‌های طولانی انجام دهید.
+- همواره چرخش و تولید گواهی جدید را به تلاش برای تغییر تاریخ گواهی‌های قدیمی ترجیح دهید.
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Full rotation workflow |
-| [`ca-verify-guide.md`](ca-verify-guide.md) | Post-rotation verification |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Expiry warnings and status fields |
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | مراحل کامل چرخش و تعویض گواهی |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | تأیید اثر انگشت گواهی جدید |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | مدیریت وضعیت‌ها و چرخه عمر گواهی |

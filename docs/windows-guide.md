@@ -1,54 +1,32 @@
-# Windows Guide
+# راهنمای ویندوز
 
-## Purpose
+## هدف
 
-Run the documented Windows path with v2rayN and Xray: generate or install the local CA, import the primary config, run preflight, and validate browser integration through diagnostics or stealth launchers.
+اجرا و راه‌اندازی گام‌به‌گام متد روی ویندوز با کلاینت v2rayN و هسته Xray: تولید یا نصب گواهی محلی، وارد کردن پیکربندی اصلی و راه‌اندازی مرورگر از طریق ابزارهای تشخیص یا اجراکننده امن.
 
-## Steps
+## مراحل راه‌اندازی
 
-1. Download/extract v2rayN with Xray core.
-2. Place `certificate_generator.bat` in the folder where `xray.exe` is available.
-3. Run `certificate_generator.bat`.
-4. Confirm `mycert.crt` and `mycert.key` exist.
-5. Install `mycert.crt` in the intended trust store.
-6. Import `MITM-DomainFronting.json` into v2rayN.
-7. Ensure core type is Xray.
-8. Ensure local proxy port behavior matches the config.
-9. Run preflight:
+1. برنامه **v2rayN** (همراه با هسته Xray) را دانلود و اکسترکت کنید.
+2. فایل [certificate_generator.bat](Xray-config/certificate_generator.bat) را در پوشه‌ای که فایل `xray.exe` وجود دارد قرار دهید.
+3. فایل `certificate_generator.bat` را اجرا کنید.
+4. مطمئن شوید دو فایل `mycert.crt` و `mycert.key` در همان پوشه ایجاد شده‌اند.
+5. فایل `mycert.crt` را طبق راهنما در سیستم‌عامل نصب کنید.
+6. فایل پیکربندی `MITM-DomainFronting.json` را وارد v2rayN کنید.
+7. مطمئن شوید نوع هسته (Core Type) روی **Xray** تنظیم شده باشد.
+8. اطمینان حاصل کنید که پورت پروکسی محلی با پورت تعریف‌شده در فایل کانفیگ مطابقت دارد (پیش‌فرض 10808).
 
-```powershell
-python scripts\preflight.py --config Xray-config\MITM-DomainFronting.json --cert Xray-config\mycert.crt --key Xray-config\mycert.key
-```
+## عیب‌یابی و خطاهای رایج در ویندوز
 
-## Browser integration (two paths)
-
-| Path | When to use | Command |
-|------|-------------|---------|
-| **Diagnostics** | Proxy, CA, and page load checks | `python scripts\browser_diagnostics.py --url https://example.com` |
-| **Stealth (default)** | Anti-bot / fingerprint / CAPTCHA flows | `pip install -r requirements-browser-stealth.txt` then `python scripts\browser_stealth.py --url …` |
-
-Stealth uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) by default; diagnostics uses stock Chrome/Playwright. Both send traffic to `socks5://127.0.0.1:10808`. See [`chromium-integration.md`](chromium-integration.md).
-
-```powershell
-.\scripts\launch_browser_mitm.ps1 -Mode Diagnostics -Url https://example.com
-.\scripts\launch_browser_mitm.ps1 -Mode Stealth -Url https://example.com
-```
-
-## Common failures
-
-| Symptom | Cause | Fix |
+| نشانه خطا | علت احتمالی | اقدام لازم |
 |---|---|---|
-| `xray.exe not found` | generator not in correct folder | Put script next to xray or add xray to PATH |
-| Browser privacy error | CA not installed or wrong CA | Verify fingerprint and reinstall |
-| Port conflict | another app uses 10808/11666/11777 | Stop other app or adjust config carefully |
-| Works in Chrome but not Firefox | browser trust mismatch | Import CA into Firefox or configure OS trust usage |
-| LAN can reach port | listener not loopback/firewall issue | Add explicit `listen: 127.0.0.1` and check firewall |
+| خطای پیدا نشدن هسته Xray (`xray.exe not found`) | اسکریپت تولیدکننده در پوشه اشتباه قرار دارد | فایل bat تولیدکننده را دقیقاً در کنار فایل xray.exe بگذارید یا مسیر آن را به متغیر PATH سیستم اضافه کنید |
+| خطای حریم خصوصی در مرورگر (Privacy Error) | گواهی نصب نشده یا اشتباه است | اثر انگشت گواهی را بررسی کرده و مجدداً طبق راهنما نصب کنید |
+| خطای اشغال بودن پورت (Port conflict) | برنامه دیگری از پورت 10808 استفاده می‌کند | برنامه دیگر را ببندید یا پورت پیش‌فرض را در فایل کانفیگ ویرایش کنید |
+| در کروم کار می‌کند اما در فایرفاکس خطا می‌دهد | مرورگر فایرفاکس به گواهی‌های سیستم اعتماد ندارد | گواهی را دستی وارد تنظیمات فایرفاکس کنید |
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-install-guide.md`](ca-install-guide.md) | Windows CA install |
-| [`chromium-integration.md`](chromium-integration.md) | Browser diagnostics and stealth |
-| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Preflight checks |
-| [`listener-binding.md`](listener-binding.md) | Loopback port verification |
+| [`ca-install-guide.md`](ca-install-guide.md) | آموزش نصب گواهی در ویندوز |
+| [`troubleshooting.md`](troubleshooting.md) | راهنمای جامع عیب‌یابی و نشانه‌های خطا |

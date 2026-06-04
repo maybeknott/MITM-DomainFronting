@@ -1,98 +1,81 @@
-# Certificate Lifecycle
+# چرخه عمر گواهی (CA)
 
-## Purpose
+## هدف
 
-The config uses a local certificate authority certificate and private key. The certificate is trusted by the user, and the private key is used locally by Xray to issue certificates during local operation. This makes certificate lifecycle a reliability issue and a trust issue.
+پروژه از یک گواهی ریشه و کلید خصوصی محلی استفاده می‌کند. گواهی ریشه توسط کاربر روی سیستم نصب و معتبر می‌شود و کلید خصوصی توسط Xray به صورت محلی برای امضا و صدور گواهی‌ها در طول کارکرد استفاده می‌گردد. این ساختار چرخه عمر گواهی را به یک مسئله مهم در پایداری اتصال و امنیت تبدیل می‌کند.
 
-This guide preserves easy certificate generation. It does not remove the existing batch workflow. It adds verification, rotation, recovery, and cleanup procedures.
+این راهنما روش تولید آسان گواهی را حفظ کرده، دستورات عیب‌یابی، چرخش، بازیابی و پاک‌سازی را اضافه می‌کند.
 
-## Files
+## فایل‌ها
 
-| File | Purpose | Git status |
+| فایل | هدف | وضعیت در Git |
 |---|---|---|
-| `mycert.crt` | Local CA certificate to trust | Must be ignored |
-| `mycert.key` | Local CA private key | Must be ignored and kept private |
+| `mycert.crt` | گواهی ریشه محلی جهت نصب روی سیستم | نباید کامیت شود (در gitignore قرار دارد) |
+| `mycert.key` | کلید خصوصی گواهی ریشه | نباید کامیت شود و باید کاملاً خصوصی بماند |
 
-## Common commands
+## دستورات رایج (اسکریپت mitm_trust)
 
-Status:
+بررسی وضعیت:
 
 ```bash
 python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-Machine-readable status:
+خروجی در قالب JSON:
 
 ```bash
 python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key --json
 ```
 
-Verify that `mycert.crt` and `mycert.key` are a matching pair:
+بررسی جفت بودن گواهی و کلید خصوصی:
 
 ```bash
 python scripts/mitm_trust.py check-pair --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-Generate using Xray:
+تولید فایل‌های جدید با Xray:
 
 ```bash
 python scripts/mitm_trust.py generate --out-dir Xray-config
 ```
 
-Rotate:
+تعویض و چرخش (Rotation) گواهی:
 
 ```bash
 python scripts/mitm_trust.py rotate --out-dir Xray-config
 ```
 
-Remove local files:
+حذف فایل‌های محلی:
 
 ```bash
 python scripts/mitm_trust.py remove-local --cert Xray-config/mycert.crt --key Xray-config/mycert.key --yes
 ```
 
-Emergency local rotation:
+چرخش اضطراری گواهی:
 
 ```bash
 python scripts/mitm_trust.py emergency --out-dir Xray-config
 ```
 
-## Lifecycle states
+## وضعیت‌های چرخه عمر گواهی
 
-| State | Meaning | Action |
+| وضعیت | مفهوم | اقدام لازم |
 |---|---|---|
-| Missing cert/key | Not initialized | Generate cert/key |
-| Cert exists, key missing | Broken | Regenerate or restore matching key |
-| Key exists, cert missing | Broken | Regenerate both |
-| Cert not trusted | Browser privacy error likely | Install/verify CA |
-| Cert/key mismatch | Xray cannot issue certificates from the trusted CA | Regenerate both or restore matching pair |
-| Cert expired | Browser privacy error likely | Rotate and reinstall |
-| Cert expires soon | Future browser privacy errors | Rotate before expiration |
-| Wrong cert installed | Browser trust mismatch | Remove wrong CA and install matching CA |
-| Key shared or exposed | Compromised | Remove installed CA, rotate, and stop using old files |
+| عدم وجود فایل‌ها | سیستم راه‌اندازی نشده است | گواهی را تولید کنید |
+| گواهی هست، کلید نیست | سیستم خراب است | گواهی را دوباره بسازید یا کلید جفت آن را بازیابی کنید |
+| کلید هست، گواهی نیست | سیستم خراب است | هر دو فایل را مجدداً بسازید |
+| گواهی نصب نشده است | احتمال بروز خطای حریم خصوصی در مرورگر | نصب و بررسی اثر انگشت گواهی |
+| عدم تطابق گواهی و کلید | Xray نمی‌تواند گواهی‌ها را امضا کند | هر دو را دوباره بسازید یا جفت صحیح را بازیابی کنید |
+| گواهی منقضی شده است | احتمال بروز خطای حریم خصوصی در مرورگر | چرخش گواهی و نصب مجدد نسخه جدید |
+| نشت یا انتشار کلید خصوصی | گواهی ناامن شده است (Compromised) | حذف گواهی قبلی از سیستم، چرخش اضطراری و عدم استفاده از فایل‌های قدیمی |
 
-## Minimum rule
+## قانون حداقلی امنیت
 
-The `.crt` can be installed locally by the user. The `.key` must remain private on the user's device. Never upload or paste `mycert.key` into issues, chats, screenshots, logs, or websites.
+فایل `.crt` باید توسط کاربر روی سیستم نصب شود. فایل `.key` **باید کاملاً خصوصی در دستگاه کاربر بماند**. هرگز فایل یا محتوای متنی `mycert.key` را در بخش تیکت‌ها، اسکرین‌شات‌ها، لاگ‌ها یا وب‌سایت‌ها منتشر نکنید.
 
-## Status fields
+## مستندات مرتبط
 
-`mitm_trust.py status --json` reports:
-
-- whether cert and key files exist;
-- certificate SHA-256;
-- certificate expiration date and days remaining when OpenSSL can parse it;
-- whether expiration is within the warning window;
-- key permission status on POSIX;
-- whether the certificate and key public keys match.
-
-It does not print private-key contents.
-
-## Related documents
-
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-install-guide.md`](ca-install-guide.md) | Install local CA on each platform |
-| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint and pair verification |
-| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Rotation workflow |
-| [`ca-emergency-key-compromise.md`](ca-emergency-key-compromise.md) | Key exposure response |
+| [`ca-install-guide.md`](ca-install-guide.md) | آموزش نصب گواهی روی پلتفرم‌های مختلف |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | آموزش تأیید اثر انگشت و جفت بودن فایل‌ها |

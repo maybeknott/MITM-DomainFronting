@@ -1,49 +1,46 @@
-# Wrong-Certificate Recovery
+# بازیابی گواهی اشتباه نصب‌شده (CA)
 
-## Purpose
+## هدف
 
-Fix browser privacy errors when a CA is installed but its fingerprint does not match the current `mycert.crt` and `mycert.key` pair. Compare fingerprints, remove stale trust entries, reinstall the current cert, and verify before restarting the client.
+رفع خطاهای حریم خصوصی و امنیت مرورگر زمانی که یک گواهی ریشه نصب شده است، اما اثر انگشت آن با جفت فایل‌های محلی جاری یعنی `mycert.crt` و `mycert.key` مطابقت ندارد. اثر انگشت‌ها را مقایسه کنید، گواهی‌های قدیمی نامعتبر را حذف کنید، گواهی جاری را مجدداً نصب کرده و فرآیند را معتبرسازی کنید.
 
-## Symptoms
+## نشانه‌های نصب گواهی اشتباه
 
-- Browser shows certificate/privacy errors even though a CA is installed.
-- `mycert.crt` was regenerated but the old CA remains installed.
-- The installed CA fingerprint does not match the local file.
-- Multiple old `mycert.crt` files exist.
+- مرورگر خطای گواهی/حریم خصوصی (Privacy Error) نشان می‌دهد با وجود اینکه گواهی ریشه را نصب کرده‌اید.
+- فایل `mycert.crt` مجدداً تولید شده است اما گواهی قدیمی همچنان در سیستم نصب و فعال است.
+- اثر انگشت گواهی ریشه معتبر سیستم با اثر انگشت فایل محلی مطابقت ندارد.
 
-## Diagnosis
+## نحوه تشخیص
 
-Run:
+دستور زیر را اجرا کنید:
 
 ```bash
 python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-Write down the fingerprint. Then inspect the OS/browser trusted CA entry and compare the fingerprint.
+اثر انگشت نشان داده شده را یادداشت کنید. سپس مشخصات گواهی نصب‌شده در سیستم‌عامل/مرورگر را بررسی کرده و اثر انگشت آن را با مقدار یادداشت‌شده مقایسه کنید.
 
-## Fix
+## روش برطرف کردن مشکل
 
-1. Stop the client.
-2. Remove all old matching test CAs from OS/browser trust stores.
-3. Install the current `Xray-config/mycert.crt`.
-4. Verify fingerprint.
-5. Restart client.
-6. Test browser.
+1. کلاینت v2rayN/v2rayNG/Xray را متوقف کنید.
+2. تمامی گواهی‌های قدیمی منسوب به این متد را از مخازن گواهی‌های معتبر سیستم‌عامل و مرورگر پاک کنید.
+3. فایل جاری `Xray-config/mycert.crt` را روی سیستم نصب و اعتماددهی کنید.
+4. اثر انگشت جدید را تأیید کنید.
+5. کلاینت را دوباره اجرا کرده و تست کنید.
 
-## Common causes
+## علل رایج نصب گواهی اشتباه
 
-| Cause | Fix |
+| علت | راه حل |
 |---|---|
-| Generated cert twice | Install the most recent cert matching the key |
-| Copied cert from another device | Generate local cert/key pair and install that cert |
-| Installed cert in OS but browser uses own store | Import into browser or enable browser OS trust |
-| Android installed old cert | Remove old user credential and install current one |
+| تولید گواهی برای دو بار متوالی | آخرین گواهی تولید شده که با کلید خصوصی مطابقت دارد را نصب کنید |
+| کپی کردن گواهی از یک دستگاه دیگر | همواره گواهی و کلید را به صورت اختصاصی روی خود دستگاه بسازید و نصب کنید |
+| نصب در سیستم‌عامل اما عدم انتقال به مرورگر | گواهی را در بخش تنظیمات مرورگر ایمپورت کنید یا تنظیم استفاده از گواهی‌های سیستم را در مرورگر فعال کنید |
+| نصب نسخه قدیمی در اندروید | گواهی قبلی را از بخش User credentials حذف کرده و نسخه جدید را نصب کنید |
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint verification steps |
-| [`ca-install-guide.md`](ca-install-guide.md) | Platform install procedure |
-| [`ca-remove-guide.md`](ca-remove-guide.md) | Remove stale trust entries |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Cert/key mismatch lifecycle state |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | آموزش گام‌به‌گام بررسی اثر انگشت |
+| [`ca-install-guide.md`](ca-install-guide.md) | آموزش نصب گواهی در سیستم‌عامل‌ها |
+| [`ca-remove-guide.md`](ca-remove-guide.md) | آموزش حذف گواهی‌های قدیمی |

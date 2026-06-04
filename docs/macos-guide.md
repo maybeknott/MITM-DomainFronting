@@ -1,38 +1,26 @@
-# macOS Guide
+# راهنمای مک (macOS)
 
-## Purpose
+## هدف
 
-Generate the local CA with the shell helper, install trust in Keychain Access, import the Xray config, and verify loopback listeners and certificate fingerprint with preflight.
+تولید گواهی ریشه (CA) محلی با استفاده از اسکریپت شل، نصب و تنظیم اعتماد به آن در Keychain Access سیستم‌عامل مک، وارد کردن فایل کانفیگ Xray و تأیید پورت‌های محلی و اثر انگشت گواهی.
 
-## Steps
+## مراحل راه‌اندازی
 
-1. Ensure Xray is available.
-2. Run:
+1. مطمئن شوید هسته Xray در سیستم شما در دسترس است.
+2. دستور زیر را برای تولید گواهی محلی اجرا کنید:
 
 ```bash
 sh Xray-config/certificate_generator.sh Xray-config
 ```
 
-3. Install `Xray-config/mycert.crt` in Keychain Access.
-4. Set trust for the intended scope.
-5. Import the Xray config into your client.
-6. Run:
+3. فایل `Xray-config/mycert.crt` را در برنامه **Keychain Access** سیستم‌عامل مک نصب کنید.
+4. روی گواهی دوبار کلیک کرده، بخش **Trust** را باز کنید و وضعیت آن را روی "Always Trust" قرار دهید.
+5. فایل پیکربندی `MITM-DomainFronting.json` را در کلاینت خود وارد کرده یا هسته Xray را با آن اجرا کنید.
+6. مطمئن شوید پورت‌های 10808، 11666 و 11777 فقط روی لوکال‌بک (`127.0.0.1` یا `[::1]`) باز هستند و توسط فایروال به شبکه محلی (LAN) درز نکرده‌اند.
 
-```bash
-python3 scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key
-```
+## مستندات مرتبط
 
-## Checks
-
-- Confirm ports 10808, 11666, 11777 are loopback-only.
-- Confirm browser trust matches local certificate fingerprint.
-- Confirm firewall does not expose local ports to the LAN.
-
-## Related documents
-
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-install-guide.md`](ca-install-guide.md) | macOS Keychain install |
-| [`listener-binding.md`](listener-binding.md) | Loopback port checks |
-| [`preflight-and-diagnostics.md`](preflight-and-diagnostics.md) | Preflight options |
-| [`firewall-and-network-testing.md`](firewall-and-network-testing.md) | Public Wi-Fi and LAN tests |
+| [`ca-install-guide.md`](ca-install-guide.md) | نصب گواهی در مک با Keychain Access |
+| [`troubleshooting.md`](troubleshooting.md) | راهنمای جامع عیب‌یابی و نشانه‌های خطا |

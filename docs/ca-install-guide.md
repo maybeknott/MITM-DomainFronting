@@ -1,87 +1,87 @@
-# CA Install Guide
+# راهنمای نصب گواهی (CA)
 
-## Purpose
+## هدف
 
-Install the locally generated `mycert.crt` so your browser or operating system trusts certificates issued by the local Xray tunnel. Follow the platform steps below, record the SHA-256 fingerprint before installing, and complete verification before troubleshooting routing or DNS.
+نصب فایل گواهی تولید شده محلی (`mycert.crt`) تا مرورگر یا سیستم‌عامل شما به گواهی‌های صادر شده توسط تونل محلی Xray اعتماد کند. مراحل پلتفرم خود را در زیر دنبال کنید، اثر انگشت (SHA-256 fingerprint) را قبل از نصب ثبت کنید و قبل از عیب‌یابی مسیرها یا DNS، فرآیند تأیید را کامل کنید.
 
-## Windows: install for current user or local machine
+## ویندوز: نصب برای کاربر فعلی یا کل سیستم (Local Machine)
 
-Recommended for most users: install only where needed. Browser-specific trust is preferred when practical.
+برای بیشتر کاربران توصیه می‌شود: گواهی را فقط در جایی که نیاز است نصب کنید. در صورت امکان، اعتماد در سطح مرورگر خاص ترجیح داده می‌شود.
 
-Basic Windows flow:
+مراحل اصلی در ویندوز:
 
-1. Double-click `mycert.crt`.
-2. Select **Install Certificate**.
-3. Select **Current User** or **Local Machine**.
-4. Select **Place all certificates in the following store**.
-5. Choose **Trusted Root Certification Authorities**.
-6. Finish the wizard.
-7. Verify fingerprint with [`ca-verify-guide.md`](ca-verify-guide.md).
+1. روی فایل `mycert.crt` دو بار کلیک کنید.
+2. گزینه **Install Certificate** را انتخاب کنید.
+3. گزینه **Current User** (کاربر فعلی) یا **Local Machine** (کل سیستم) را انتخاب کنید.
+4. گزینه **Place all certificates in the following store** را انتخاب کنید.
+5. پوشه **Trusted Root Certification Authorities** (مراجع صدور گواهی ریشه قابل اعتماد) را انتخاب کنید.
+6. مراحل ویزارد را به پایان برسانید.
+7. اثر انگشت را با استفاده از راهنمای [`ca-verify-guide.md`](ca-verify-guide.md) تأیید کنید.
 
-Before installing, run:
+قبل از نصب، دستور زیر را اجرا کنید تا اثر انگشت را ببینید:
 
 ```bash
 python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-Record the SHA-256 fingerprint shown by the script. After installing, verify the trusted certificate fingerprint matches this value.
+اثر انگشت SHA-256 نشان داده شده را یادداشت کنید. پس از نصب، مطمئن شوید اثر انگشت گواهی نصب‌شده با این مقدار مطابقت دارد.
 
-PowerShell fingerprint check:
+بررسی اثر انگشت با PowerShell:
 
 ```powershell
 Get-FileHash .\Xray-config\mycert.crt -Algorithm SHA256
 ```
 
-## macOS
+## مک (macOS)
 
-1. Open **Keychain Access**.
-2. Drag `mycert.crt` into the login keychain or System keychain.
-3. Open the certificate.
-4. Expand **Trust**.
-5. Set SSL trust according to your intended scope.
-6. Verify fingerprint.
+1. برنامه **Keychain Access** را باز کنید.
+2. فایل `mycert.crt` را به بخش login keychain یا System keychain بکشید و رها کنید (Drag and Drop).
+3. روی گواهی دوبار کلیک کنید تا باز شود.
+4. بخش **Trust** را باز کنید.
+5. تنظیمات SSL trust را روی "Always Trust" یا متناسب با نیاز خود قرار دهید.
+6. اثر انگشت گواهی را تأیید کنید.
 
-## Linux
+## لینوکس (Linux)
 
-Linux trust store paths vary by distribution. Common approaches:
+مسیرهای ذخیره گواهی‌های معتبر در توزیع‌های مختلف لینوکس متفاوت است. روش‌های رایج:
 
-Debian/Ubuntu:
+دبیان / اوبونتو (Debian/Ubuntu):
 
 ```bash
 sudo cp Xray-config/mycert.crt /usr/local/share/ca-certificates/mitm-domainfronting-mycert.crt
 sudo update-ca-certificates
 ```
 
-Fedora/RHEL-like:
+فدورا / رد‌هت (Fedora/RHEL):
 
 ```bash
 sudo cp Xray-config/mycert.crt /etc/pki/ca-trust/source/anchors/mitm-domainfronting-mycert.crt
 sudo update-ca-trust
 ```
 
-Firefox may require importing the certificate into Firefox settings separately depending on configuration.
+مرورگر فایرفاکس (Firefox) ممکن است بسته به تنظیماتش نیاز داشته باشد که گواهی را مستقیماً در بخش تنظیمات خود مرورگر وارد کنید.
 
-## Android
+## اندروید (Android)
 
-1. Copy `mycert.crt` to the device.
-2. Open Android settings.
-3. Go to security / encryption / credential storage section.
-4. Select install from device storage.
-5. Choose CA certificate.
-6. Select `mycert.crt`.
-7. Verify it appears under user certificates.
+1. فایل `mycert.crt` را به دستگاه خود منتقل کنید.
+2. تنظیمات اندروید (Settings) را باز کنید.
+3. به بخش امنیت / رمزنگاری / ذخیره‌ساز اعتبار (Security / Encryption / Credential Storage) بروید.
+4. گزینه **Install from device storage** (نصب از حافظه دستگاه) را انتخاب کنید.
+5. گزینه **CA certificate** را انتخاب کنید.
+6. فایل `mycert.crt` را انتخاب کرده و تأیید کنید.
+7. مطمئن شوید که گواهی در بخش User certificates ظاهر شده است.
 
-Android apps may ignore user-installed CAs or use certificate pinning. Browser success does not guarantee app success.
+برخی برنامه‌های اندرویدی ممکن است گواهی‌های کاربر را نادیده بگیرند یا از پین کردن گواهی (Certificate Pinning) استفاده کنند. موفقیت در مرورگر تضمینی برای کارکرد در تمام برنامه‌ها نیست.
 
-## Verification required
+## تأیید الزامی است
 
-After installation, always run the verify guide. Do not troubleshoot routing before confirming the trusted CA fingerprint is correct.
+پس از نصب، همیشه مراحل راهنمای تأیید را اجرا کنید. قبل از اطمینان از صحت اثر انگشت گواهی ریشه نصب‌شده، اقدام به عیب‌یابی مسیرها نکنید.
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-verify-guide.md`](ca-verify-guide.md) | Fingerprint and trust-store checks |
-| [`ca-rotate-guide.md`](ca-rotate-guide.md) | Replacing an expired or mismatched CA |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Status, rotation, and lifecycle states |
-| [`android-guide.md`](android-guide.md) | v2rayNG and Android user-CA setup |
+| [`ca-verify-guide.md`](ca-verify-guide.md) | بررسی اثر انگشت و مخزن گواهی‌ها |
+| [`ca-rotate-guide.md`](ca-rotate-guide.md) | جایگزینی گواهی‌های منقضی شده یا نامعتبر |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | وضعیت‌ها و چرخه‌های عمر گواهی ریشه |
+| [`android-guide.md`](android-guide.md) | راه‌اندازی v2rayNG و گواهی کاربر در اندروید |

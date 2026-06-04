@@ -1,39 +1,37 @@
-# Android Guide
+# راهنمای اندروید
 
-## Purpose
+## هدف
 
-Set up v2rayNG with a locally generated CA and the primary Xray config on Android. This path targets Chromium-based browsers first; independent apps may ignore user CAs or use certificate pinning.
+راه‌اندازی برنامه v2rayNG با گواهی ریشه (CA) محلی و فایل کانفیگ اصلی Xray در اندروید. این روش در وهله اول مرورگرهای مبتنی بر کرومیوم را هدف قرار می‌دهد؛ برنامه‌های مستقل (اپ‌ها) ممکن است گواهی‌های کاربر را نادیده گرفته یا از قفل گواهی (Certificate Pinning) استفاده کنند.
 
-## Steps
+## مراحل راه‌اندازی
 
-1. Install v2rayNG.
-2. Generate `mycert.crt` and `mycert.key` locally on a trusted device or on Android if your workflow supports it.
-3. Import both files into v2rayNG asset files if required by the client workflow.
-4. Install `mycert.crt` as a user CA in Android settings.
-5. Import `MITM-DomainFronting.json`.
-6. Enable required TUN/VPN setting in v2rayNG according to the client guide.
-7. Test with a Chromium-based browser first.
-8. For Firefox Android, enable third-party CA support if needed.
+1. برنامه **v2rayNG** را نصب کنید.
+2. فایلهای `mycert.crt` و `mycert.key` را روی یک دستگاه معتبر یا مستقیماً در اندروید تولید کنید.
+3. در صورت نیاز کلاینت، هر دو فایل را در بخش Asset files برنامه v2rayNG وارد کنید.
+4. فایل `mycert.crt` را به‌عنوان گواهی کاربر (User CA) در تنظیمات اندروید نصب کنید.
+5. فایل کانفیگ `MITM-DomainFronting.json` را وارد برنامه کنید.
+6. تنظیمات مربوط به TUN/VPN را در تنظیمات v2rayNG طبق راهنما فعال کنید.
+7. ابتدا تست را با یک مرورگر مبتنی بر کرومیوم انجام دهید.
+8. در صورت استفاده از مرورگر فایرفاکس اندروید، قابلیت پشتیبانی از گواهی‌های شخص ثالث (Third-party CA) را در تنظیمات فایرفاکس فعال کنید.
 
-## App limitation
+## محدودیت اپلیکیشن‌ها
 
-If the browser works but an independent app fails, treat it as an app compatibility issue unless proven otherwise. Many apps do not use the user CA store.
+اگر مرورگر به درستی کار می‌کند اما یک برنامه خاص خطا می‌دهد، آن را به‌عنوان مشکل ناسازگاری اپلیکیشن در نظر بگیرید. بسیاری از برنامه‌ها از مخزن گواهی کاربر استفاده نمی‌کنند و فقط به گواهی‌های سیستم اعتماد دارند.
 
-## Troubleshooting
+## عیب‌یابی اندروید
 
-| Symptom | Likely cause | Fix |
+| نشانه خطا | علت احتمالی | اقدام لازم |
 |---|---|---|
-| Browser privacy error | CA not installed or wrong CA | Reinstall and verify fingerprint |
-| Chrome works, Firefox fails | Firefox CA setting | Enable third-party CA support/import CA |
-| Browser works, app fails | app pinning/custom trust | Use browser path or mark unsupported |
-| Works on Wi-Fi not mobile | IPv6/NAT64/provider DNS | Add network details and DNS check |
-| Internet broken after stop | FakeDNS/VPN cache | Toggle airplane mode and follow FakeDNS recovery |
+| خطای حریم خصوصی در مرورگر | گواهی نصب نشده یا گواهی اشتباه است | نصب مجدد و تأیید اثر انگشت گواهی |
+| کروم کار می‌کند، فایرفاکس خطا می‌دهد | تنظیمات گواهی فایرفاکس | فعال کردن قابلیت Third-party CA در تنظیمات مخفی فایرفاکس |
+| مرورگر کار می‌کند، اما اپلیکیشن متصل نمی‌شود | قفل گواهی در برنامه / اعتماد سفارشی | استفاده از نسخه وب اپلیکیشن در مرورگر یا علامت‌گذاری به‌عنوان ناسازگار |
+| در وای‌فای کار می‌کند، اما در اینترنت سیم‌کارت خطا می‌دهد | پروتکل IPv6 یا DNS اپراتور | بررسی جزئیات شبکه و فعال کردن دی‌ان‌اس اختصاصی در کانفیگ |
+| اینترنت بعد از قطع اتصال قطع می‌ماند | کش شدن آدرس‌های FakeDNS/VPN | فعال و غیرفعال کردن حالت هواپیما (Airplane Mode) |
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`android-trust-model.md`](android-trust-model.md) | User CA vs app trust behavior |
-| [`ca-install-guide.md`](ca-install-guide.md) | Android CA install steps |
-| [`tun-operational-notes.md`](tun-operational-notes.md) | TUN/VPN checks on Android |
-| [`fakedns-recovery.md`](fakedns-recovery.md) | Network recovery after stop |
+| [`android-trust-model.md`](android-trust-model.md) | مدل اعتماد اندروید به گواهی‌های کاربر |
+| [`ca-install-guide.md`](ca-install-guide.md) | آموزش نصب گواهی در اندروید |

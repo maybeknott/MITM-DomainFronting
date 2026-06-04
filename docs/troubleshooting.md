@@ -1,87 +1,73 @@
-# Troubleshooting guide
+# راهنمای عیب‌یابی
 
-## Purpose
+## هدف
 
-Symptom-oriented fixes for local MITM-DomainFronting setup. All steps are **on your machine**; nothing here uploads data or changes trust/proxy settings silently.
+رفع مشکلات راه‌اندازی و اجرای محلی MITM-DomainFronting بر اساس نشانه‌های خطا. تمامی مراحل **روی رایانه شما** انجام می‌شوند و هیچ داده‌ای ارسال نگردیده یا تنظیمات سیستم بدون اجازه شما تغییر نمی‌کند.
 
-For automated triage first:
+جهت بررسی خودکار وضعیت گواهی و کلید خصوصی، دستور زیر را اجرا کنید:
 
-```powershell
-py -3 main.py advise --text
-py -3 main.py probe --json
+```bash
+python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-See also [preflight-and-diagnostics.md](preflight-and-diagnostics.md) and [intelligent-automation.md](intelligent-automation.md).
-
-## Quick decision tree
+## نمودار تصمیم‌گیری سریع
 
 ```text
-Page won't load?
-  ├─ No listener on proxy port → Start Core or open v2rayN
-  ├─ Certificate warning in browser → Generate CA + manual trust install
-  ├─ Proxy unreachable → Check 127.0.0.1:10808 and browser proxy setting
-  └─ Still failing → Health Probe + Copy Issue Summary (GUI)
+صفحه باز نمی‌شود؟
+  ├─ پورت پروکسی فعال نیست؟ ← هسته Xray یا برنامه v2rayN را اجرا کنید.
+  ├─ هشدار گواهی در مرورگر؟ ← گواهی جدید بسازید و آن را دستی نصب کنید.
+  ├─ پروکسی در دسترس نیست؟ ← آدرس 127.0.0.1:10808 و تنظیمات پروکسی مرورگر را بررسی کنید.
+  └─ همچنان مشکل دارد؟ ← وضعیت گواهی را با mitm_trust.py بررسی کنید.
 
-CI / maintainer failures?
-  ├─ Profile drift → generate_profiles.py + commit JSON
-  ├─ config-src → config_src_validate.py --run-steps
-  └─ release-check → main.py release-check
-
-Lab / DPI labels in decision report?
-  └─ lab-prepare + evasion profiles (controlled lab only)
+مشکلات گواهی و امنیتی؟
+  ├─ نشت یا ناامنی کلید؟ ← دسترسی‌ها را با restrict-key محدود کنید یا از wrap-key (رمزنگاری DPAPI در ویندوز) استفاده کنید.
+  ├─ انقضا یا خرابی گواهی؟ ← از دستور rotate در mitm_trust.py برای تولید گواهی جدید استفاده کنید.
+  └─ عدم تطابق جفت گواهی؟ ← بررسی کنید که mycert.crt و mycert.key جفت یکدیگر باشند.
 ```
 
-## Symptom table
+## جدول نشانه‌های خطا و راه‌حل‌ها
 
-| Symptom | Likely cause | What to do |
+| نشانه خطا | علت احتمالی | اقدام لازم |
 |---------|--------------|------------|
-| Browser shows certificate error | CA not in trust store | [ca-install-guide.md](ca-install-guide.md); GUI **Generate Local CA** then install trust manually |
-| `NET::ERR_PROXY_CONNECTION_FAILED` | Nothing listening on proxy port | **Start Core** or start v2rayN; confirm port in [listener-binding.md](listener-binding.md) |
-| Page Check fails immediately | Playwright missing | Install via GUI Repair or `requirements-browser-diagnostics.txt` |
-| GUI shows **Unsafe listener exposed** | External core bound to `0.0.0.0` | Rebind v2rayN/Xray inbound to `127.0.0.1` only |
-| `cert/key mismatch` | Wrong pair of files | Regenerate CA; do not mix others' `.crt`/`.key` |
-| Strict sites still break | ECH, pinning, or non-browser app | Expected limit — see [protocol-coverage.md](protocol-coverage.md) |
-| QUIC-only site behaves oddly | UDP/443 policy | Try **debug** profile or document QUIC limitation |
-| DNS works but wrong IP | Resolver drift or hijack | [dns-resilience.md](dns-resilience.md); DNS check in GUI |
-| `generated profiles out of sync` (CI) | JSON not regenerated after base config change | `py -3 scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json` |
-| Advisor suggests evasion profile | Failure labels in decision report | Lab-only — see [operating-profiles.md](operating-profiles.md) optional lab section |
-| eBPF loader fails on Windows | Linux-only feature | Normal; smoke uses simulate mode on non-Linux |
+| مرورگر خطای گواهی (Certificate Error) نشان می‌دهد | گواهی در مخزن گواهی‌های معتبر سیستم یا مرورگر قرار ندارد | راهنمای [ca-install-guide.md](ca-install-guide.md) را مطالعه کنید و گواهی را دستی نصب کنید |
+| خطای `NET::ERR_PROXY_CONNECTION_FAILED` | برنامه‌ای روی پورت پروکسی گوش نمی‌دهد | مطمئن شوید هسته Xray یا v2rayN در حال اجرا است و پورت آن روی `10808` تنظیم شده است |
+| عدم تطابق گواهی و کلید (`cert/key mismatch`) | فایل‌های گواهی و کلید خصوصی جفت یکدیگر نیستند | با اجرای `python scripts/mitm_trust.py rotate` گواهی جدید ساخته و آن را مجدداً نصب کنید |
+| سایت‌های خاص همچنان باز نمی‌شوند | قفل گواهی (Pinning)، پروتکل ECH یا اتصال خارج از مرورگر | این یک محدودیت فنی شناخته‌شده است. برنامه‌های مستقل معمولاً در اندروید بدون روت یا ویندوز با این متد سازگار نیستند |
+| مرورگر فایرفاکس خطا می‌دهد، اما در کروم کار می‌کند | فایرفاکس از مخزن گواهی متفاوتی استفاده می‌کند | گواهی را مستقیماً در تنظیمات فایرفاکس وارد کنید یا تنظیمات استفاده از گواهی‌های سیستم را در فایرفاکس فعال کنید |
 
-## CLI diagnostics (copy-paste)
+## تشخیص از طریق خط فرمان (CLI)
 
-```powershell
-# Minimal newcomer sweep
-py -3 main.py onboard --dry-run
-py -3 main.py onboard
+```bash
+# بررسی وضعیت و سلامت گواهی محلی
+python scripts/mitm_trust.py status
 
-# Deep static check (no live DNS)
-py -3 scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+# محدود کردن دسترسی به کلید خصوصی (فقط کاربر فعلی) برای امنیت بیشتر
+python scripts/mitm_trust.py restrict-key
 
-# Unified health JSON
-py -3 scripts/health_probe.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --providers-dir providers
+# رمزنگاری کلید خصوصی در ویندوز جهت جلوگیری از سرقت توسط بدافزارها
+python scripts/mitm_trust.py wrap-key --remove-plaintext
 
-# Redacted support bundle
-py -3 scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --profile balanced
+# بازگرداندن کلید خصوصی به حالت متنی در صورت نیاز
+python scripts/mitm_trust.py unwrap-key
 ```
 
-## What to attach when asking for help
+## اطلاعات مورد نیاز برای ارسال گزارش خطای ایمن
 
-Include only **redacted** artifacts:
+هنگام مطرح کردن مشکل یا دریافت کمک، **فقط** اطلاعات بدون سر و صدای زیر را ارسال کنید:
+- نسخه سیستم‌عامل و پایتون
+- نسخه Xray Core
+- بخش `remarks` در فایل کانفیگ (بدون اشتراک‌گذاری اطلاعات حساس)
+- خروجی دستور `python scripts/mitm_trust.py status`
+- نام مرورگر مورد استفاده
 
-- OS and Python version
-- Xray version (from GUI or `xray version`)
-- Config `remarks` field (not full secrets)
-- Output of `main.py probe --json` after removing paths you do not want to share
-- Preflight or health probe JSON (review first)
-- Whether issue is browser-only or system-wide
+**هرگز فایل `mycert.key` یا محتویات کلید خصوصی خود را در بخش کامنت‌ها یا تیکت‌ها قرار ندهید.**
 
-Do **not** attach: `mycert.key`, cookies, Authorization headers, full browsing history, or raw PCAP with credentials.
+## مستندات مرتبط
 
-## Related documents
-
-| Document | Topic |
+| مستند | موضوع |
 |----------|--------|
-| [getting-started.md](getting-started.md) | First-time setup |
-| [gui.md](gui.md) | Control Center workflow |
-| [decision-engine.md](decision-engine.md) | Decision report format |
-| [lab-evidence-checklist.md](lab-evidence-checklist.md) | Lab scenarios |
+| [ca-install-guide.md](ca-install-guide.md) | آموزش نصب گواهی روی پلتفرم‌های مختلف |
+| [ca-verify-guide.md](ca-verify-guide.md) | بررسی صحت نصب و تطابق اثر انگشت |
+| [certificate-lifecycle.md](certificate-lifecycle.md) | چرخه عمر و نحوه چرخش گواهی |
+| [windows-guide.md](windows-guide.md) | راه‌اندازی دستی در ویندوز |
+| [android-guide.md](android-guide.md) | راه‌اندازی دستی در اندروید |

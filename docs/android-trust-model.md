@@ -1,55 +1,38 @@
-# Android Trust Model
+# مدل اعتماد در اندروید
 
-## Purpose
+## هدف
 
-Explain why Android browser success does not imply app success. User-installed CAs, system CAs, app trust policies, and VPN/TUN behavior differ by app; use this model when triaging Android reports.
+توضیح اینکه چرا موفقیت آمیز بودن اتصال مرورگر در اندروید به‌معنای کارکرد درست تمام برنامه‌ها (اپلیکیشن‌ها) نیست. گواهی‌های نصب‌شده کاربر (User CAs)، گواهی‌های سیستم (System CAs)، سیاست‌های اعتماد برنامه‌ها و نحوه رفتار VPN/TUN بر اساس هر اپلیکیشن متفاوت است. هنگام بررسی مشکلات اندروید از این مدل استفاده کنید.
 
-## Why Android behavior differs
+## چرا رفتار اندروید متفاوت است؟
 
-Android separates user-installed CAs, system CAs, app trust policies, and VPN/TUN behavior. A browser may trust a user CA while an independent app may ignore it.
+اندروید گواهی‌های نصب‌شده کاربر را از گواهی‌های سیستمی جدا می‌کند. مرورگر کروم معمولاً به گواهی‌های نصب‌شده توسط کاربر اعتماد می‌کند، اما اپلیکیشن‌های مستقل (مانند اینستاگرام، گوگل‌میت، کلاب‌هاوس و غیره) سیاست‌های امنیتی سخت‌گیرانه‌تری دارند و گواهی‌های کاربر را کاملاً نادیده می‌گیرند.
 
-## Practical rule
+## قاعده عملی
 
-Browser support is realistic. Arbitrary app support is not guaranteed.
+اتصال از طریق مرورگر کاملاً واقع‌بینانه و قابل انجام است؛ اما کارکرد برنامه‌های متفرقه مستقل به هیچ وجه تضمین نمی‌شود.
 
-## Compatibility classes
+## سطوح سازگاری برنامه‌ها در اندروید
 
-| Class | Expected result | Notes |
+| سطح سازگاری | نتیجه مورد انتظار | توضیحات |
 |---|---|---|
-| Chromium-based browser trusts user CA | Usually works | Best non-root Android path |
-| Firefox Android with third-party CA enabled | May work | Requires extra setting |
-| App trusts user CAs | May work | App-specific |
-| App trusts only system CAs | Usually fails | Not a config bug |
-| App pins certificates | Usually fails | Do not try to bypass pinning |
-| App uses QUIC/WebRTC heavily | May degrade or fail | UDP-heavy behavior must be tested |
-| App uses custom network stack | Unknown | App-specific |
+| مرورگرهای مبتنی بر کرومیوم (کروم، ادج) | کارکرد صحیح | بهترین و پایدارترین مسیر در اندروید غیر روت |
+| فایرفاکس با فعال‌سازی Third-party CA | کارکرد صحیح | نیاز به تغییر دستی تنظیمات مخفی فایرفاکس دارد |
+| برنامه‌هایی که به گواهی‌های کاربر اعتماد دارند | احتمال کارکرد صحیح | بستگی به سیاست امنیتی توسعه‌دهنده برنامه دارد |
+| برنامه‌هایی که فقط به گواهی‌های سیستم اعتماد دارند | عدم کارکرد | این یک باگ پیکربندی نیست، بلکه محدودیت امنیتی اندروید است |
+| برنامه‌هایی که قفل گواهی (Pinning) دارند | عدم کارکرد | ترافیک این برنامه‌ها را نمی‌توان رمزگشایی کرد و دور زدن آن ممکن نیست |
+| برنامه‌های متکی به QUIC/WebRTC | افت کیفیت یا عدم کارکرد | رفتارهای مبتنی بر UDP باید آزمایش شوند |
 
-## Issue template language
+## متن پیشنهادی جهت پاسخ به مشکلات کاربران در اندروید
 
-When reporting Android issues, specify:
-
-- Android version;
-- device/vendor;
-- v2rayNG version;
-- browser or app name;
-- whether browser works;
-- whether the failing target is an independent app;
-- whether HEV TUN is enabled;
-- redacted preflight output if available.
-
-## Recommended support wording
-
-For app failures when the browser works:
+در صورتی که ترافیک مرورگر باز می‌شود اما برنامه‌ها متصل نمی‌شوند:
 
 ```text
-If the same service works in a browser but fails in the Android app, the app may ignore user CAs, use certificate pinning, use a custom network stack, or use UDP/QUIC/WebRTC paths not handled by the browser-oriented setup. Please test in a supported browser and provide platform details.
+اگر سرویس مورد نظر در مرورگر کار می‌کند اما در اپلیکیشن اندرویدی آن با خطا مواجه می‌شود، اپلیکیشن احتمالاً گواهی‌های کاربر را نادیده می‌گیرد، از قفل گواهی (Certificate Pinning) استفاده می‌کند، کانال شبکه اختصاصی دارد، یا از مسیرهای UDP/QUIC استفاده می‌کند که توسط ساختار مرورگر پشتیبانی نمی‌شوند. لطفاً نسخه تحت وب برنامه را در یک مرورگر سازگار تست کنید.
 ```
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`android-guide.md`](android-guide.md) | v2rayNG setup steps |
-| [`platform-compatibility.md`](platform-compatibility.md) | Cross-platform support matrix |
-| [`protocol-coverage.md`](protocol-coverage.md) | QUIC/WebRTC expectations |
-| [`tun-operational-notes.md`](tun-operational-notes.md) | TUN vs browser proxy on Android |
+| [`android-guide.md`](android-guide.md) | آموزش گام‌به‌گام راه‌اندازی v2rayNG |

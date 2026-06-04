@@ -1,67 +1,68 @@
-# CA Verify Guide
+# راهنمای تأیید گواهی (CA)
 
-## Purpose
+## هدف
 
-Confirm that `mycert.crt`, `mycert.key`, and any installed trusted certificate match what the Xray config expects. Use this guide after install, rotation, or when the browser shows privacy or certificate errors.
+اطمینان از اینکه فایلهای `mycert.crt`، `mycert.key` و گواهی ریشه نصب‌شده روی سیستم، با آنچه کانفیگ Xray انتظار دارد مطابقت دارند. پس از نصب، تغییر گواهی (چرخش) یا در صورت بروز خطای گواهی/حریم خصوصی در مرورگر، از این راهنما استفاده کنید.
 
-## Step 1: local status
+## مرحله ۱: بررسی وضعیت محلی گواهی
+
+دستور زیر را در ترمینال اجرا کنید:
 
 ```bash
 python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-config/mycert.key
 ```
 
-Expected:
+خروجی مورد انتظار:
+- فایل گواهی ریشه (cert) موجود باشد؛
+- کلید خصوصی (key) موجود باشد؛
+- اثر انگشت گواهی (fingerprint) نمایش داده شود؛
+- تاریخ انقضا (در صورت در دسترس بودن OpenSSL) نمایش داده شود؛
+- فایل کلید خصوصی دسترسی خواندن عمومی (world-readable) در سیستم‌های لینوکس/مک نداشته باشد.
 
-- cert exists;
-- key exists;
-- fingerprint displayed;
-- expiry displayed if OpenSSL is available;
-- key is not world-readable on POSIX systems.
+## مرحله ۲: بررسی ارجاعات در کانفیگ Xray
 
-## Step 2: check config references
-
-Open `Xray-config/MITM-DomainFronting.json` and confirm the certificate section references:
+فایل کانفیگ `Xray-config/MITM-DomainFronting.json` را باز کنید و مطمئن شوید که بخش certificate به فایلهای زیر ارجاع می‌دهد:
 
 ```json
 "certificateFile": "mycert.crt",
 "keyFile": "mycert.key"
 ```
 
-## Step 3: check browser trust
+## مرحله ۳: بررسی اعتماد مرورگر
 
-Open the browser certificate manager and find the installed certificate. Confirm the SHA-256 fingerprint matches the local `mycert.crt` fingerprint.
+بخش مدیریت گواهی‌های مرورگر خود (Certificate Manager) را باز کنید و گواهی نصب‌شده را پیدا کنید. مطمئن شوید اثر انگشت SHA-256 آن با اثر انگشت فایل محلی `mycert.crt` کاملاً مطابقت دارد.
 
-## Step 4: check common mismatch cases
+## مرحله ۴: بررسی موارد رایج عدم تطابق گواهی
 
-| Symptom | Likely cause | Fix |
+| نشانه خطا | علت احتمالی | راه حل |
 |---|---|---|
-| Browser privacy error | CA not installed or wrong CA installed | Install correct cert and verify fingerprint |
-| Worked before, now fails | Cert expired or rotated without reinstall | Rotate/reinstall and verify |
-| Windows works, Firefox fails | Firefox trust store differs | Import into Firefox or enable OS trust as applicable |
-| Browser works, app fails | App ignores user CA or pins cert | Treat as app compatibility limitation |
-| Android browser works, app fails | Android user CA limitation or pinning | Use browser path or app-specific support only if app cooperates |
+| خطای حریم خصوصی مرورگر (Privacy Error) | گواهی نصب نشده یا گواهی اشتباهی نصب شده است | نصب گواهی صحیح و تأیید مجدد اثر انگشت |
+| قبلاً کار می‌کرده، اما اکنون خطا می‌دهد | گواهی منقضی شده یا بدون نصب مجدد تغییر یافته است | ساخت مجدد گواهی، نصب و تأیید اثر انگشت |
+| در ویندوز کار می‌کند، در فایرفاکس خطا می‌دهد | مخزن گواهی فایرفاکس با سیستم‌عامل متفاوت است | وارد کردن گواهی در بخش تنظیمات فایرفاکس یا فعال کردن اعتماد به گواهی‌های سیستم |
+| مرورگر کار می‌کند، اما اپلیکیشن متصل نمی‌شود | برنامه گواهی‌های کاربر را نادیده می‌گیرد یا قفل گواهی (Pinning) دارد | این مورد محدودیت سازگاری برنامه است و باید از نسخه وب استفاده کرد |
+| مرورگر در اندروید کار می‌کند، اما اپلیکیشن خطا می‌دهد | محدودیت گواهی‌های کاربری در اندروید غیر روت | استفاده از نسخه وب سایت در مرورگر یا استفاده از برنامه‌هایی که همکاری می‌کنند |
 
-## Step 5: support-safe output
+## مرحله ۵: اطلاعات ایمن برای اشتراک‌گذاری در پشتیبانی
 
-When opening an issue, share only:
+هنگام ثبت تیکت یا گزارش مشکل، **فقط** موارد زیر را به اشتراک بگذارید:
 
 ```text
 cert_exists: yes/no
 key_exists: yes/no
-cert_fingerprint_prefix: first 12 hex chars only
-cert_expiry: YYYY-MM-DD if available
-platform:
-browser:
-client:
+cert_fingerprint_prefix: (فقط ۱۲ کاراکتر اول اثر انگشت)
+cert_expiry: (تاریخ انقضا در صورت وجود)
+platform: (سیستم‌عامل)
+browser: (مرورگر)
+client: (کلاینت مورد استفاده)
 ```
 
-Never share `mycert.key`.
+**هرگز فایل یا محتویات کلید خصوصی `mycert.key` را با کسی به اشتراک نگذارید.**
 
-## Related documents
+## مستندات مرتبط
 
-| Document | Topic |
+| مستند | موضوع |
 |---|---|
-| [`ca-install-guide.md`](ca-install-guide.md) | Platform install steps |
-| [`ca-wrong-certificate-recovery.md`](ca-wrong-certificate-recovery.md) | Wrong or duplicate CA installed |
-| [`ca-expired-certificate-recovery.md`](ca-expired-certificate-recovery.md) | Expired local CA |
-| [`certificate-lifecycle.md`](certificate-lifecycle.md) | Pair checks and rotation commands |
+| [`ca-install-guide.md`](ca-install-guide.md) | مراحل نصب روی پلتفرم‌های مختلف |
+| [`ca-wrong-certificate-recovery.md`](ca-wrong-certificate-recovery.md) | رفع مشکل نصب گواهی اشتباه یا تکراری |
+| [`ca-expired-certificate-recovery.md`](ca-expired-certificate-recovery.md) | بازیابی گواهی‌های منقضی شده محلی |
+| [`certificate-lifecycle.md`](certificate-lifecycle.md) | بررسی جفت گواهی‌ها و دستورات چرخش |
