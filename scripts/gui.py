@@ -3418,6 +3418,7 @@ class App(tk.Tk):
                 ("Apply Strategy Profile", "Soft.TButton", self.apply_recommended_profile),
                 ("Restrict Key ACL", "Soft.TButton", self.restrict_private_key_acl),
                 ("Wrap Key (DPAPI)", "Soft.TButton", self.wrap_private_key_dpapi),
+                ("Unwrap Key (DPAPI)", "Soft.TButton", self.unwrap_private_key_dpapi),
             ],
             preferred_columns=3,
             min_cell_width=190,
@@ -5833,13 +5834,42 @@ class App(tk.Tk):
             return
         if not messagebox.askyesno(
             "Wrap private key",
-            "Write a DPAPI sidecar (mycert.key.dpapi) and tighten ACL on the plaintext key?\n\n"
-            "Plaintext is kept unless you run mitm_trust wrap-key --remove-plaintext.",
+            "Write a DPAPI sidecar (mycert.key.dpapi) and tighten ACL on the plaintext key?",
+        ):
+            return
+        remove_plaintext = messagebox.askyesno(
+            "Remove Plaintext Key",
+            "Securely delete the plaintext private key file (mycert.key) after wrapping it?\n\n"
+            "If deleted, Xray will unwrap the key in-memory during startup using your Windows account credentials, "
+            "minimizing private-key exposure at rest."
+        )
+        args = ["wrap-key", "--key", str(KEY), "--json"]
+        if remove_plaintext:
+            args.append("--remove-plaintext")
+        self.run_async(
+            "Wrap private key (DPAPI)",
+            py_script("mitm_trust.py", *args),
+            timeout=30,
+            after=lambda code, output: self.refresh_status() if code == 0 else None,
+        )
+
+    def unwrap_private_key_dpapi(self) -> None:
+        from core.key_at_rest import dpapi_sidecar_path
+        sidecar = dpapi_sidecar_path(KEY)
+        if not sidecar.exists():
+            messagebox.showwarning("Missing sidecar", f"DPAPI sidecar not found: {short_path(sidecar)}")
+            return
+        if os.name != "nt":
+            messagebox.showinfo("DPAPI", "DPAPI unwrap is available on Windows only.")
+            return
+        if not messagebox.askyesno(
+            "Unwrap private key",
+            "Restore the plaintext private key (mycert.key) from the DPAPI sidecar and delete the sidecar?",
         ):
             return
         self.run_async(
-            "Wrap private key (DPAPI)",
-            py_script("mitm_trust.py", "wrap-key", "--key", str(KEY), "--json"),
+            "Unwrap private key (DPAPI)",
+            py_script("mitm_trust.py", "unwrap-key", "--key", str(KEY), "--json"),
             timeout=30,
             after=lambda code, output: self.refresh_status() if code == 0 else None,
         )
