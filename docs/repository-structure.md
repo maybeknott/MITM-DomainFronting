@@ -69,6 +69,9 @@ MITM-DomainFronting/
     preflight-and-diagnostics.md
     decision-engine.md
     dns-profiles.md
+    README.md
+    getting-started.md
+    troubleshooting.md
     gui.md
     local-telemetry.md
     rust-stream-core-baseline.md
@@ -159,6 +162,7 @@ MITM-DomainFronting/
     generate_profiles.py
     generate_evasion_profiles.py
     intelligent_advise.py
+    onboard.py
     lab_prepare.py
     ebpf_xdp_loader.py
     wire_proof_suricata.py

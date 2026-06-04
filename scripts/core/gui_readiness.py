@@ -38,6 +38,7 @@ ACTION_SPECS: dict[str, GuiActionSpec] = {
     "Install Page Check Tools": GuiActionSpec("Install Page Tools", "install_page_tools", "amber"),
     "Run Page Check": GuiActionSpec("Run Page Check", "page_check", "green"),
     "Optional JA3 Validation": GuiActionSpec("Open Fingerprint Check", "browser_tab", "blue"),
+    "Review Advisor": GuiActionSpec("View Smart Tips", "smart_tips", "blue"),
     "Ready": GuiActionSpec("Run Page Check", "page_check", "green"),
 }
 

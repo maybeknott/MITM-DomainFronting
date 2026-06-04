@@ -55,4 +55,5 @@ py -3 main.py release-check
 | [`../gui.md`](../gui.md) | راهنمای کامل GUI |
 | [`../ca-install-guide.md`](../ca-install-guide.md) | نصب گواهی محلی |
 | [`../listener-binding.md`](../listener-binding.md) | محدودیت loopback |
+| [`../getting-started.md`](../getting-started.md) | راهنمای کوتاه انگلیسی برای تازه‌واردها |
 | [`../../README.md`](../../README.md) | README اصلی (انگلیسی و فارسی) |

@@ -62,6 +62,10 @@ def test_primary_action_specs() -> None:
     assert_equal("ready button", ready.button, "Run Page Check")
     assert_equal("ready target", ready.target, "page_check")
 
+    advisor = primary_action_spec("Review Advisor")
+    assert_equal("advisor button", advisor.button, "View Smart Tips")
+    assert_equal("advisor target", advisor.target, "smart_tips")
+
     unknown = primary_action_spec("Something New")
     assert_equal("unknown fallback", unknown, FALLBACK_ACTION)
 
@@ -75,6 +79,7 @@ def test_readiness_snapshot_fields() -> None:
     assert_equal("remarks", fields["config_remarks"], "MITM-DomainFronting_v23_Hardened")
     assert_equal("trust", fields["trust_status"], "pass")
     assert_equal("browser", fields["playwright_ok"], True)
+    assert_equal("intelligent_hint_key", "intelligent_hint" in fields, True)
 
 
 def test_readiness_snapshot_fallback_fields() -> None:

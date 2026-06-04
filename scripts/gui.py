@@ -728,6 +728,7 @@ class App(tk.Tk):
         self.footer_update_text = tk.StringVar(value="No updates available")
         self.primary_action_text = tk.StringVar(value="Check Setup")
         self.primary_action_detail = tk.StringVar(value="Start with a safe local setup check.")
+        self.intelligent_hint_text = tk.StringVar(value="")
         self.output_toggle_text = tk.StringVar(value="Hide Logs")
         self.last_status_level = "unknown"
         self.last_command_failure: dict[str, object] | None = None
@@ -873,14 +874,17 @@ class App(tk.Tk):
                 "Core shows whether 127.0.0.1:10808 is offline, running from this app, or already used by another local client.\n"
                 "Connections counts accepted Xray log lines seen during this app session. It is an activity hint, not a traffic counter.\n"
                 "Data reminds you that GUI logs and activity history stay local.\n"
-                "Next Step points to the safest action based on current setup state.\n\n"
+                "Next Step points to the safest action based on current setup state (shared with CLI `main.py probe`).\n"
+                "Smart Tips and the blue tip strip use the intelligent advisor when labels or lab context apply.\n\n"
                 "Fallbacks:\n"
                 "If Start Core cannot find a complete bundled core, use Download Xray Core in Settings. If the port is already active, stop the external client there or keep using it and run Page Check."
             ),
-            "start_here": (
-                "Tools\n\n"
+            "getting_started": (
+                "Getting Started\n\n"
                 "What it is:\n"
                 "A guided first-run checklist for people who do not want to learn every internal tool before trying the project.\n\n"
+                "Also read:\n"
+                "docs/getting-started.md for a short English walkthrough.\n\n"
                 "Use it when:\n"
                 "You just cloned the repo, moved to a new machine, rotated certificates, or are unsure which button to press first.\n\n"
                 "Recommended path:\n"
@@ -888,6 +892,8 @@ class App(tk.Tk):
                 "2. Generate Local CA: creates your personal certificate and key files only.\n"
                 "3. Start Core: launches the bundled Xray Core if runtime files are available.\n"
                 "4. Run Page Check: verifies that a browser can load a page through the local proxy.\n\n"
+                "Smart Tips:\n"
+                "Opens the same local advisor as `main.py advise` — profile and lab suggestions from your machine only.\n\n"
                 "Safety boundaries:\n"
                 "This screen does not upload reports, install trust silently, change system proxy settings, or commit generated files."
             ),
@@ -1430,7 +1436,7 @@ class App(tk.Tk):
         self.tabs.add(self._tab_page(self.validation_tab), text="Routing Checks")
         self.tabs.add(self._tab_page(self.health_tab), text="Logs & Health")
         self.tabs.add(self._tab_page(self.fixes_tab), text="Settings")
-        self.tabs.add(self._tab_page(self.start_tab), text="Tools")
+        self.tabs.add(self._tab_page(self.start_tab), text="Getting Started")
         self.tabs.add(self._tab_page(self.certs_tab), text="Certificates")
         self.tabs.add(self._tab_page(self.docs_tab), text="About")
         self.tabs.bind("<<NotebookTabChanged>>", lambda _event: self._highlight_active_nav())
@@ -1454,7 +1460,7 @@ class App(tk.Tk):
                 ("Routing", self.validation_tab),
                 ("Logs & Health", self.health_tab),
                 ("Settings", self.fixes_tab),
-                ("Tools", self.start_tab),
+                ("Getting Started", self.start_tab),
                 ("Certificates", self.certs_tab),
                 ("About", self.docs_tab),
             ]),
@@ -1739,7 +1745,7 @@ class App(tk.Tk):
             ("Routing", self.validation_tab),
             ("Logs & Health", self.health_tab),
             ("Settings", self.fixes_tab),
-            ("Tools", self.start_tab),
+            ("Getting Started", self.start_tab),
             ("Certificates", self.certs_tab),
             ("About", self.docs_tab),
         ]
@@ -1798,7 +1804,7 @@ class App(tk.Tk):
             "Find Action", "Shortcuts", "Focus", "Nav", "Hide Telemetry", "Show Telemetry",
             "Toggle Logs", "Refresh", "Hide Logs", "Show Logs", "Show Logs *",
             "Dashboard", "Proxy", "Profiles & DNS", "Routing", "Logs & Health", "Settings",
-            "Tools", "Certificates", "About",
+            "Getting Started", "Certificates", "About",
         }
         return text not in always_available and not text.startswith("Open ")
 
@@ -1810,7 +1816,7 @@ class App(tk.Tk):
             "Routing": "route",
             "Logs & Health": "list",
             "Settings": "gear",
-            "Tools": "wrench",
+            "Getting Started": "wrench",
             "Certificates": "doc",
             "About": "info",
         }
@@ -1890,7 +1896,8 @@ class App(tk.Tk):
             PaletteItem("Routing", "Navigate", "Local validation and routing checks", lambda: self._select_workspace(self.validation_tab)),
             PaletteItem("Logs & Health", "Navigate", "Redacted support and environment reports", lambda: self._select_workspace(self.health_tab)),
             PaletteItem("Settings", "Navigate", "Local repair and optional installers", lambda: self._select_workspace(self.fixes_tab)),
-            PaletteItem("Tools", "Navigate", "Guided setup and recovery checklist", lambda: self._select_workspace(self.start_tab)),
+            PaletteItem("Getting Started", "Navigate", "Guided setup and recovery checklist", lambda: self._select_workspace(self.start_tab)),
+            PaletteItem("Smart Tips", "Action", "Local advisor: profiles, lab, next commands", self.run_show_smart_tips),
             PaletteItem("Certificates", "Navigate", "Local CA status, generation, and trust docs", lambda: self._select_workspace(self.certs_tab)),
             PaletteItem("About", "Navigate", "Open local repository guides", lambda: self._select_workspace(self.docs_tab)),
             PaletteItem("Best Next Action", "Action", "Run the app-selected safest next command", self.run_primary_action),
@@ -2046,7 +2053,7 @@ class App(tk.Tk):
         selected = self.tabs.select() if hasattr(self, "tabs") else ""
         tab_to_key = {
             str(self._tab_page(self.dashboard_tab)): "dashboard",
-            str(self._tab_page(self.start_tab)): "start_here",
+            str(self._tab_page(self.start_tab)): "getting_started",
             str(self._tab_page(self.validation_tab)): "checks",
             str(self._tab_page(self.health_tab)): "health_report",
             str(self._tab_page(self.fixes_tab)): "fix_tools",
@@ -2117,7 +2124,7 @@ class App(tk.Tk):
             str(self._tab_page(self.validation_tab)): "Routing",
             str(self._tab_page(self.health_tab)): "Logs & Health",
             str(self._tab_page(self.fixes_tab)): "Settings",
-            str(self._tab_page(self.start_tab)): "Tools",
+            str(self._tab_page(self.start_tab)): "Getting Started",
             str(self._tab_page(self.certs_tab)): "Certificates",
             str(self._tab_page(self.docs_tab)): "About",
         }
@@ -2209,6 +2216,8 @@ class App(tk.Tk):
             "install_page_tools": self.install_diagnostics_dependencies,
             "page_check": self.run_browser_diagnostics,
             "start_core": self.connect_xray,
+            "smart_tips": self.run_show_smart_tips,
+            "getting_started_tab": lambda: self._select_workspace(self.start_tab),
         }
         self._set_primary_action(spec.button, detail, command_map.get(spec.target, self.run_beginner_setup_check), spec.tone)
 
@@ -2954,12 +2963,14 @@ class App(tk.Tk):
         self._button_grid(
             row,
             [
+                ("Smart Tips", "Soft.TButton", self.run_show_smart_tips),
                 ("Explain Output", "Soft.TButton", self.explain_output),
                 ("Copy Issue Summary", "Soft.TButton", self.copy_issue_summary),
+                ("Read Getting Started Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "getting-started.md")),
                 ("Open Troubleshooting Docs", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "preflight-and-diagnostics.md")),
             ],
             preferred_columns=3,
-            min_cell_width=190,
+            min_cell_width=170,
         )
 
     def _build_dashboard(self) -> None:
@@ -2974,6 +2985,34 @@ class App(tk.Tk):
         ]
         self._responsive_grid(status_row, status_cards, preferred_columns=5, min_cell_width=155, gap=8)
 
+        newcomer = self._card(self.dashboard_tab, "New here?")
+        newcomer.pack(fill="x", pady=(0, 12))
+        newcomer_body = tk.Frame(newcomer, bg=COLORS["panel"])
+        newcomer_body.pack(fill="x", padx=16, pady=(0, 14))
+        tk.Label(
+            newcomer_body,
+            text="First time? Use Check Setup, create your local CA, start a core, then run one Page Check. "
+            "Trust installation stays manual; nothing is uploaded.",
+            bg=COLORS["panel"],
+            fg=COLORS["muted"],
+            wraplength=self._scaled(880),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", pady=(0, 10))
+        newcomer_actions = tk.Frame(newcomer_body, bg=COLORS["panel"])
+        newcomer_actions.pack(fill="x")
+        self._button_grid(
+            newcomer_actions,
+            [
+                ("Open Getting Started", "Accent.TButton", lambda: self._select_workspace(self.start_tab)),
+                ("Check Setup", "Soft.TButton", self.run_beginner_setup_check),
+                ("Smart Tips", "Soft.TButton", self.run_show_smart_tips),
+                ("Read Guide", "Soft.TButton", lambda: self.open_path(ROOT / "docs" / "getting-started.md")),
+            ],
+            preferred_columns=4,
+            min_cell_width=160,
+        )
+
         workflow = self._card(self.dashboard_tab, "Setup Workflow")
         workflow.pack(fill="x", pady=(0, 12))
         tk.Label(
@@ -2985,6 +3024,17 @@ class App(tk.Tk):
             justify="left",
             anchor="w",
         ).pack(fill="x", padx=16, pady=(0, 10))
+        self.dashboard_hint_frame = tk.Frame(workflow, bg=COLORS["blue_soft"], highlightbackground=COLORS["line"], highlightthickness=1)
+        tk.Label(
+            self.dashboard_hint_frame,
+            textvariable=self.intelligent_hint_text,
+            bg=COLORS["blue_soft"],
+            fg=COLORS["blue_dark"],
+            font=self.fonts["caption"],
+            wraplength=self._scaled(860),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=12, pady=8)
         self._workflow_rail(
             workflow,
             [
@@ -3042,7 +3092,7 @@ class App(tk.Tk):
         profile_panel, profile_body = self._collapsible_section(
             connection,
             "Advanced profile",
-            "Leave this closed for normal use. Open it only when you need strict, balanced, compatibility, debug, or alternate-port configs.",
+            "Leave this closed for normal use. Open for strict/balanced/compatibility/debug, alternate ports, or lab evasion profiles.",
             self.show_dashboard_profile,
             hidden_text="Choose a different profile",
             shown_text="Hide profile options",
@@ -3160,12 +3210,14 @@ class App(tk.Tk):
             fix_row,
             [
                 ("Check Setup", "Accent.TButton", self.run_beginner_setup_check),
+                ("Getting Started", "Soft.TButton", lambda: self._select_workspace(self.start_tab)),
+                ("Smart Tips", "Soft.TButton", self.run_show_smart_tips),
                 ("Repair Setup", "Accent.TButton", self.safe_auto_fix),
                 ("Generate Local CA", "Warning.TButton", self.generate_ca),
                 ("Copy Issue Summary", "Soft.TButton", self.copy_issue_summary),
             ],
-            preferred_columns=4,
-            min_cell_width=170,
+            preferred_columns=3,
+            min_cell_width=150,
         )
 
         summary = self._card(self.dashboard_tab, "Status summary")
@@ -4414,7 +4466,96 @@ class App(tk.Tk):
         else:
             self.diagnostic_title.set("Setup needs attention")
             self.diagnostic_detail.set(str(snapshot.get("readiness_next_action_detail") or detail))
-            self.diagnostic_action.set(f"Next: {snapshot.get('readiness_next_action') or 'Run Check Setup'}.")
+            hint = str(snapshot.get("intelligent_hint") or "").strip()
+            if hint:
+                self.diagnostic_action.set(f"Next: {snapshot.get('readiness_next_action') or 'Run Check Setup'}. Tip: {hint}")
+            else:
+                self.diagnostic_action.set(f"Next: {snapshot.get('readiness_next_action') or 'Run Check Setup'}.")
+
+    def _update_dashboard_intelligent_hint(self, snapshot: dict[str, object]) -> None:
+        if not hasattr(self, "dashboard_hint_frame"):
+            return
+        hint = str(snapshot.get("intelligent_hint") or "").strip()
+        detail = str(snapshot.get("readiness_next_action_detail") or "").strip()
+        if hint:
+            self.intelligent_hint_text.set(f"Tip: {hint}")
+            self.dashboard_hint_frame.pack(fill="x", padx=16, pady=(0, 10))
+        elif snapshot.get("readiness_next_action") == "Review Advisor" and detail:
+            self.intelligent_hint_text.set(detail)
+            self.dashboard_hint_frame.pack(fill="x", padx=16, pady=(0, 10))
+        else:
+            self.intelligent_hint_text.set("")
+            self.dashboard_hint_frame.pack_forget()
+
+    def run_show_smart_tips(self) -> None:
+        """Show local intelligent advisor output (same engine as main.py advise)."""
+        try:
+            from core.intelligent_advisor import build_advisor_plan
+
+            readiness = self.readiness_cache.get(self.active_config_path(), force=True)
+            plan = build_advisor_plan(root=ROOT, state=readiness)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Smart tips", f"Could not build advisor plan: {exc}")
+            return
+        lines = [
+            "Smart tips (local only — nothing is uploaded)",
+            "",
+        ]
+        persona = plan.get("persona")
+        if persona:
+            lines.append(f"Persona: {persona}")
+            playbook = plan.get("playbook")
+            if isinstance(playbook, dict):
+                steps = playbook.get("steps") or []
+                if steps:
+                    lines.append("Playbook steps:")
+                    for step in steps[:6]:
+                        if isinstance(step, dict):
+                            lines.append(f"  - {step.get('id', '?')}: {step.get('title', '')}")
+                    lines.append("")
+        suggested = plan.get("suggested_profile")
+        if isinstance(suggested, dict) and suggested.get("profile_id"):
+            lines.append(
+                f"Suggested profile: {suggested.get('profile_id')} "
+                f"({suggested.get('confidence', 'unknown')})"
+            )
+            lines.append(str(suggested.get("reason") or ""))
+            lines.append("")
+        for rec in plan.get("recommendations") or []:
+            if not isinstance(rec, dict):
+                continue
+            lines.append(f"[{rec.get('priority', '?')}] {rec.get('title', 'Recommendation')}")
+            if rec.get("detail"):
+                lines.append(f"  {rec['detail']}")
+            if rec.get("command"):
+                lines.append(f"  Command: {rec['command']}")
+            lines.append("")
+        commands = plan.get("automation_commands") or []
+        if commands:
+            lines.append("Automation commands:")
+            for cmd in commands[:5]:
+                lines.append(f"  {cmd}")
+        text = "\n".join(lines).strip() or "No recommendations right now. Run Check Setup first."
+        window = tk.Toplevel(self)
+        window.title("Smart tips")
+        window.configure(bg=COLORS["bg"])
+        window.geometry(f"{self._scaled(640)}x{self._scaled(480)}")
+        window.transient(self)
+        body = tk.Text(
+            window,
+            bg=COLORS["panel"],
+            fg=COLORS["ink"],
+            relief="flat",
+            wrap="word",
+            font=self.fonts["body"],
+            padx=self._scaled(14),
+            pady=self._scaled(12),
+        )
+        body.pack(fill="both", expand=True, padx=self._scaled(14), pady=self._scaled(14))
+        body.insert("1.0", text)
+        body.configure(state="disabled")
+        ttk.Button(window, text="Close", style="Soft.TButton", command=window.destroy).pack(pady=(0, self._scaled(12)))
+        self.record_telemetry("smart_tips_opened", "info", "Advisor plan shown", {})
 
     def _failure_advice(self, label: str, code: int, output: str) -> tuple[str, str]:
         lowered = output.lower()
@@ -4914,6 +5055,7 @@ class App(tk.Tk):
         self._update_network_mode_items(snapshot)
         self._update_network_telemetry(loopback_open)
         self._update_diagnostic_guidance(snapshot, level, detail)
+        self._update_dashboard_intelligent_hint(snapshot)
         if "Setup" in self.status_chip_labels:
             self._set_label_state(self.status_chip_labels["Setup"], status_text, level)
         if "Core" in self.status_chip_labels:
@@ -4933,7 +5075,14 @@ class App(tk.Tk):
             self._set_label_state(self.status_chip_labels["Privacy"], "Local only", "info")
         self.status_labels["Config"].configure(text=f"{short_path(selected_config)}\nremarks: {remarks}\nXray min: {min_version}", fg=COLORS["green"] if selected_config.exists() else COLORS["red"])
         self.status_labels["Certificate"].configure(text=f"crt: {'present' if CERT.exists() else 'missing'}\nkey: {'present' if KEY.exists() else 'missing'}\nlocal only, ignored by git", fg=COLORS["green"] if CERT.exists() and KEY.exists() else COLORS["amber"])
-        self.status_labels["Profiles"].configure(text=f"{len(profiles)} generated profile configs\nstrict / balanced / compatibility / debug", fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"])
+        lab_profiles = sum(1 for path in profiles if ".evasion-" in path.name)
+        profile_lines = f"{len(profiles)} profile configs\nstrict / balanced / compatibility / debug"
+        if lab_profiles:
+            profile_lines += f"\n+ {lab_profiles} lab evasion profile(s)"
+        self.status_labels["Profiles"].configure(
+            text=profile_lines,
+            fg=COLORS["green"] if len(profiles) >= 4 else COLORS["amber"],
+        )
         lock_path = ROOT / "release-geodata-lock.json"
         health_lines = [
             f"geodata lock: {'present' if lock_path.exists() else 'optional'}",

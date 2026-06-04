@@ -20,6 +20,14 @@ def main() -> int:
     parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
     parser.add_argument("--skip-runtime", action="store_true")
     parser.add_argument("--text", action="store_true", help="human-readable summary")
+    parser.add_argument(
+        "--persona",
+        choices=("newcomer", "maintainer", "lab", "auto"),
+        default="auto",
+        help="playbook persona (auto = inferred from readiness)",
+    )
+    parser.add_argument("--json-out", type=Path, default=None, help="write full plan JSON to file")
+    parser.add_argument("--no-persist", action="store_true", help="do not write .local-state/advisor-plan.latest.json")
     args = parser.parse_args()
 
     state = build_project_state(
@@ -27,9 +35,18 @@ def main() -> int:
         config_path=args.root / args.config,
         skip_runtime=args.skip_runtime,
     )
-    plan = build_advisor_plan(root=args.root, state=state)
+    persona = None if args.persona == "auto" else args.persona
+    plan = build_advisor_plan(
+        root=args.root,
+        state=state,
+        persona=persona,
+        persist=not args.no_persist,
+    )
     if args.text:
-        lines = ["Intelligent advisor", "=" * 40]
+        lines = ["Intelligent advisor", "=" * 40, f"Persona: {plan.get('persona', 'auto')}", ""]
+        if plan.get("playbook", {}).get("summary"):
+            lines.append(str(plan["playbook"]["summary"]))
+            lines.append("")
         if plan.get("suggested_profile"):
             sp = plan["suggested_profile"]
             lines.append(f"Suggested profile: {sp['profile_id']} ({sp['confidence']}) — {sp['reason']}")
@@ -37,6 +54,13 @@ def main() -> int:
             lines.append(f"[{rec['priority']}] {rec['title']}: {rec['detail']}")
             if rec.get("command"):
                 lines.append(f"    -> {rec['command']}")
+            if rec.get("doc"):
+                lines.append(f"    doc: {rec['doc']}")
+        if plan.get("playbook", {}).get("steps"):
+            lines.append("")
+            lines.append("Playbook steps:")
+            for step in plan["playbook"]["steps"]:
+                lines.append(f"  - {step.get('title')}: {step.get('detail', '')}")
         if plan.get("automation_commands"):
             lines.append("")
             lines.append("Automation:")
@@ -44,7 +68,12 @@ def main() -> int:
                 lines.append(f"  {cmd}")
         print("\n".join(lines))
     else:
-        print(json.dumps({"readiness": {"overall": state.overall, "next_action": state.next_action}, **plan}, indent=2, ensure_ascii=False))
+        payload = {"readiness": {"overall": state.overall, "next_action": state.next_action}, **plan}
+        text = json.dumps(payload, indent=2, ensure_ascii=False)
+        if args.json_out:
+            args.json_out.parent.mkdir(parents=True, exist_ok=True)
+            args.json_out.write_text(text + "\n", encoding="utf-8")
+        print(text)
     return 0
 
 

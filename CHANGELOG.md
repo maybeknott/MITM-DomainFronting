@@ -16,6 +16,8 @@
 - Evasion lab profiles: `evasion-fakedns`, `evasion-high-stealth` + JA3 attach on lab configs.
 - Persistent strategy `remember_winner()` cache (`strategy_winner.py`).
 - Intelligent advisor (`intelligent_advisor.py`, `main.py advise`, `probe` JSON `intelligent` field).
+- Persona playbooks (`automation_playbook.py`, `main.py onboard`, `scripts/onboard.py`) with persisted `.local-state/advisor-plan.latest.json`.
+- Documentation hub (`docs/README.md`), expanded getting-started / intelligent-automation guides, and `docs/troubleshooting.md`.
 - One-shot lab pipeline (`main.py lab-prepare`, `config_src_build` evasion regen on `--generate-profiles`).
 - `apply_strategy_profile.py --remember` to persist successful profile selection.
 - Lab evidence bundle now includes DNS harness + protocol structure probes (UDP/443, fragment, REALITY stub, FakeDNS, TUN, TTL spin, firewall checklist, evasion lab merge).
@@ -25,6 +27,7 @@
 
 ### Changed
 
+- Control Center UX: **New here?** dashboard card, **Smart Tips** advisor window (persona + playbook steps), **Getting Started** tab rename, intelligent hint strip aligned with `main.py advise`.
 - Integration pass: manifest tracks evasion lab outputs, CI/release/repo-structure guards, GUI remembers strategy winner, probe/GUI expose intelligent hints, `derive_next_action` surfaces advisor when decision labels exist.
 - Strategy profile **Apply Recommended** and optional auto-apply after non-healthy decision reports.
 - `lab_evidence_run.py` aggregates DNS harness + protocol smoke scenarios into one bundle.

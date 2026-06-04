@@ -248,7 +248,10 @@ py -3 main.py verified-session --page-check --ja3-oracle https://ja3.example/jso
 - چرخه عمر گواهی: `docs/certificate-lifecycle.md`
 - عیب‌یابی و preflight: `docs/preflight-and-diagnostics.md`
 - پروفایل‌های عملیاتی: `docs/operating-profiles.md`
+- فهرست مستندات (انگلیسی): `docs/README.md`
 - اتوماسیون هوشمند: `docs/intelligent-automation.md`
+- شروع انگلیسی (تازه‌وارد): `docs/getting-started.md`
+- عیب‌یابی سریع: `docs/troubleshooting.md`
 - DNS و پایداری: `docs/dns-resilience.md`
 - سازگاری پلتفرم‌ها: `docs/platform-compatibility.md`
 - مهندسی انتشار: `docs/release-engineering.md`

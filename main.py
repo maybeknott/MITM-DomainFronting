@@ -140,6 +140,7 @@ def build_audit_checks(config: str, extra_validate_args: List[str]) -> List[Chec
         _python_test_check("ebpf containment tests", "ebpf_containment_test.py"),
         _python_test_check("strategy winner tests", "strategy_winner_test.py"),
         _python_test_check("intelligent advisor tests", "intelligent_advisor_test.py"),
+        _python_test_check("automation playbook tests", "automation_playbook_test.py"),
         _python_test_check("wire proof suricata tests", "wire_proof_suricata_test.py"),
         _python_test_check("version utils tests", "version_utils_test.py"),
         _python_test_check("key at rest tests", "key_at_rest_test.py"),
@@ -247,6 +248,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
         _python_test_check("ebpf containment tests", "ebpf_containment_test.py"),
         _python_test_check("strategy winner tests", "strategy_winner_test.py"),
         _python_test_check("intelligent advisor tests", "intelligent_advisor_test.py"),
+        _python_test_check("automation playbook tests", "automation_playbook_test.py"),
         _python_test_check("wire proof suricata tests", "wire_proof_suricata_test.py"),
         _python_test_check("version utils tests", "version_utils_test.py"),
         _python_test_check("key at rest tests", "key_at_rest_test.py"),
@@ -295,6 +297,7 @@ def main() -> int:
             "  python main.py probe       # shared local readiness state (+ intelligent hints)\n"
             "  python main.py advise      # context-aware profile and lab recommendations\n"
             "  python main.py lab-prepare # evasion profiles + lab evidence bundle\n"
+            "  python main.py onboard     # guided newcomer/maintainer/lab playbook\n"
             "  python main.py verified-session # save a redacted runtime evidence bundle\n"
             "  python main.py release-check # release readiness gate\n"
             "  python main.py trust       # advisory trust-store setup instructions\n\n"
@@ -361,6 +364,21 @@ def main() -> int:
     advise_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
     advise_parser.add_argument("--skip-runtime", action="store_true")
     advise_parser.add_argument("--text", action="store_true", help="human-readable summary")
+    advise_parser.add_argument(
+        "--persona",
+        choices=("newcomer", "maintainer", "lab", "auto"),
+        default="auto",
+    )
+    advise_parser.add_argument("--json-out", type=Path, default=None)
+    onboard_parser = sub.add_parser(
+        "onboard",
+        help="run persona playbook plus advisor (default: newcomer checklist)",
+    )
+    onboard_parser.add_argument("--persona", choices=("newcomer", "maintainer", "lab"), default="newcomer")
+    onboard_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    onboard_parser.add_argument("--dry-run", action="store_true")
+    onboard_parser.add_argument("--json-out", type=Path, default=None)
+    onboard_parser.add_argument("--skip-playbook", action="store_true")
     lab_parser = sub.add_parser(
         "lab-prepare",
         help="generate evasion lab profiles and run lab evidence checks",
@@ -394,8 +412,22 @@ def main() -> int:
         if args.text:
             advise_args.append("--text")
         advise_args.extend(["--config", args.config])
+        if getattr(args, "persona", None) and args.persona != "auto":
+            advise_args.extend(["--persona", args.persona])
+        if getattr(args, "json_out", None):
+            advise_args.extend(["--json-out", str(args.json_out)])
         advise_args.extend(unknown)
         return run_script(SCRIPTS / "intelligent_advise.py", advise_args)
+    if args.command == "onboard":
+        onboard_args = list(unknown)
+        onboard_args.extend(["--persona", args.persona, "--config", args.config])
+        if args.dry_run:
+            onboard_args.append("--dry-run")
+        if args.json_out is not None:
+            onboard_args.extend(["--json-out", str(args.json_out)])
+        if args.skip_playbook:
+            onboard_args.append("--skip-playbook")
+        return run_script(SCRIPTS / "onboard.py", onboard_args)
     if args.command == "lab-prepare":
         lab_args = list(unknown)
         if args.json_out is not None:
