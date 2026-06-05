@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: Config version / remarks
-      description: "Example: Xray-Cooperative-Overlay_v22"
+      description: "Example: Xray-Cooperative-Overlay_v1"
     validations:
       required: true
   - type: dropdown

@@ -31,7 +31,7 @@ python scripts/decision_report.py --config Xray-config/Xray-Cooperative-Overlay.
 
 ```json
 {
-  "config_version": "Xray-Cooperative-Overlay_v22",
+  "config_version": "Xray-Cooperative-Overlay_v1",
   "xray_min_required": "26.2.6",
   "profile": "balanced",
   "cert": {
