@@ -1,5 +1,5 @@
 {
-  "remarks": "Xray-Cooperative-Overlay_v1_Hardened_strict",
+  "remarks": "Xray-Cooperative-Overlay_v1_strict",
   "version": {
     "min": "26.2.6"
   },
