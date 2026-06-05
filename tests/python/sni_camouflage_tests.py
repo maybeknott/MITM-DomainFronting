@@ -17,7 +17,7 @@ from core.sni_camouflage import (  # noqa: E402
 )
 
 ROOT = Path(__file__).resolve().parents[2]
-PRIMARY = ROOT / "Xray-config" / "MITM-DomainFronting.json"
+PRIMARY = ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json"
 
 
 def expect(name: str, actual: object, expected: object) -> bool:

@@ -48,14 +48,14 @@ Get-FileHash .\Xray-config\mycert.crt -Algorithm SHA256
 دبیان / اوبونتو (Debian/Ubuntu):
 
 ```bash
-sudo cp Xray-config/mycert.crt /usr/local/share/ca-certificates/mitm-domainfronting-mycert.crt
+sudo cp Xray-config/mycert.crt /usr/local/share/ca-certificates/xray-cooperative-overlay-mycert.crt
 sudo update-ca-certificates
 ```
 
 فدورا / رد‌هت (Fedora/RHEL):
 
 ```bash
-sudo cp Xray-config/mycert.crt /etc/pki/ca-trust/source/anchors/mitm-domainfronting-mycert.crt
+sudo cp Xray-config/mycert.crt /etc/pki/ca-trust/source/anchors/xray-cooperative-overlay-mycert.crt
 sudo update-ca-trust
 ```
 

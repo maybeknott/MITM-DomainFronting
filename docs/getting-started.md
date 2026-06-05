@@ -1,4 +1,4 @@
-# Getting started (MITM-DomainFronting)
+# Getting started (Xray-Cooperative-Overlay)
 
 English walkthrough for first-time users. For a full doc map see [README.md](README.md). Farsi: [fa/quick-start.md](fa/quick-start.md).
 

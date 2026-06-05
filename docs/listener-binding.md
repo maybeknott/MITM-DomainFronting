@@ -53,7 +53,7 @@ For the tunnel inbounds:
 Run:
 
 ```bash
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
 ```
 
 Manual checks:

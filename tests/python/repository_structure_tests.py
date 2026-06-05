@@ -36,7 +36,7 @@ REQUIRED_FILES = [
     "src/tls_orchestrator.rs",
     "src/tls_orchestrator_backend.rs",
     ".gitignore",
-    "Xray-config/MITM-DomainFronting.json",
+    "Xray-config/Xray-Cooperative-Overlay.json",
     "Xray-config/certificate_generator.bat",
     "Xray-config/certificate_generator.sh",
     "docs/repository-structure.md",
@@ -157,7 +157,7 @@ REQUIRED_FILES = [
     "tools/ebpf/README.md",
     "tools/ebpf/ingress_telemetry.bpf.c",
     "tools/ebpf/containment_xdp.bpf.c",
-    "Xray-config/MITM-DomainFronting.evasion-high-stealth.json",
+    "Xray-config/Xray-Cooperative-Overlay.evasion-high-stealth.json",
     "tests/python/intelligent_advisor_test.py",
     "tests/python/automation_playbook_test.py",
     "tests/python/ja3_pool_attach_test.py",
@@ -227,14 +227,14 @@ def check_ignored(paths: List[str]) -> List[str]:
 
 def check_primary_config_contract() -> List[str]:
     errors: List[str] = []
-    primary = ROOT / "Xray-config/MITM-DomainFronting.json"
+    primary = ROOT / "Xray-config/Xray-Cooperative-Overlay.json"
     if not primary.exists():
-        errors.append("primary config missing: Xray-config/MITM-DomainFronting.json")
+        errors.append("primary config missing: Xray-config/Xray-Cooperative-Overlay.json")
     script = ROOT / "scripts/generate_profiles.py"
-    expected = 'default=Path("Xray-config/MITM-DomainFronting.json")'
+    expected = 'default=Path("Xray-config/Xray-Cooperative-Overlay.json")'
     text = script.read_text(encoding="utf-8")
     if expected not in text:
-        errors.append("generate_profiles.py default --base is not Xray-config/MITM-DomainFronting.json")
+        errors.append("generate_profiles.py default --base is not Xray-config/Xray-Cooperative-Overlay.json")
     return errors
 
 

@@ -149,7 +149,7 @@ def attach_for_operating_profile(
 def validate_all_profiles_have_pool_metadata(config_dir: Path, profiles: Tuple[str, ...]) -> List[str]:
     errors: List[str] = []
     for profile in profiles:
-        path = config_dir / f"MITM-DomainFronting.{profile}.json"
+        path = config_dir / f"Xray-Cooperative-Overlay.{profile}.json"
         if not path.exists():
             errors.append(f"missing profile config: {path}")
             continue

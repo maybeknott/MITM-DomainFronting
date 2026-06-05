@@ -83,7 +83,7 @@ def validate_provider(path: Path, known_route_tags: set[str]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate provider and profile metadata")
     parser.add_argument("--providers-dir", type=Path, default=Path("providers"))
-    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     args = parser.parse_args()
     errors: list[str] = []
     try:

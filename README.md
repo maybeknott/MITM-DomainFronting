@@ -1,4 +1,4 @@
-# MITM-DomainFronting
+# Xray-Cooperative-Overlay
 
 <div dir="rtl">
 
@@ -61,7 +61,7 @@ Settings -> Privacy and security -> Security -> Manage certificates -> Manage im
 ۴. نرم افزار v2rayN را اجرا کنید و از قسمت configuration بر روی 
 add a custom configuration
 کلیک کنید حال یک نام دلخواه انتخاب کنید و فایل کانفیگ 
-MITM-DomainFronting.json
+Xray-Cooperative-Overlay.json
 را وارد کنید 
 core type 
 را بر روی xray و socks port را حتما خالی بزارید
@@ -103,7 +103,7 @@ Setting -> Security and privacy -> More security settings -> View security certi
 مشاهده کنید، دقت کنید که این مراحل ممکن است بر روی گوشی های مختلف کمی متفاوت باشد
 
 ۵. کانفیگ 
-MITM-DomainFronting.json 
+Xray-Cooperative-Overlay.json 
 را از طریق
 import from locally
 وارد برنامهv2rayNG کنید و اجرا کنید
@@ -134,7 +134,7 @@ firefox browser -> Settings -> About Firefox -> Tap the Firefox logo five times 
 - **تولید خودکار گواهی در سیستم‌عامل‌های مختلف**: فایل [certificate_generator.sh](Xray-config/certificate_generator.sh) برای کاربران مک و لینوکس اضافه شده است.
 - **دانلود خودکار Xray Core**: اسکریپت پایتون [install_xray.py](scripts/install_xray.py) نسخه متناسب با سیستم‌عامل شما را مستقیماً دانلود و آماده می‌کند.
 - **بررسی و مدیریت امنیت کلید خصوصی**: اسکریپت [mitm_trust.py](scripts/mitm_trust.py) وضعیت سلامت گواهی را گزارش داده و امکان رمزنگاری کلید خصوصی در ویندوز (DPAPI) را برای بالا بردن امنیت فراهم می‌کند.
-- **پیکربندی‌های بهینه‌شده**: علاوه بر کانفیگ اصلی، نسخه‌های [Balanced (متعادل)](Xray-config/MITM-DomainFronting.balanced.json)، [Strict (سخت‌گیرانه)](Xray-config/MITM-DomainFronting.strict.json) و [Compatibility (سازگار با پهنای باند قدیمی)](Xray-config/MITM-DomainFronting.compatibility.json) به پوشه `Xray-config` اضافه شده‌اند.
+- **پیکربندی‌های بهینه‌شده**: علاوه بر کانفیگ اصلی، نسخه‌های [Balanced (متعادل)](Xray-config/Xray-Cooperative-Overlay.balanced.json)، [Strict (سخت‌گیرانه)](Xray-config/Xray-Cooperative-Overlay.strict.json) و [Compatibility (سازگار با پهنای باند قدیمی)](Xray-config/Xray-Cooperative-Overlay.compatibility.json) به پوشه `Xray-config` اضافه شده‌اند.
 - **فهرست مستندات فنی**: لیست کاملی از راهنماهای عیب‌یابی، امنیت، چرخه عمر گواهی و نحوه نصب گواهی در پلتفرم‌های مختلف در پوشه [docs/](docs/) قرار گرفته است.
 
 ۳. زحمت زیادی برای برای این برنامه کشیده شده از نوشتن کد پایتون اولیه تا اضافه کردن آن به هسته xray امیدوارم حمایت از بنده فراموش نشه همچنان کارهای بزرگی در پیش هست ...

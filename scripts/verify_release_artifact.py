@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 from typing import Iterable
 
-APP_EXE = "MITM-DomainFronting-Control-Center.exe"
+APP_EXE = "Xray-Cooperative-Overlay-Control-Center.exe"
 
 REQUIRED_SUFFIXES = (
     APP_EXE,
@@ -26,11 +26,11 @@ REQUIRED_SUFFIXES = (
     "providers/google.yml",
     "providers/fastly.yml",
     "providers/meta.yml",
-    "Xray-config/MITM-DomainFronting.json",
-    "Xray-config/MITM-DomainFronting.strict.json",
-    "Xray-config/MITM-DomainFronting.balanced.json",
-    "Xray-config/MITM-DomainFronting.compatibility.json",
-    "Xray-config/MITM-DomainFronting.debug.json",
+    "Xray-config/Xray-Cooperative-Overlay.json",
+    "Xray-config/Xray-Cooperative-Overlay.strict.json",
+    "Xray-config/Xray-Cooperative-Overlay.balanced.json",
+    "Xray-config/Xray-Cooperative-Overlay.compatibility.json",
+    "Xray-config/Xray-Cooperative-Overlay.debug.json",
     "xray/xray.exe",
     "xray/geoip.dat",
     "xray/geosite.dat",
@@ -125,7 +125,7 @@ def verify_zip(zip_path: Path, checksum_path: Path | None = None) -> dict[str, o
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Verify MITM-DomainFronting GUI release ZIP contents")
+    parser = argparse.ArgumentParser(description="Verify Xray-Cooperative-Overlay GUI release ZIP contents")
     parser.add_argument("zip", type=Path, help="release ZIP to inspect")
     parser.add_argument("--checksum", type=Path, help="optional .sha256 file to verify")
     parser.add_argument("--json", action="store_true", help="emit JSON")

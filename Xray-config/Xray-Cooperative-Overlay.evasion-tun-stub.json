@@ -5,7 +5,7 @@
     "donate2": "USDT (TRC20): TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o",
     "donate3": "TON (TON): UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i"
   },
-  "remarks": "MITM-DomainFronting.evasion-fakedns",
+  "remarks": "Xray-Cooperative-Overlay.evasion-tun-stub",
   "version": {
     "min": "26.2.6"
   },
@@ -51,17 +51,34 @@
           "geosite:google",
           "geosite:meta",
           "geosite:fastly",
-          "geosite:reddit"
+          "geosite:reddit",
+          "full:github.githubassets.com"
         ]
+      },
+      {
+        "tag": "no-filter-dns-cloudflare",
+        "address": "h2c://1.1.1.1/dns-query",
+        "timeoutMs": 6000,
+        "finalQuery": true
+      },
+      {
+        "tag": "no-filter-dns-google",
+        "address": "h2c://8.8.8.8/dns-query",
+        "timeoutMs": 4000
+      },
+      {
+        "address": "localhost",
+        "domains": [
+          "domain:ir",
+          "geosite:private",
+          "geosite:category-ir"
+        ],
+        "timeoutMs": 3000
       }
     ],
     "queryStrategy": "UseIPv4",
     "useSystemHosts": true,
-    "serveStale": true,
-    "fakedns": {
-      "ipPool": "198.18.0.0/15",
-      "poolSize": 65535
-    }
+    "serveStale": true
   },
   "inbounds": [
     {
@@ -194,6 +211,23 @@
         }
       },
       "listen": "127.0.0.1"
+    },
+    {
+      "tag": "tun-in",
+      "protocol": "tun",
+      "settings": {
+        "name": "xray-cooperative-overlay-tun",
+        "MTU": 1500,
+        "stack": "system"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
     }
   ],
   "outbounds": [
@@ -279,10 +313,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fakedns"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "evasion-tun-stub"
       }
     },
     {
@@ -313,10 +347,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fakedns"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "evasion-tun-stub"
       }
     },
     {
@@ -344,10 +378,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fakedns"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "evasion-tun-stub"
       }
     },
     {
@@ -378,10 +412,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fakedns"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "evasion-tun-stub"
       }
     },
     {
@@ -409,10 +443,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fakedns"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "evasion-tun-stub"
       }
     }
   ],
@@ -603,13 +637,13 @@
       }
     ]
   },
-  "__comment": "Documents FakeDNS benchmark trap range for High Stealth lab profiles — optional overlay.",
+  "__comment": "Reference TUN inbound for High Stealth lab profiles — requires OS privileges and firewall checklist.",
   "mitm": {
     "ja3_pool_id": "chrome-baseline-v1",
-    "ja3_template_id": "rust-fixture-grease-stripped",
-    "ja3_template_index": 0,
-    "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-    "operating_profile": "evasion-fakedns",
+    "ja3_template_id": "rust-fixture-empty-curves",
+    "ja3_template_index": 1,
+    "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+    "operating_profile": "evasion-tun-stub",
     "ja3_pool_file": "config-src/templates/ja3-pools/chrome-baseline-pool.json"
   }
 }

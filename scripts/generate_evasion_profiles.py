@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE = ROOT / "Xray-config" / "MITM-DomainFronting.json"
+BASE = ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json"
 FRAGMENT_DIR = ROOT / "config-src" / "fragments"
 FRAGMENTS = {
     "evasion-fragment": FRAGMENT_DIR / "tls-fragment-overlay.json",
@@ -34,9 +34,9 @@ def generate_profile(name: str, fragments: list[Path], out_dir: Path) -> Path:
         if not fragment.exists():
             raise FileNotFoundError(f"fragment missing: {fragment}")
     compiled = compile_config(BASE, fragments)
-    compiled["remarks"] = f"MITM-DomainFronting.{name}"
+    compiled["remarks"] = f"Xray-Cooperative-Overlay.{name}"
     attach_for_operating_profile(compiled, name, ROOT)
-    output = out_dir / f"MITM-DomainFronting.{name}.json"
+    output = out_dir / f"Xray-Cooperative-Overlay.{name}.json"
     output.write_text(json.dumps(compiled, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return output
 

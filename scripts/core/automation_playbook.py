@@ -37,7 +37,7 @@ PLAYBOOKS: Dict[str, tuple[PlaybookStep, ...]] = {
             "validate_config",
             "Validate primary config",
             "Confirm Xray JSON structure and project guardrails.",
-            ("py", "-3", "scripts/validate_config.py", "Xray-config/MITM-DomainFronting.json"),
+            ("py", "-3", "scripts/validate_config.py", "Xray-config/Xray-Cooperative-Overlay.json"),
             doc="docs/getting-started.md",
         ),
         PlaybookStep(
@@ -49,7 +49,7 @@ PLAYBOOKS: Dict[str, tuple[PlaybookStep, ...]] = {
                 "-3",
                 "scripts/preflight.py",
                 "--config",
-                "Xray-config/MITM-DomainFronting.json",
+                "Xray-config/Xray-Cooperative-Overlay.json",
                 "--no-dns",
                 "--skip-cert",
                 "--skip-runtime",
@@ -164,7 +164,7 @@ def infer_persona(
     if labels & lab_labels:
         return "lab"
     evasion_present = any(
-        (root / "Xray-config" / f"MITM-DomainFronting.{name}.json").is_file()
+        (root / "Xray-config" / f"Xray-Cooperative-Overlay.{name}.json").is_file()
         for name in ("evasion-fragment", "evasion-high-stealth")
     )
     if labels and evasion_present:

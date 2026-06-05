@@ -29,13 +29,13 @@ def venv_python(venv_dir: Path) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Set up MITM-DomainFronting local tooling")
+    parser = argparse.ArgumentParser(description="Set up Xray-Cooperative-Overlay local tooling")
     parser.add_argument("--skip-browser-tools", action="store_true", help="do not install browser diagnostic dependencies")
     parser.add_argument("--skip-xray", action="store_true", help="do not download local Xray runtime")
     args = parser.parse_args()
 
     print("=" * 72)
-    print(" MITM-DomainFronting Bootstrap")
+    print(" Xray-Cooperative-Overlay Bootstrap")
     print("=" * 72)
     for rel in ("Xray-config", "providers", ".local-state", "browser-profiles"):
         (ROOT / rel).mkdir(exist_ok=True)

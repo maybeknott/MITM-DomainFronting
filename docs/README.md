@@ -1,6 +1,6 @@
 # Documentation index
 
-Central map for MITM-DomainFronting documentation. Start here if you are new, maintaining the repo, or running lab evidence.
+Central map for Xray-Cooperative-Overlay documentation. Start here if you are new, maintaining the repo, or running lab evidence.
 
 ## Start here (pick one path)
 

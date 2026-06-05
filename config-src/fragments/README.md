@@ -36,7 +36,7 @@ Object merge: deep merge; overlay leaf keys win.
 
 ```json
 {
-  "remarks": "MITM-DomainFronting_build_overlay",
+  "remarks": "Xray-Cooperative-Overlay_build_overlay",
   "routing": {
     "rules": [
       {
@@ -57,7 +57,7 @@ py -3 scripts/config_src_validate.py --run-steps
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 ```
 
-The compiled output is written to `build/config/MITM-DomainFronting.json` (gitignored). Users still import `Xray-config/MITM-DomainFronting.json`; CI verifies that source output and tracked runtime output stay synchronized.
+The compiled output is written to `build/config/Xray-Cooperative-Overlay.json` (gitignored). Users still import `Xray-config/Xray-Cooperative-Overlay.json`; CI verifies that source output and tracked runtime output stay synchronized.
 
 ## Related documents
 

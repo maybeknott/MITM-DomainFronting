@@ -37,7 +37,7 @@ def platform_asset_terms() -> tuple[str, str]:
 
 
 def fetch_json(url: str) -> dict[str, Any]:
-    req = urllib.request.Request(url, headers={"User-Agent": "MITM-DomainFronting-local-installer"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Xray-Cooperative-Overlay-local-installer"})
     with urllib.request.urlopen(req, timeout=30) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
 
@@ -57,7 +57,7 @@ def choose_asset(release: dict[str, Any]) -> tuple[str, str]:
 
 
 def download(url: str, dest: Path) -> None:
-    req = urllib.request.Request(url, headers={"User-Agent": "MITM-DomainFronting-local-installer"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Xray-Cooperative-Overlay-local-installer"})
     with urllib.request.urlopen(req, timeout=120) as response:  # noqa: S310
         with dest.open("wb") as f:
             shutil.copyfileobj(response, f)

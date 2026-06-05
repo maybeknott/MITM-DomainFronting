@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
-  "description": "Full config-src manifest. Runtime import path remains Xray-config/MITM-DomainFronting.json; source files must rebuild an identical compiled artifact before release.",
-  "runtime_import_target": "Xray-config/MITM-DomainFronting.json",
-  "compiled_output": "build/config/MITM-DomainFronting.json",
+  "description": "Full config-src manifest. Runtime import path remains Xray-config/Xray-Cooperative-Overlay.json; source files must rebuild an identical compiled artifact before release.",
+  "runtime_import_target": "Xray-config/Xray-Cooperative-Overlay.json",
+  "compiled_output": "build/config/Xray-Cooperative-Overlay.json",
   "primary_source": "config-src/base.json",
   "fragments": [],
   "source_components": [
@@ -27,22 +27,22 @@
     "config_src_runtime_sync"
   ],
   "generated_profiles": [
-    "Xray-config/MITM-DomainFronting.strict.json",
-    "Xray-config/MITM-DomainFronting.balanced.json",
-    "Xray-config/MITM-DomainFronting.compatibility.json",
-    "Xray-config/MITM-DomainFronting.debug.json"
+    "Xray-config/Xray-Cooperative-Overlay.strict.json",
+    "Xray-config/Xray-Cooperative-Overlay.balanced.json",
+    "Xray-config/Xray-Cooperative-Overlay.compatibility.json",
+    "Xray-config/Xray-Cooperative-Overlay.debug.json"
   ],
   "generated_evasion_lab_profiles": [
-    "Xray-config/MITM-DomainFronting.evasion-fragment.json",
-    "Xray-config/MITM-DomainFronting.evasion-reality-stub.json",
-    "Xray-config/MITM-DomainFronting.evasion-tun-stub.json",
-    "Xray-config/MITM-DomainFronting.evasion-fakedns.json",
-    "Xray-config/MITM-DomainFronting.evasion-high-stealth.json"
+    "Xray-config/Xray-Cooperative-Overlay.evasion-fragment.json",
+    "Xray-config/Xray-Cooperative-Overlay.evasion-reality-stub.json",
+    "Xray-config/Xray-Cooperative-Overlay.evasion-tun-stub.json",
+    "Xray-config/Xray-Cooperative-Overlay.evasion-fakedns.json",
+    "Xray-config/Xray-Cooperative-Overlay.evasion-high-stealth.json"
   ],
   "non_goals": [
     "no automatic runtime profile switching",
     "no upstream Xray-core source edits",
     "no payload logging during build",
-    "no replacement of Xray-config/MITM-DomainFronting.json as the user import target"
+    "no replacement of Xray-config/Xray-Cooperative-Overlay.json as the user import target"
   ]
 }

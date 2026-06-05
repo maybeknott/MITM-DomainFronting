@@ -15,7 +15,7 @@ from verify_release_artifact import REQUIRED_SUFFIXES, verify_zip  # noqa: E402
 def write_zip(path: Path, entries: list[str]) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for entry in entries:
-            archive.writestr(f"MITM-DomainFronting-Control-Center/{entry}", "x")
+            archive.writestr(f"Xray-Cooperative-Overlay-Control-Center/{entry}", "x")
 
 
 def write_checksum(zip_path: Path, checksum_path: Path) -> None:

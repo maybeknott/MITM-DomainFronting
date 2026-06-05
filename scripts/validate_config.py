@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate an Xray JSON config for the MITM-DomainFronting single-config workflow.
+Validate an Xray JSON config for the Xray-Cooperative-Overlay single-config workflow.
 
 This script performs static checks only. It does not run traffic, inspect payloads,
 read cookies, or send diagnostics anywhere.
@@ -391,7 +391,7 @@ def summarize(checks: List[Dict[str, str]]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate MITM-DomainFronting Xray config structure")
+    parser = argparse.ArgumentParser(description="Validate Xray-Cooperative-Overlay Xray config structure")
     parser.add_argument("config", type=Path)
     parser.add_argument("--json-out", type=Path, default=None)
     args = parser.parse_args()

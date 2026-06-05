@@ -3,7 +3,7 @@
 ## Purpose
 
 Single entry point for architecture, policy, delivery, evasion engineering, and
-operational documentation for MITM-DomainFronting.
+operational documentation for Xray-Cooperative-Overlay.
 
 **Maintainers edit Markdown directly** under `docs/reference/` and `docs/`. There is
 no doc generator.
@@ -194,6 +194,6 @@ py -3 main.py advise --skip-runtime
 py -3 main.py lab-prepare --allow-warn
 py -3 tests/python/repository_structure_tests.py
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json
 cargo test --locked
 ```

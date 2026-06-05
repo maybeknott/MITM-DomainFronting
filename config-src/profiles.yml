@@ -4,16 +4,16 @@ generated_by: scripts/generate_profiles.py
 default_profile: balanced
 profiles:
   strict:
-    target: Xray-config/MITM-DomainFronting.strict.json
+    target: Xray-config/Xray-Cooperative-Overlay.strict.json
     unsupported_flow_policy: fail_closed
   balanced:
-    target: Xray-config/MITM-DomainFronting.balanced.json
+    target: Xray-config/Xray-Cooperative-Overlay.balanced.json
     unsupported_flow_policy: documented_direct_for_unmapped
   compatibility:
-    target: Xray-config/MITM-DomainFronting.compatibility.json
+    target: Xray-config/Xray-Cooperative-Overlay.compatibility.json
     unsupported_flow_policy: explicit_user_selected_fallback
   debug:
-    target: Xray-config/MITM-DomainFronting.debug.json
+    target: Xray-config/Xray-Cooperative-Overlay.debug.json
     unsupported_flow_policy: redacted_diagnostics_no_payload_logs
 validation:
   - scripts/generate_profiles.py

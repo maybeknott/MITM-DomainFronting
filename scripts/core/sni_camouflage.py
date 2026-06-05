@@ -242,13 +242,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "configs",
         nargs="*",
-        help="Xray JSON paths (default: Xray-config/MITM-DomainFronting.json)",
+        help="Xray JSON paths (default: Xray-config/Xray-Cooperative-Overlay.json)",
     )
     parser.add_argument("--json", action="store_true", help="emit JSON instead of human lines")
     args = parser.parse_args(argv)
 
     root = Path(__file__).resolve().parents[2]
-    paths = [Path(p) for p in args.configs] if args.configs else [root / "Xray-config" / "MITM-DomainFronting.json"]
+    paths = [Path(p) for p in args.configs] if args.configs else [root / "Xray-config" / "Xray-Cooperative-Overlay.json"]
     exit_code = 0
     for path in paths:
         try:

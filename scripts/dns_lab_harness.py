@@ -330,7 +330,7 @@ def scenario_captive_portal(timeout: float) -> Dict[str, object]:
     try:
         req = urllib.request.Request(
             "http://connectivitycheck.gstatic.com/generate_204",
-            headers={"User-Agent": "mitm-domainfronting-dns-lab"},
+            headers={"User-Agent": "xray-cooperative-overlay-dns-lab"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:
             code = int(response.getcode())

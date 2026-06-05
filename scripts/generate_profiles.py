@@ -126,7 +126,7 @@ def make_profile(base: Dict[str, Any], profile: str) -> Dict[str, Any]:
     policy = PROFILE_POLICIES[profile]
     config = copy.deepcopy(base)
     config.pop("__Credits__", None)
-    config["remarks"] = f"{base.get('remarks', 'MITM-DomainFronting')}_{profile}"
+    config["remarks"] = f"{base.get('remarks', 'Xray-Cooperative-Overlay')}_{profile}"
     log = config.setdefault("log", {})
     if isinstance(log, dict):
         log["loglevel"] = policy["loglevel"]
@@ -142,8 +142,8 @@ def make_profile(base: Dict[str, Any], profile: str) -> Dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate MITM-DomainFronting operating profile configs")
-    parser.add_argument("--base", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser = argparse.ArgumentParser(description="Generate Xray-Cooperative-Overlay operating profile configs")
+    parser.add_argument("--base", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--out-dir", type=Path, default=Path("Xray-config"))
     parser.add_argument("--port-offset", type=int, default=0, help="shift local listener and redirect ports together")
     parser.add_argument("--suffix", default="", help="filename suffix before .json, for example .altports")
@@ -156,7 +156,7 @@ def main() -> int:
         direction = "plus" if args.port_offset > 0 else "minus"
         suffix = f".ports-{direction}{abs(args.port_offset)}"
     for profile in PROFILE_POLICIES:
-        output = args.out_dir / f"MITM-DomainFronting.{profile}{suffix}.json"
+        output = args.out_dir / f"Xray-Cooperative-Overlay.{profile}{suffix}.json"
         config = make_profile(base, profile)
         apply_port_offset(config, args.port_offset)
         output.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

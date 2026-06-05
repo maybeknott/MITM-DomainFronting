@@ -142,7 +142,7 @@ def geodata_summary(entries: List[Dict[str, object]]) -> Dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build release validation manifest")
     parser.add_argument("--root", type=Path, default=Path("."))
-    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--out", type=Path, default=Path("validation-report.json"))
     parser.add_argument("--checksums", type=Path, default=Path("checksums.txt"))
     parser.add_argument("--include", action="append", default=[], help="extra file to checksum; repeatable")

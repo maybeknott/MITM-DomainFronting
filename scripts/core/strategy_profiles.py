@@ -48,7 +48,7 @@ def default_candidates(root: Path = ROOT) -> tuple[ProfileCandidate, ...]:
         "evasion-high-stealth",
     )
     for profile_id in profile_ids:
-        path = root / "Xray-config" / f"MITM-DomainFronting.{profile_id}.json"
+        path = root / "Xray-config" / f"Xray-Cooperative-Overlay.{profile_id}.json"
         if not path.exists():
             continue
         candidates.append(

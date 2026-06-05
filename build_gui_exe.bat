@@ -18,5 +18,5 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 echo Build complete.
-echo Open dist\MITM-DomainFronting-Control-Center and double-click MITM-DomainFronting-Control-Center.exe
+echo Open dist\Xray-Cooperative-Overlay-Control-Center and double-click Xray-Cooperative-Overlay-Control-Center.exe
 pause

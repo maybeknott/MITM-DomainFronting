@@ -23,7 +23,7 @@ EVASION_PROFILES = (
 
 def _evasion_profiles_present(root: Path) -> Dict[str, bool]:
     return {
-        name: (root / "Xray-config" / f"MITM-DomainFronting.{name}.json").is_file()
+        name: (root / "Xray-config" / f"Xray-Cooperative-Overlay.{name}.json").is_file()
         for name in EVASION_PROFILES
     }
 
@@ -110,8 +110,8 @@ def build_advisor_plan(
                 "P0",
                 "repair_config",
                 "Repair primary config",
-                "Xray-config/MITM-DomainFronting.json is missing or invalid.",
-                "py -3 scripts/validate_config.py Xray-config/MITM-DomainFronting.json",
+                "Xray-config/Xray-Cooperative-Overlay.json is missing or invalid.",
+                "py -3 scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json",
                 "docs/troubleshooting.md",
             )
         )

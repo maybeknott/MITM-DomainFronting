@@ -277,7 +277,7 @@ def build_policy_recommendation(checks: Dict[str, object], overall: str, root: P
 def emit_report(report: Dict[str, object]) -> str:
     if not os.isatty(1):
         return json.dumps(report, indent=2, ensure_ascii=False)
-    lines = ["", "=" * 72, " MITM-DomainFronting Health Probe", "=" * 72]
+    lines = ["", "=" * 72, " Xray-Cooperative-Overlay Health Probe", "=" * 72]
     grouped = report.get("checks", {})
     if isinstance(grouped, dict):
         for group, value in grouped.items():
@@ -294,7 +294,7 @@ def emit_report(report: Dict[str, object]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run local health probe and emit redacted JSON")
-    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
     parser.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     parser.add_argument("--providers-dir", type=Path, default=Path("providers"))

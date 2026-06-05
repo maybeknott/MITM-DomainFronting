@@ -27,7 +27,7 @@ No complex build pipeline is required. A release can remain simple:
 ## Required release artifacts
 
 ```text
-Xray-config/MITM-DomainFronting.json
+Xray-config/Xray-Cooperative-Overlay.json
 Xray-config/certificate_generator.bat
 Xray-config/certificate_generator.sh
 checksums.txt
@@ -50,10 +50,10 @@ On Windows, use `py -3 main.py release-check` if `python` is not on `PATH`.
 Use the expanded sequence below when preparing release evidence or when a specific check needs its own output:
 
 ```bash
-python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --no-dns --skip-cert --skip-runtime
 python scripts/geodata_pin.py --verify
-python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/route_intent_sync.py Xray-config/Xray-Cooperative-Overlay.json
 python scripts/config_src_validate.py --run-steps
 python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 python tests/python/health_policy_tests.py
@@ -66,7 +66,7 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
 For a packaged Windows ZIP, verify artifact shape before publishing:
 
 ```bash
-python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256
+python scripts/verify_release_artifact.py dist/Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip.sha256
 ```
 
 To pin geodata for a release after downloading Xray locally:
@@ -80,7 +80,7 @@ python scripts/geodata_pin.py --write-lock --xray-bin xray/xray --root .
 For a local maintainer machine with generated CA material, also run:
 
 ```bash
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
 ```
 
 If Xray is available, generate disposable runtime-local CA material first. Xray resolves the
@@ -90,7 +90,7 @@ validation layout, so the test must not depend on user-private certificate files
 ```bash
 python scripts/install_xray.py --out-dir xray --force
 xray/xray tls cert -ca -file=xray/mycert
-xray/xray run -test -config Xray-config/MITM-DomainFronting.json
+xray/xray run -test -config Xray-config/Xray-Cooperative-Overlay.json
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --xray-bin xray/xray
 ```
 
@@ -123,9 +123,9 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
   "release": "vXX",
   "date_utc": "YYYY-MM-DDTHH:MM:SSZ",
   "config": {
-    "path": "Xray-config/MITM-DomainFronting.json",
+    "path": "Xray-config/Xray-Cooperative-Overlay.json",
     "sha256": "...",
-    "remarks": "MITM-DomainFronting_vXX"
+    "remarks": "Xray-Cooperative-Overlay_vXX"
   },
   "checks": {
     "json_parse": "pass",

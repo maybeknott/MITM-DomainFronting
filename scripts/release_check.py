@@ -74,7 +74,7 @@ def require_file(rel: str) -> dict[str, object]:
 
 def release_checks() -> list[tuple[str, Callable[[], dict[str, object]]]]:
     py = sys.executable
-    config = "Xray-config/MITM-DomainFronting.json"
+    config = "Xray-config/Xray-Cooperative-Overlay.json"
     return [
         ("config-src validates", lambda: run_command("config-src validates", [py, "scripts/config_src_validate.py", "--run-steps"], timeout=240)),
         (
@@ -99,13 +99,13 @@ def release_checks() -> list[tuple[str, Callable[[], dict[str, object]]]]:
         ("geoip.dat present", lambda: require_file("xray/geoip.dat")),
         ("geosite.dat present", lambda: require_file("xray/geosite.dat")),
         ("primary config present", lambda: require_file(config)),
-        ("strict profile present", lambda: require_file("Xray-config/MITM-DomainFronting.strict.json")),
-        ("balanced profile present", lambda: require_file("Xray-config/MITM-DomainFronting.balanced.json")),
-        ("compatibility profile present", lambda: require_file("Xray-config/MITM-DomainFronting.compatibility.json")),
-        ("debug profile present", lambda: require_file("Xray-config/MITM-DomainFronting.debug.json")),
+        ("strict profile present", lambda: require_file("Xray-config/Xray-Cooperative-Overlay.strict.json")),
+        ("balanced profile present", lambda: require_file("Xray-config/Xray-Cooperative-Overlay.balanced.json")),
+        ("compatibility profile present", lambda: require_file("Xray-config/Xray-Cooperative-Overlay.compatibility.json")),
+        ("debug profile present", lambda: require_file("Xray-config/Xray-Cooperative-Overlay.debug.json")),
         (
             "evasion high-stealth present",
-            lambda: require_file("Xray-config/MITM-DomainFronting.evasion-high-stealth.json"),
+            lambda: require_file("Xray-config/Xray-Cooperative-Overlay.evasion-high-stealth.json"),
         ),
         (
             "intelligent advisor",

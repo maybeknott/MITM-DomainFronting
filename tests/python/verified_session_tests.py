@@ -14,7 +14,7 @@ ROOT = Path(_path.ROOT)
 def _bundle() -> dict:
     return build_bundle(
         root=ROOT,
-        config_path=ROOT / "Xray-config" / "MITM-DomainFronting.json",
+        config_path=ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json",
         cert_path=ROOT / "Xray-config" / "mycert.crt",
         key_path=ROOT / "Xray-config" / "mycert.key",
         skip_trust=True,
@@ -33,7 +33,7 @@ def main() -> int:
     bundle = _bundle()
     checks = []
 
-    checks.append(("schema_versioned", bundle.get("schema"), "mitm-domainfronting/verified-session/1"))
+    checks.append(("schema_versioned", bundle.get("schema"), "xray-cooperative-overlay/verified-session/1"))
     checks.append(("redaction_status", bundle.get("redaction_status"), "redacted"))
     checks.append(("root_redacted", bundle["project_state"].get("root"), "<redacted>"))
     checks.append(("no_pid_in_state", "listener_pid" in bundle["project_state"], False))

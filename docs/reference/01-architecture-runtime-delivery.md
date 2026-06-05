@@ -53,7 +53,7 @@ config-src/          YAML fragments, templates, provider pins
     ▼
 scripts/build_config.py
     │
-    ├──► Xray-config/MITM-DomainFronting.json   (runtime)
+    ├──► Xray-config/Xray-Cooperative-Overlay.json   (runtime)
     ├──► configs/profiles.yml                   (GUI / CLI labels)
     └──► sync checks (--check-runtime-sync, --check-profile-sync)
 ```
@@ -63,7 +63,7 @@ scripts/build_config.py
 ```text
 scripts/gui.py
   → ProcessSupervisor (Job Object 0x2000 kill-on-close)
-  → xray/xray.exe -c Xray-config/MITM-DomainFronting.json
+  → xray/xray.exe -c Xray-config/Xray-Cooperative-Overlay.json
   → .local-state/gui-telemetry.jsonl (forensic surface — disable via OPSEC RAM-only mode)
 ```
 
@@ -115,7 +115,7 @@ INIT → LOAD_FRAGMENTS → LINT → MERGE → DISPATCH → RUNNING
 | State | Owner | Action |
 |---|---|---|
 | **INIT** | Operator / CI | Repository checkout; optional `bootstrap.py` |
-| **LOAD_FRAGMENTS** | `scripts/build_config.py` | Merge `config-src/` → `Xray-config/MITM-DomainFronting.json` |
+| **LOAD_FRAGMENTS** | `scripts/build_config.py` | Merge `config-src/` → `Xray-config/Xray-Cooperative-Overlay.json` |
 | **LINT** | `validate_config.py`, `route_rule_linter.py`, `config_src_validate.py` | Schema, routes, provider targets |
 | **MERGE** | `build_config.py` | Profile labels; pool attachment when Track A/B land |
 | **DISPATCH** | `ProcessSupervisor` / operator | `xray run -config …` or GUI Start Core |
@@ -125,7 +125,7 @@ INIT → LOAD_FRAGMENTS → LINT → MERGE → DISPATCH → RUNNING
 
 ```bash
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-py -3 scripts/validate_config.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json
 py -3 scripts/config_src_validate.py --run-steps
 ```
 
@@ -228,7 +228,7 @@ forwarder at init.
 | Artifact | Role |
 |---|---|
 | `xray/xray.exe` | Pinned binary (see `config-src` / docs) |
-| `Xray-config/MITM-DomainFronting.json` | Generated runtime config |
+| `Xray-config/Xray-Cooperative-Overlay.json` | Generated runtime config |
 | Outbounds `tls-repack-*` | uTLS fingerprint + camouflage SNI (shipped) |
 
 ---

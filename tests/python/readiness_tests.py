@@ -27,7 +27,7 @@ def base_state() -> ProjectState:
         next_action="",
         next_action_detail="",
         config_ok=True,
-        config_path="Xray-config/MITM-DomainFronting.json",
+        config_path="Xray-config/Xray-Cooperative-Overlay.json",
         profiles_present=True,
         profiles_synced=True,
         xray_available=True,

@@ -142,7 +142,7 @@ def reality_stub(root: Path) -> int:
 
 def fakedns_policy(root: Path) -> int:
     fragment = root / "config-src" / "fragments" / "fakedns-19818-trap.json"
-    base = root / "Xray-config" / "MITM-DomainFronting.json"
+    base = root / "Xray-config" / "Xray-Cooperative-Overlay.json"
     checks: dict[str, object] = {"fragment_present": fragment.exists(), "runtime_fakedns": False, "ip_pool": ""}
     if base.exists():
         data = json.loads(base.read_text(encoding="utf-8"))
@@ -331,7 +331,7 @@ def evasion_lab_profiles(root: Path) -> int:
         ):
             if label in text:
                 checks["optional_lab_labels"].append(label)
-    base = root / "Xray-config" / "MITM-DomainFronting.json"
+    base = root / "Xray-config" / "Xray-Cooperative-Overlay.json"
     fragment = fragments["tls-fragment"]
     if base.exists() and fragment.exists():
         sys.path.insert(0, str(root / "scripts"))
@@ -352,7 +352,7 @@ def evasion_lab_profiles(root: Path) -> int:
         except Exception as exc:  # noqa: BLE001
             checks["merge_error"] = str(exc)
     labels = checks["optional_lab_labels"]
-    high_stealth = (root / "Xray-config" / "MITM-DomainFronting.evasion-high-stealth.json").is_file()
+    high_stealth = (root / "Xray-config" / "Xray-Cooperative-Overlay.evasion-high-stealth.json").is_file()
     checks["evasion_high_stealth_generated"] = high_stealth
     status = (
         "pass"
@@ -365,7 +365,7 @@ def evasion_lab_profiles(root: Path) -> int:
 def udp443_policy(config_dir: Path) -> int:
     checks: List[Dict[str, object]] = []
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
-        path = config_dir / f"MITM-DomainFronting.{profile}.json"
+        path = config_dir / f"Xray-Cooperative-Overlay.{profile}.json"
         config = load_config(path)
         udp = first_udp443_rule(config)
         catchall = catchall_rule(config)

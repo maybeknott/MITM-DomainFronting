@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Canonical policy and implementer depth for MITM-DomainFronting: Architecture Decision
+Canonical policy and implementer depth for Xray-Cooperative-Overlay: Architecture Decision
 Records (0001–0010), evasion technique routing (Tracks A/B/D), high-survivability
 specifications, and JSON profile targets. Operational how-tos live under `docs/`.
 
@@ -1268,7 +1268,7 @@ Rust dispatch.
 
 ```bash
 tshark -r stream.pcap -T fields -e tls.handshake.ja3_hash
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json
 cargo test ja3 regression_harness --locked
 ```
 
@@ -1548,7 +1548,7 @@ Legend: **Shipped** · **Future research** = 03 §4.1 · **N/A** = model/fixture
 ```bash
 cargo test ingress_xdp_gateway ingress_android_tun --locked
 tshark -r capture.pcap -T fields -e tls.handshake.ja3_hash
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json
 ```
 
 ### 8.2 Control plane and automation (`scripts/`)
@@ -1611,7 +1611,7 @@ tshark -r stream.pcap -T fields -e ssl.handshake.ciphersuite
 
 ## 1. Executive summary
 
-`MITM-DomainFronting` is a **control plane + validation layer** wrapped around
+`Xray-Cooperative-Overlay` is a **control plane + validation layer** wrapped around
 **Xray as the sole live data plane** (ADR-0001). Python orchestrates lifecycle,
 preflight, health probes, and config compilation; Rust models TLS/routing policy
 offline; Xray performs MITM, domain fronting, uTLS, and repack on the wire.
@@ -1638,7 +1638,7 @@ ADR (ADR-0008).
 2. Config synthesis
    config-src/base.json + routes/dns/providers YAML
    scripts/build_config.py --check-runtime-sync --generate-profiles
-   → Xray-config/MITM-DomainFronting.json (+ *.strict|balanced|…)
+   → Xray-config/Xray-Cooperative-Overlay.json (+ *.strict|balanced|…)
 
 3. Offline validation (Rust)
    cargo test (parser, ja3, tls_orchestrator, regression_harness, scheduler)
@@ -1660,7 +1660,7 @@ ADR (ADR-0008).
 ```bash
 py -3 main.py test
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json
 cargo test --locked
 ```
 

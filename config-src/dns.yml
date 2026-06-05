@@ -1,6 +1,6 @@
 version: 1
 source_config: config-src/base.json
-runtime_target: Xray-config/MITM-DomainFronting.json
+runtime_target: Xray-config/Xray-Cooperative-Overlay.json
 policy:
   serve_stale_required: true
   fakedns_required: true

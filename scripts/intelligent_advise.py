@@ -15,9 +15,9 @@ from core.readiness import build_project_state, emit_text  # noqa: E402
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Context-aware recommendations for MITM-DomainFronting")
+    parser = argparse.ArgumentParser(description="Context-aware recommendations for Xray-Cooperative-Overlay")
     parser.add_argument("--root", type=Path, default=ROOT)
-    parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    parser.add_argument("--config", default="Xray-config/Xray-Cooperative-Overlay.json")
     parser.add_argument("--skip-runtime", action="store_true")
     parser.add_argument("--text", action="store_true", help="human-readable summary")
     parser.add_argument(

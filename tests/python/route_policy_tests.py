@@ -166,11 +166,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate route policy semantics across base and profile configs")
     parser.add_argument("configs", nargs="*", type=Path)
     args = parser.parse_args()
-    paths = args.configs or sorted(Path("Xray-config").glob("MITM-DomainFronting*.json"))
+    paths = args.configs or sorted(Path("Xray-config").glob("Xray-Cooperative-Overlay*.json"))
     errors: List[str] = []
     for path in paths:
         config = load(path)
-        if path.name == "MITM-DomainFronting.json":
+        if path.name == "Xray-Cooperative-Overlay.json":
             errors.extend(check_base(config, path))
         elif profile_name(config, path):
             errors.extend(check_profile(config, path))

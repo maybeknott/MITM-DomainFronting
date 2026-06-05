@@ -5,7 +5,7 @@
     "donate2": "USDT (TRC20): TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o",
     "donate3": "TON (TON): UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i"
   },
-  "remarks": "MITM-DomainFronting.evasion-reality-stub",
+  "remarks": "Xray-Cooperative-Overlay.evasion-high-stealth",
   "version": {
     "min": "26.2.6"
   },
@@ -51,34 +51,17 @@
           "geosite:google",
           "geosite:meta",
           "geosite:fastly",
-          "geosite:reddit",
-          "full:github.githubassets.com"
+          "geosite:reddit"
         ]
-      },
-      {
-        "tag": "no-filter-dns-cloudflare",
-        "address": "h2c://1.1.1.1/dns-query",
-        "timeoutMs": 6000,
-        "finalQuery": true
-      },
-      {
-        "tag": "no-filter-dns-google",
-        "address": "h2c://8.8.8.8/dns-query",
-        "timeoutMs": 4000
-      },
-      {
-        "address": "localhost",
-        "domains": [
-          "domain:ir",
-          "geosite:private",
-          "geosite:category-ir"
-        ],
-        "timeoutMs": 3000
       }
     ],
     "queryStrategy": "UseIPv4",
     "useSystemHosts": true,
-    "serveStale": true
+    "serveStale": true,
+    "fakedns": {
+      "ipPool": "198.18.0.0/15",
+      "poolSize": 65535
+    }
   },
   "inbounds": [
     {
@@ -211,6 +194,23 @@
         }
       },
       "listen": "127.0.0.1"
+    },
+    {
+      "tag": "tun-in",
+      "protocol": "tun",
+      "settings": {
+        "name": "xray-cooperative-overlay-tun",
+        "MTU": 1500,
+        "stack": "system"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
+      }
     }
   ],
   "outbounds": [
@@ -299,7 +299,7 @@
         "ja3_template_id": "rust-fixture-grease-stripped",
         "ja3_template_index": 0,
         "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-reality-stub"
+        "operating_profile": "evasion-high-stealth"
       }
     },
     {
@@ -333,7 +333,7 @@
         "ja3_template_id": "rust-fixture-grease-stripped",
         "ja3_template_index": 0,
         "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-reality-stub"
+        "operating_profile": "evasion-high-stealth"
       }
     },
     {
@@ -364,7 +364,7 @@
         "ja3_template_id": "rust-fixture-grease-stripped",
         "ja3_template_index": 0,
         "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-reality-stub"
+        "operating_profile": "evasion-high-stealth"
       }
     },
     {
@@ -398,7 +398,7 @@
         "ja3_template_id": "rust-fixture-grease-stripped",
         "ja3_template_index": 0,
         "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-reality-stub"
+        "operating_profile": "evasion-high-stealth"
       }
     },
     {
@@ -429,41 +429,20 @@
         "ja3_template_id": "rust-fixture-grease-stripped",
         "ja3_template_index": 0,
         "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-reality-stub"
+        "operating_profile": "evasion-high-stealth"
       }
     },
     {
-      "tag": "reality-front-stub",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "127.0.0.1",
-            "port": 443,
-            "users": [
-              {
-                "id": "00000000-0000-0000-0000-000000000001",
-                "encryption": "none",
-                "flow": "xtls-rprx-vision"
-              }
-            ]
-          }
-        ]
-      },
+      "tag": "fragment-lab-stub",
+      "protocol": "freedom",
+      "settings": {},
       "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "show": false,
-          "dest": "www.cloudflare.com:443",
-          "xver": 0,
-          "serverNames": [
-            "www.cloudflare.com"
-          ],
-          "privateKey": "REPLACE_WITH_LAB_KEY",
-          "shortIds": [
-            "0123456789abcdef"
-          ]
+        "sockopt": {
+          "fragment": {
+            "packets": "tlshello",
+            "length": "100-200",
+            "interval": "10-20"
+          }
         }
       }
     }
@@ -655,13 +634,13 @@
       }
     ]
   },
-  "__comment": "Reference REALITY outbound stub for optional lab profiles — not merged into runtime manifest.",
+  "__comment": "Reference TUN inbound for High Stealth lab profiles — requires OS privileges and firewall checklist.",
   "mitm": {
     "ja3_pool_id": "chrome-baseline-v1",
     "ja3_template_id": "rust-fixture-grease-stripped",
     "ja3_template_index": 0,
     "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-    "operating_profile": "evasion-reality-stub",
+    "operating_profile": "evasion-high-stealth",
     "ja3_pool_file": "config-src/templates/ja3-pools/chrome-baseline-pool.json"
   }
 }

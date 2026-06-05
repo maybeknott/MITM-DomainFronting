@@ -3,7 +3,7 @@
 ## Purpose
 
 Operational known issues, prioritized risks, engineering closure register, assumptions,
-unknowns, and verification gates for MITM-DomainFronting.
+unknowns, and verification gates for Xray-Cooperative-Overlay.
 
 **Terminology:** [00-engineering-handbook.md](00-engineering-handbook.md) §0.  
 **Delivery tracks:** [01-architecture-runtime-delivery.md](01-architecture-runtime-delivery.md) §4.  
@@ -133,7 +133,7 @@ py -3 main.py test
 py -3 tests/python/repository_structure_tests.py
 py -3 tests/python/sni_camouflage_tests.py
 py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json
 cargo test --locked
 cargo fmt --check
 cargo clippy --locked -- -D warnings
@@ -250,7 +250,7 @@ requires an operator capture on a lab bridge:
 |---|---|
 | User-controlled local operation | README, loopback listeners |
 | Per-user `mycert.*` secrets | Certificate lifecycle docs |
-| Single primary Xray JSON workflow | `Xray-config/MITM-DomainFronting.json` |
+| Single primary Xray JSON workflow | `Xray-config/Xray-Cooperative-Overlay.json` |
 | Browser MITM more reliable than arbitrary apps | Platform trust behavior |
 | CDN routing changes externally | `docs/provider-status.md` |
 | Xray is sole live data plane | ProcessSupervisor spawns Xray only |

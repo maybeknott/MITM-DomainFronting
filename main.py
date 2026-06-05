@@ -197,7 +197,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
                 "evasion-fakedns",
                 "evasion-high-stealth",
             )
-            if not (ROOT / "Xray-config" / f"MITM-DomainFronting.{name}.json").is_file()
+            if not (ROOT / "Xray-config" / f"Xray-Cooperative-Overlay.{name}.json").is_file()
         ]
         if missing:
             print(f"missing evasion lab profiles: {', '.join(missing)}")
@@ -206,7 +206,7 @@ def build_test_checks(config: str, *, require_rust: bool) -> List[Check]:
 
     def _profiles_in_sync() -> int:
         proc = subprocess.run(
-            ["git", "diff", "--exit-code", "--", "Xray-config/MITM-DomainFronting.*.json"],
+            ["git", "diff", "--exit-code", "--", "Xray-config/Xray-Cooperative-Overlay.*.json"],
             cwd=str(ROOT),
             check=False,
         )
@@ -282,7 +282,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="mitm",
         description=(
-            "MITM-DomainFronting local operations.\n\n"
+            "Xray-Cooperative-Overlay local operations.\n\n"
             "A toolkit for running and validating the local TLS MITM "
             "domain-fronting proxy: bootstrap the environment, launch the "
             "desktop control center, audit configuration, and run the full "
@@ -322,7 +322,7 @@ def main() -> int:
         "audit", help="run static config, metadata, route, and governance checks"
     )
     audit_parser.add_argument(
-        "--config", default="Xray-config/MITM-DomainFronting.json", help="config to validate"
+        "--config", default="Xray-config/Xray-Cooperative-Overlay.json", help="config to validate"
     )
     audit_parser.add_argument(
         "--keep-going",
@@ -333,7 +333,7 @@ def main() -> int:
         "test", help="run the full local check suite mirroring CI (offline, deterministic)"
     )
     test_parser.add_argument(
-        "--config", default="Xray-config/MITM-DomainFronting.json", help="config to validate"
+        "--config", default="Xray-config/Xray-Cooperative-Overlay.json", help="config to validate"
     )
     test_parser.add_argument(
         "--fail-fast",
@@ -346,7 +346,7 @@ def main() -> int:
         help="fail (instead of skip) when the Rust toolchain (cargo) is unavailable",
     )
     probe_parser = sub.add_parser("probe", help="emit the shared local readiness state")
-    probe_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json", help="config to inspect")
+    probe_parser.add_argument("--config", default="Xray-config/Xray-Cooperative-Overlay.json", help="config to inspect")
     probe_parser.add_argument("--cert", default="Xray-config/mycert.crt", help="local CA certificate to inspect")
     probe_parser.add_argument("--key", default="Xray-config/mycert.key", help="local CA private key to inspect")
     probe_parser.add_argument("--skip-trust", action="store_true", help="skip local trust-store matching")
@@ -361,7 +361,7 @@ def main() -> int:
         help="run a verified runtime session and save a redacted evidence bundle",
     )
     advise_parser = sub.add_parser("advise", help="emit intelligent recommendations (profiles, evasion lab, eBPF)")
-    advise_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    advise_parser.add_argument("--config", default="Xray-config/Xray-Cooperative-Overlay.json")
     advise_parser.add_argument("--skip-runtime", action="store_true")
     advise_parser.add_argument("--text", action="store_true", help="human-readable summary")
     advise_parser.add_argument(
@@ -375,7 +375,7 @@ def main() -> int:
         help="run persona playbook plus advisor (default: newcomer checklist)",
     )
     onboard_parser.add_argument("--persona", choices=("newcomer", "maintainer", "lab"), default="newcomer")
-    onboard_parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    onboard_parser.add_argument("--config", default="Xray-config/Xray-Cooperative-Overlay.json")
     onboard_parser.add_argument("--dry-run", action="store_true")
     onboard_parser.add_argument("--json-out", type=Path, default=None)
     onboard_parser.add_argument("--skip-playbook", action="store_true")

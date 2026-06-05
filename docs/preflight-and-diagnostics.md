@@ -8,7 +8,7 @@ Catch common setup problems before users open issues. The preflight script is lo
 
 ```bash
 python scripts/preflight.py \
-  --config Xray-config/MITM-DomainFronting.json \
+  --config Xray-config/Xray-Cooperative-Overlay.json \
   --cert Xray-config/mycert.crt \
   --key Xray-config/mycert.key
 ```
@@ -16,13 +16,13 @@ python scripts/preflight.py \
 Optional Xray config test:
 
 ```bash
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --xray-bin xray --no-dns
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --xray-bin xray --no-dns
 ```
 
 Static-only CI check without user-local CA files:
 
 ```bash
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --no-dns --skip-cert --skip-runtime
 ```
 
 When DNS checks are enabled, preflight also runs a best-effort captive portal warning probe. Skip it with `--skip-captive-portal` or together with `--no-dns`.
@@ -51,7 +51,7 @@ python scripts/trust_assistant.py --cert Xray-config/mycert.crt
 Local health summary:
 
 ```bash
-python scripts/health_probe.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --providers-dir providers
+python scripts/health_probe.py --config Xray-config/Xray-Cooperative-Overlay.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --providers-dir providers
 ```
 
 The health probe includes a read-only `policy_recommendation` object (`auto_switch` is always false). It suggests a profile and local actions but never changes runtime config.
@@ -75,7 +75,7 @@ python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8
 Support-safe decision report:
 
 ```bash
-python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --profile balanced
+python scripts/decision_report.py --config Xray-config/Xray-Cooperative-Overlay.json --profile balanced
 ```
 
 The decision report includes captive portal warnings and the same read-only `policy_recommendation` block as the health probe. For repeatable lab scenarios, see [`lab-evidence-checklist.md`](lab-evidence-checklist.md) and `python scripts/lab_evidence_run.py`.

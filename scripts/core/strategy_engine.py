@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Profile strategy selection for MITM-DomainFronting.
+"""Profile strategy selection for Xray-Cooperative-Overlay.
 
 This module is intentionally a control-plane selector. It does not emit live TLS,
 does not manipulate packets, and does not change trust stores. It maps observed

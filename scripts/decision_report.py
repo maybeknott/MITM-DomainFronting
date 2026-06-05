@@ -216,8 +216,8 @@ def phase_validation_block(raw_phase: str, normalized_phase: str) -> Dict[str, A
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a redacted MITM-DomainFronting decision report")
-    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser = argparse.ArgumentParser(description="Build a redacted Xray-Cooperative-Overlay decision report")
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
     parser.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     parser.add_argument("--profile", choices=sorted(PROFILE_RULES), default="balanced")

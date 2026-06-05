@@ -12,7 +12,7 @@ To maintain a stable, cross-platform codebase, all proposals must fit explicitly
 
 ### In-Scope Tracks
 
-1. **Config Profile:** Creating, tuning, or hardening configuration structures that target established, upstream runtime engines (e.g., `Xray-config/MITM-DomainFronting.json`).
+1. **Config Profile:** Creating, tuning, or hardening configuration structures that target established, upstream runtime engines (e.g., `Xray-config/Xray-Cooperative-Overlay.json`).
 2. **Diagnostic Probe:** Developing standard, user-space tools (e.g., Python validation functions or automated browser instrumentation passes) to verify routing and connection integrity.
 
 ### Out-of-Scope Tracks (Declined / External)

@@ -16,9 +16,9 @@ Describe what changed and why.
 ## Validation
 
 - [ ] JSON parses.
-- [ ] `python scripts/validate_config.py Xray-config/MITM-DomainFronting.json` passed.
+- [ ] `python scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json` passed.
 - [ ] `python scripts/preflight.py --no-dns ...` was run or not applicable.
-- [ ] `xray run -test -config Xray-config/MITM-DomainFronting.json` passed or reason not run is stated.
+- [ ] `xray run -test -config Xray-config/Xray-Cooperative-Overlay.json` passed or reason not run is stated.
 - [ ] No private keys, user certs, cookies, request bodies, or credentials are included.
 - [ ] Route order was reviewed if routing changed.
 - [ ] DNS behavior was reviewed if DNS changed.

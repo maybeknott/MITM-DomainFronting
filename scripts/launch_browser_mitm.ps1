@@ -1,4 +1,4 @@
-# Launch MITM-DomainFronting browser integration (Diagnostics or Stealth).
+# Launch Xray-Cooperative-Overlay browser integration (Diagnostics or Stealth).
 # Requires Xray mixed-in on 127.0.0.1:10808 before use.
 param(
     [ValidateSet("Diagnostics", "Stealth")]
@@ -46,7 +46,7 @@ if (-not $Chrome) {
 }
 
 if (-not $ProfileDir) {
-    $ProfileDir = Join-Path $env:TEMP "mitm-domainfronting-diagnostics-profile"
+    $ProfileDir = Join-Path $env:TEMP "xray-cooperative-overlay-diagnostics-profile"
 }
 New-Item -ItemType Directory -Force -Path $ProfileDir | Out-Null
 

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_NAME = "MITM-DomainFronting-Control-Center"
+APP_NAME = "Xray-Cooperative-Overlay-Control-Center"
 DIST_ROOT = ROOT / "dist"
 APP_DIR = DIST_ROOT / APP_NAME
 BUILD_RUN_ROOT = ROOT / "build" / "pyinstaller-runs"
@@ -171,7 +171,7 @@ def copy_bundled_xray_runtime() -> None:
 
 def write_bundle_manifest() -> None:
     lines = [
-        "MITM-DomainFronting Control Center",
+        "Xray-Cooperative-Overlay Control Center",
         "",
         "This folder is the final Windows app bundle.",
         "",
@@ -237,7 +237,7 @@ def build_exe(skip_install: bool) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build the MITM-DomainFronting GUI executable")
+    parser = argparse.ArgumentParser(description="Build the Xray-Cooperative-Overlay GUI executable")
     parser.add_argument("--skip-install", action="store_true", help="do not install PyInstaller if it is missing")
     args = parser.parse_args()
     exe = build_exe(args.skip_install)

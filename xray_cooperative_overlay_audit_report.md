@@ -1,5 +1,5 @@
 # Technical Due-Diligence, Security Audit, and Engineering Assessment
-## MITM-DomainFronting Control Center & Evasion Platform
+## Xray-Cooperative-Overlay Control Center & Evasion Platform
 ### Document Reference: MDF-2026-AUDIT-001
 ### Audience: CTO, Principal Security Architects, Technical Due-Diligence, and Acquisition Teams
 ### Operational Time Stamp: 2026-06-04T20:54:12+03:30
@@ -8,10 +8,10 @@
 
 # 1. Executive Summary
 
-This document represents the official technical due-diligence package, security audit, and engineering evaluation of the `MITM-DomainFronting` repository. The platform is designed to provide a local control plane and validation framework to supervise the execution of `Xray-core` for Man-in-the-Middle (MITM) decryption, transport encapsulation, and domain-fronted network egress.
+This document represents the official technical due-diligence package, security audit, and engineering evaluation of the `Xray-Cooperative-Overlay` repository. The platform is designed to provide a local control plane and validation framework to supervise the execution of `Xray-core` for Man-in-the-Middle (MITM) decryption, transport encapsulation, and domain-fronted network egress.
 
 ### Technical Assessment Verdict
-* **Local Test Suite Status:** **PASS per recorded local evidence** (51/51 deterministic checks recorded via [main.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/main.py) test suite in 20.99 seconds). This supports configuration, script compilation, routing-policy, key-at-rest helper, and supervisor-regression claims; it does not by itself prove live provider reachability, measured JA3/JA4 diversity, or censorship-network efficacy.
+* **Local Test Suite Status:** **PASS per recorded local evidence** (51/51 deterministic checks recorded via [main.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/main.py) test suite in 20.99 seconds). This supports configuration, script compilation, routing-policy, key-at-rest helper, and supervisor-regression claims; it does not by itself prove live provider reachability, measured JA3/JA4 diversity, or censorship-network efficacy.
 * **Core Architectural Integrity:** Supported by repository policy and implementation boundaries. The system maintains a strict separation of concerns: `Xray-core` is the sole live data plane handling decryption, routing, and uTLS egress (ADR-0001). The Python control plane manages process lifecycle, configuration generation, diagnostics, and GUI orchestration, while the Rust crate (`mitm_stream_core`) operates as an offline validation and policy-modeling harness (ADR-0007).
 * **Primary System Threat Vectors:** Static TLS fingerprint clustering, persistent local telemetry traces, SOCKS5 WebRTC/UDP egress leaks, and certificate private-key exposure.
 * **Remediation Status:** Shipped controls include Windows CryptProtectData sidecar wrapping, ACL tightening, CDP-assisted isolated browser profile setup, GUI-launched Xray process containment, FakeDNS configuration, and FakeDNS recovery documentation. High-stealth firewall/TUN behavior, eBPF/XDP containment, and live JA3/JA4 diversity must remain target/lab claims until profile-specific runtime evidence is attached.
@@ -30,7 +30,7 @@ The audit reviewed repository-local evidence across five classes:
 
 | Evidence Class | Examples | Confidence Contribution |
 |---|---|---|
-| **Runtime configuration** | `Xray-config/MITM-DomainFronting.json`, `config-src/base.json`, generated profile variants | Confirms what Xray is configured to do at runtime |
+| **Runtime configuration** | `Xray-config/Xray-Cooperative-Overlay.json`, `config-src/base.json`, generated profile variants | Confirms what Xray is configured to do at runtime |
 | **Control-plane implementation** | `main.py`, `scripts/preflight.py`, `scripts/gui.py`, `scripts/core/*.py` | Confirms local orchestration, validation, lifecycle, and operator workflows |
 | **Offline validation harness** | `src/*.rs`, `Cargo.toml`, Rust test wrappers | Confirms modeled protocol behavior and rejected second-runtime boundaries |
 | **Tests and gates** | `tests/python/*.py`, `main.py test`, config/routing/provider validators | Confirms deterministic local checks and regression coverage |
@@ -73,7 +73,7 @@ This report uses the following terms strictly:
 
 # 2. System Overview
 
-The `MITM-DomainFronting` system allows client browsers and applications on user-controlled hosts to route traffic through a local decryption boundary. This enables deep packet inspection (DPI) evasion, domain fronting, and active protocol camouflage.
+The `Xray-Cooperative-Overlay` system allows client browsers and applications on user-controlled hosts to route traffic through a local decryption boundary. This enables deep packet inspection (DPI) evasion, domain fronting, and active protocol camouflage.
 
 ```
                       [ USER BROWSER / CLIENT APPLICATION ]
@@ -104,7 +104,7 @@ The `MITM-DomainFronting` system allows client browsers and applications on user
 
 | Capability | Current Status | Primary Evidence | Audit Note |
 |---|---|---|---|
-| Loopback mixed SOCKS/HTTP listener on `127.0.0.1:10808` | **Shipped** | `Xray-config/MITM-DomainFronting.json`, `scripts/preflight.py` | Runtime exposure is checked using netstat/ss style probes; not a substitute for host firewall review |
+| Loopback mixed SOCKS/HTTP listener on `127.0.0.1:10808` | **Shipped** | `Xray-config/Xray-Cooperative-Overlay.json`, `scripts/preflight.py` | Runtime exposure is checked using netstat/ss style probes; not a substitute for host firewall review |
 | MITM decrypt/repack graph using local CA | **Shipped** | `tls-decrypt-*` inbounds, `tls-repack-*` outbounds | Requires user-owned CA trust and local private-key hygiene |
 | uTLS `fingerprint: chrome` configuration | **Shipped** | repack outbounds in Xray config | Configured mimicry only; measured JA3 requires packet evidence |
 | JA3 pool attachment metadata | **Target / generated-profile support** | `config-src/ja3-profile-pools.yml`, `scripts/generate_profiles.py` | Pool metadata exists; live diversity must be proven with captures |
@@ -131,7 +131,7 @@ graph TD
 
     subgraph Control Plane
         G[scripts/gui.py] -->|ProcessSupervisor| H(xray/xray.exe)
-        I[scripts/build_config.py] -->|Compile| J[Xray-config/MITM-DomainFronting.json]
+        I[scripts/build_config.py] -->|Compile| J[Xray-config/Xray-Cooperative-Overlay.json]
     end
 
     subgraph Validation Harness
@@ -146,7 +146,7 @@ graph TD
 * **Workspace Isolation:** Executables and configurations are staged under `xray/` and `Xray-config/`. Private keys (`mycert.key`) and telemetry logs (`.local-state/`) are ignored by version control.
 
 ### 3.3 Runtime Architecture & Lifecycle Control
-The [ProcessSupervisor](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/process_supervisor.py) class manages the execution of `xray/xray.exe` using native OS APIs to enforce strict containment and prevent orphaned processes:
+The [ProcessSupervisor](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/process_supervisor.py) class manages the execution of `xray/xray.exe` using native OS APIs to enforce strict containment and prevent orphaned processes:
 
 #### Windows Job Object Containment
 On Windows (`os.name == "nt"`), the supervisor creates an isolated Job Object and assigns the GUI-launched Xray process to it. The job is configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so the child process tree is lifecycle-bound to the job handle. Explicit termination calls `TerminateJobObject`; crash behavior depends on the final job handle closing, which is the intended Windows containment mechanism but should still be validated on packaged builds.
@@ -206,7 +206,7 @@ On POSIX platforms, the process is spawned with a new session:
 The supervisor contains only the Xray process it launches. If an external Xray/v2rayN process is already listening on the same port, the GUI detects and leaves that external process untouched. The audit therefore distinguishes **GUI-launched process containment** from **system-wide process containment**.
 
 ### 3.4 Deployment Architecture
-* **Packaging:** PyInstaller compiles the control center into a single binary (`MITM-DomainFronting-Control-Center.exe`).
+* **Packaging:** PyInstaller compiles the control center into a single binary (`Xray-Cooperative-Overlay-Control-Center.exe`).
 * **CI/CD Pipeline:** A GitHub Actions workflow (`validate.yml`) runs lints, verifies schema consistency, and executes the Rust offline validation tests.
 
 ---
@@ -217,23 +217,23 @@ Below is the complete component inventory of the repository:
 
 | Component / Path | Language / Type | Purpose | Owner / Tier | Dependencies | Risks | Criticality |
 |---|---|---|---|---|---|---|
-| [main.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/main.py) | Python Script | CLI Entry Point for all local operations. | Control / Shipped | `argparse`, `subprocess` | Subprocess execution | High |
-| [bootstrap.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/bootstrap.py) | Python Script | Beginner-friendly local workspace bootstrapper. | Setup / Shipped | `venv`, `subprocess` | Venv isolation failure | Medium |
-| [scripts/gui.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/gui.py) | Python / Tkinter | Desktop Control Center and state visualizer. | Control / Shipped | `tkinter`, `ProcessSupervisor` | Disk I/O logs exposure | High |
-| [scripts/build_config.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/build_config.py) | Python Script | Compiles fragments into unified Xray config. | Control / Shipped | `json`, `yaml` | Output configuration drift | High |
-| [scripts/core/process_supervisor.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/process_supervisor.py) | Python Module | Safe subprocess supervisor with Job Objects. | Control / Shipped | `ctypes` (Win32 APIs) | OS API updates | Critical |
-| [scripts/core/failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/failure_classifier.py) | Python Module | In-memory classification of network failures. | Control / Shipped | `socket`, `ssl` | Detection bypasses | High |
-| [scripts/core/strategy_engine.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/strategy_engine.py) | Python Module | Deterministic profile recommendation from labels and operator intent. | Control / Shipped | `dataclasses` | Misapplied profile recommendation | High |
-| [scripts/core/strategy_profiles.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/strategy_profiles.py) | Python Module | Holds defaults and recommendation mapping. | Control / Shipped | `Path` | Profile mismatch | High |
-| [scripts/core/strategy_winner.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/strategy_winner.py) | Python Module | Persists successful profiles locally. | Control / Shipped | `json` | Stale cache resolutions | Medium |
-| [scripts/core/trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/trust_broker.py) | Python Module | Ephemeral Chrome launcher via CDP debugging. | Control / Shipped | `websocket-client` | Browser path shifts | High |
-| [scripts/core/key_at_rest.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/key_at_rest.py) | Python Module | DPAPI-based wrapper for private keys. | Control / Shipped | `ctypes` (Win32 Crypt32) | Missing DPAPI support | High |
-| [src/main.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/main.rs) | Rust Crate | Offline validation harness entry point. | Validation / Shipped | `std` (Zero-dependency) | Parsing crash | Medium |
-| [src/ja3.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/ja3.rs) | Rust Module | Offline JA3 parsing and MD5 hash evaluation. | Validation / Shipped | `std` | Out-of-sync pools | Medium |
-| [src/parser.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/parser.rs) | Rust Module | TLS ClientHello decoder (extensions, ciphers). | Validation / Shipped | `std` | Incorrect parsing | Medium |
-| [src/ingress_xdp_gateway.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/ingress_xdp_gateway.rs) | Rust Module | eBPF/XDP structural model and fixture. | Validation / Fixture | None | Code misidentification | Low |
-| [Xray-config/MITM-DomainFronting.json](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/Xray-config/MITM-DomainFronting.json) | JSON Config | Primary compiled runtime configuration. | Data / Shipped | Xray Schema | Private key exposure | Critical |
-| [providers/fastly.yml](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/providers/fastly.yml) | YAML Dossier | Egress CDN endpoint mappings and validation. | Data / Shipped | None | Domain blocks | High |
+| [main.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/main.py) | Python Script | CLI Entry Point for all local operations. | Control / Shipped | `argparse`, `subprocess` | Subprocess execution | High |
+| [bootstrap.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/bootstrap.py) | Python Script | Beginner-friendly local workspace bootstrapper. | Setup / Shipped | `venv`, `subprocess` | Venv isolation failure | Medium |
+| [scripts/gui.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/gui.py) | Python / Tkinter | Desktop Control Center and state visualizer. | Control / Shipped | `tkinter`, `ProcessSupervisor` | Disk I/O logs exposure | High |
+| [scripts/build_config.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/build_config.py) | Python Script | Compiles fragments into unified Xray config. | Control / Shipped | `json`, `yaml` | Output configuration drift | High |
+| [scripts/core/process_supervisor.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/process_supervisor.py) | Python Module | Safe subprocess supervisor with Job Objects. | Control / Shipped | `ctypes` (Win32 APIs) | OS API updates | Critical |
+| [scripts/core/failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/failure_classifier.py) | Python Module | In-memory classification of network failures. | Control / Shipped | `socket`, `ssl` | Detection bypasses | High |
+| [scripts/core/strategy_engine.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/strategy_engine.py) | Python Module | Deterministic profile recommendation from labels and operator intent. | Control / Shipped | `dataclasses` | Misapplied profile recommendation | High |
+| [scripts/core/strategy_profiles.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/strategy_profiles.py) | Python Module | Holds defaults and recommendation mapping. | Control / Shipped | `Path` | Profile mismatch | High |
+| [scripts/core/strategy_winner.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/strategy_winner.py) | Python Module | Persists successful profiles locally. | Control / Shipped | `json` | Stale cache resolutions | Medium |
+| [scripts/core/trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/trust_broker.py) | Python Module | Ephemeral Chrome launcher via CDP debugging. | Control / Shipped | `websocket-client` | Browser path shifts | High |
+| [scripts/core/key_at_rest.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/key_at_rest.py) | Python Module | DPAPI-based wrapper for private keys. | Control / Shipped | `ctypes` (Win32 Crypt32) | Missing DPAPI support | High |
+| [src/main.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/main.rs) | Rust Crate | Offline validation harness entry point. | Validation / Shipped | `std` (Zero-dependency) | Parsing crash | Medium |
+| [src/ja3.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/ja3.rs) | Rust Module | Offline JA3 parsing and MD5 hash evaluation. | Validation / Shipped | `std` | Out-of-sync pools | Medium |
+| [src/parser.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/parser.rs) | Rust Module | TLS ClientHello decoder (extensions, ciphers). | Validation / Shipped | `std` | Incorrect parsing | Medium |
+| [src/ingress_xdp_gateway.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/ingress_xdp_gateway.rs) | Rust Module | eBPF/XDP structural model and fixture. | Validation / Fixture | None | Code misidentification | Low |
+| [Xray-config/Xray-Cooperative-Overlay.json](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/Xray-config/Xray-Cooperative-Overlay.json) | JSON Config | Primary compiled runtime configuration. | Data / Shipped | Xray Schema | Private key exposure | Critical |
+| [providers/fastly.yml](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/providers/fastly.yml) | YAML Dossier | Egress CDN endpoint mappings and validation. | Data / Shipped | None | Domain blocks | High |
 
 ---
 
@@ -243,7 +243,7 @@ Below is the complete component inventory of the repository:
 1. The config builder (`build_config.py`) reads `config-src/manifest.json`.
 2. It deep-merges `config-src/base.json` with routing tables (`routes.yml`), DNS configurations (`dns.yml`), and provider definitions.
 3. Outbound tag schemas are attached to pre-computed JA3 profiles defined in `config-src/ja3-profile-pools.yml`.
-4. Outputs are saved to `Xray-config/MITM-DomainFronting.json` and split into profile variants (`strict`, `balanced`, `compatibility`, `debug`, `evasion-fragment`, `evasion-high-stealth`).
+4. Outputs are saved to `Xray-config/Xray-Cooperative-Overlay.json` and split into profile variants (`strict`, `balanced`, `compatibility`, `debug`, `evasion-fragment`, `evasion-high-stealth`).
 
 ### 5.2 Client Connection Execution Workflow
 1. Browser establishes TCP socket to SOCKS5/HTTP inbound on `127.0.0.1:10808`.
@@ -266,7 +266,7 @@ Below is the complete component inventory of the repository:
 * **External Databases:** `geoip.dat` and `geosite.dat` are locked using the release manifest checker to prevent routing bypasses caused by network classification changes.
 
 ### 6.3 Validation Harness (Rust)
-* **Standard Library Only:** Zero external dependencies in [Cargo.toml](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/Cargo.toml). The crate does not link to any async, parsing, or network libraries, maintaining its status as a lightweight offline model.
+* **Standard Library Only:** Zero external dependencies in [Cargo.toml](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/Cargo.toml). The crate does not link to any async, parsing, or network libraries, maintaining its status as a lightweight offline model.
 
 ---
 
@@ -358,7 +358,7 @@ The process supervisor acts as the primary reliability layer for Xray processes 
 
 ### 11.1 Document Structure & Drift Control
 The system documentation is maintained in Markdown under `docs/` and `docs/reference/`.
-* **Engineering Handbook:** [00-engineering-handbook.md](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/docs/reference/00-engineering-handbook.md) serves as the index.
+* **Engineering Handbook:** [00-engineering-handbook.md](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/docs/reference/00-engineering-handbook.md) serves as the index.
 * **Drift Validation:** Structural checks (`repository_structure_tests.py`) run as a validation gate during tests, checking for missing files or undocumented scripts.
 
 ---
@@ -367,7 +367,7 @@ The system documentation is maintained in Markdown under `docs/` and `docs/refer
 
 ### Finding F-01: Static TLS Fingerprinting Risk
 * **Description:** The primary repack outbounds configure `tlsSettings.fingerprint: "chrome"`. This is materially better than arbitrary library TLS, but it can still cluster if every route/session emits the same browser family and HTTP/2 settings over time.
-* **Evidence:** `Xray-config/MITM-DomainFronting.json` repack outbounds (`tls-repack-dns-cloudflare`, `tls-repack-dns-google`, `tls-repack-google`, `tls-repack-fastly`, `tls-repack-meta`) use `fingerprint: "chrome"`. `config-src/ja3-profile-pools.yml` maps profiles to a small Chrome baseline pool.
+* **Evidence:** `Xray-config/Xray-Cooperative-Overlay.json` repack outbounds (`tls-repack-dns-cloudflare`, `tls-repack-dns-google`, `tls-repack-google`, `tls-repack-fastly`, `tls-repack-meta`) use `fingerprint: "chrome"`. `config-src/ja3-profile-pools.yml` maps profiles to a small Chrome baseline pool.
 * **Root Cause:** The project correctly rejects unbounded live mutation, but bounded diversity still requires measured pool cardinality, profile routing, and packet-capture verification.
 * **Technical Impact:** Passive DPI or provider-side risk scoring can group flows by repeated JA3/JA4/JA4H/H2 fingerprints, especially when SNI camouflage, ALPN, cipher ordering, extension order, and HTTP/2 settings remain stable.
 * **Likelihood:** High | **Severity:** High | **Confidence:** High
@@ -511,7 +511,7 @@ py -3 main.py test
 
 # 18. Final Verdict
 
-The `MITM-DomainFronting` platform provides a coherent local control plane and validation framework. The division between the Xray data plane and Python/Rust control and validation layers is the correct architectural boundary for this project. It limits duplicate live packet-handling code, keeps trust actions consent-based, and makes regression evidence easier to reason about.
+The `Xray-Cooperative-Overlay` platform provides a coherent local control plane and validation framework. The division between the Xray data plane and Python/Rust control and validation layers is the correct architectural boundary for this project. It limits duplicate live packet-handling code, keeps trust actions consent-based, and makes regression evidence easier to reason about.
 
 The strongest shipped controls are loopback-by-default configuration, config/routing validation, process-tree containment for GUI-launched Xray, local-only diagnostics with RAM-only mode, profile-scoped Chromium assistance, and offline protocol/fingerprint validation. The highest residual engineering risks are fingerprint clustering without capture-proven diversity, cooperative-proxy bypasses in default SOCKS mode, key-at-rest mode ambiguity, and provider/censor drift.
 
@@ -535,7 +535,7 @@ Xray-core evolves rapidly (introducing new features like `wireguard` routing, im
                     │
                     ▼
    [ Automated Config Schema Verification ]
-   (Verify that Xray-config/MITM-DomainFronting.json remains compliant with the pinned/minimum Xray version)
+   (Verify that Xray-config/Xray-Cooperative-Overlay.json remains compliant with the pinned/minimum Xray version)
                     │
                     ▼
           [ Regression Probes ]
@@ -584,7 +584,7 @@ This section describes hardening targets for hostile or unstable networks. These
 A primary failure mode of local MITM proxies is the **loopback deadlock**: a client browser requests a domain, the local DNS engine resolves it to the loopback IP, which routes back into Xray in an infinite loop.
 
 To prevent loopback deadlocks:
-1. **Routing Rule Enforcement:** Inbound decryption loops must be explicitly isolated. All traffic originating from Xray outbounds destined for `127.0.0.1` must be hard-coded to route `direct` or `block` in `Xray-config/MITM-DomainFronting.json` before any custom routing rule is compiled.
+1. **Routing Rule Enforcement:** Inbound decryption loops must be explicitly isolated. All traffic originating from Xray outbounds destined for `127.0.0.1` must be hard-coded to route `direct` or `block` in `Xray-config/Xray-Cooperative-Overlay.json` before any custom routing rule is compiled.
    * **Explicit Loopback Isolation Rule Snippet:**
      ```json
      {
@@ -624,7 +624,7 @@ Under active network throttling such as packet loss or stateful drop injection, 
 The control plane implements evidence-assisted diagnostics and profile recommendation. It uses network probes to classify failure phases and maps those labels to existing Xray profiles. It does not mutate live TLS bytes, silently change trust stores, or rewrite routing policy in the active data plane.
 
 ### 21.1 Staged Probe Mechanics
-The [failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/failure_classifier.py) module executes an in-memory network diagnostic flow using standard Python socket and SSL libraries to isolate blockages without disk footprints:
+The [failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/failure_classifier.py) module executes an in-memory network diagnostic flow using standard Python socket and SSL libraries to isolate blockages without disk footprints:
 
 1. **DNS Resolution Phase:** Employs `socket.getaddrinfo(host, port, family=socket.AF_UNSPEC)` to query IPv4 and IPv6 records in parallel. Gauges latency and isolates `gaierror` issues (mapping to `dns_timeout` or `dns_resolution_failed`).
 2. **TCP Connect Phase:** Attempts connections over the list of resolved addresses sequentially. Isolates connection failures (refused connections mapped to `tcp_refused`, silent timeouts mapped to `tcp_timeout_blackhole`, and OS-level socket errors mapped to `tcp_failed`).
@@ -722,7 +722,7 @@ Stateful DPI systems inspect the initial bytes of a TCP stream looking for the T
 To verify protocol fidelity without generating live network footprints, the system relies on a native Rust harness (`mitm_stream_core`) mapped to several offline components:
 
 ### 23.1 JA3 Fingerprinting & MD5 Step-by-Step
-The [ja3.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/ja3.rs) module parses TLS ClientHello handshakes offline and evaluates fingerprints:
+The [ja3.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/ja3.rs) module parses TLS ClientHello handshakes offline and evaluates fingerprints:
 1. **GREASE Stripping:** Evaluates each byte sequence via `is_grease(value)`:
    ```rust
    pub fn is_grease(value: u16) -> bool {
@@ -744,7 +744,7 @@ The [ja3.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/ja3.
    * Accumulates local states (`a, b, c, d`) and returns a lowercase, 32-character hex string.
 
 ### 23.2 ClientHello Parsing Scope
-The [parser.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/parser.rs) module decodes raw handshakes and validates lengths to prevent denial of service (DoS) attacks:
+The [parser.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/parser.rs) module decodes raw handshakes and validates lengths to prevent denial of service (DoS) attacks:
 * **Early Rejection:** Verifies the record length against `MAX_TLS_RECORD_PAYLOAD = 1 << 14` before allocating buffers. If the client hellos exceed the ceiling, it raises `ParserError::RecordTooLarge`.
 * **Safe Parser Loop:** Employs byte cursors to decode cipher suites, Server Name Indication (SNI) UTF-8 validity, and ALPN lists. It does not panic on random fuzz inputs, as validated by:
   ```rust
@@ -759,19 +759,19 @@ The validation harness models loopback and network interfaces in:
 * **`ingress_xdp_gateway.rs` (Linux Gateway XDP Ingress):** Modeled via `LinuxGatewayXdpIngress` (implementing `PacketIngress`). It queries environmental consent and reads the local state file `.local-state/ebpf-xdp-loader.json` to confirm eBPF attachment, but performs zero raw socket or direct map interactions.
 
 ### 23.4 Evasion Regression Verification & Fingerprint Signatures
-The [regression_harness.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/regression_harness.rs) module evaluates parsed TLS observations against expected profiles:
+The [regression_harness.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/regression_harness.rs) module evaluates parsed TLS observations against expected profiles:
 * **Fingerprint Signatures Verified:** Compares JA3/JA4 MD5 hashes and strings, ALPN configurations, and the exact ordered sequence of HTTP/2 settings (to detect passive fingerprint anomalies like Akamai/JA4H).
 * **GREASE Validation:** Implements `looks_like_malformed_grease` to verify that GREASE extensions are structurally valid (RFC 8701), rejecting malformed ClientHellos attempting to spoof GREASE patterns.
 
 ### 23.5 Dynamic Path Router, Circuit Breaker, & Traffic Scheduler
-The [scheduler.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/scheduler.rs) module implements path routing and failure resiliency:
+The [scheduler.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/scheduler.rs) module implements path routing and failure resiliency:
 * **Multi-Armed Bandit Scoring:** Computes path scores via UCB:
   $$\text{Score} = \text{Success Rate} + \sqrt{\frac{\ln(\text{total\_samples})}{\text{sample\_count}}} \cdot 0.1 - \text{Latency Penalty} - \text{In-Flight Penalty} - \text{Circuit Penalty}$$
   * DNS/TCP timeout failures are excluded from the average latency divisor to avoid penalty dilution.
 * **Circuit Breaker State Machine:** Manages states (`Healthy`, `Degraded`, `OpenCircuit`, `HalfOpen`). Expired circuits do not automatically accept user traffic; they transition to `HalfOpen` and require background probing via `select_probe(now_ms)`. A custom `splitmix64` pseudo-random generator introduces a $\pm25\%$ jitter band to decorrelate retries.
 
 ### 23.6 Session Negotiation & Fallback Orchestration
-The [tls_orchestrator.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/tls_orchestrator.rs) and [tls_orchestrator_backend.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/src/tls_orchestrator_backend.rs) modules reconcile client ALPN settings:
+The [tls_orchestrator.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/tls_orchestrator.rs) and [tls_orchestrator_backend.rs](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/src/tls_orchestrator_backend.rs) modules reconcile client ALPN settings:
 * **Fallback Modes (`TlsFallbackMode`):** Implements `FailClosed` (abort on mismatch), `ForceHttp11IfPossible` (fallback to HTTP/1.1), and `BypassWithoutMitm` (pass raw traffic to preserve connectivity).
 * **Decoupled Architecture:** Coordinates backend actions using mock endpoints (`UpstreamTlsNegotiator` and `LocalTlsEndpoint`) to avoid direct live network socket calls.
 
@@ -782,7 +782,7 @@ The [tls_orchestrator.rs](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFron
 To verify the control plane's orchestration mechanics, the following Python modules have been audited:
 
 ### 24.1 Preflight Inspection & Environment Gates
-The [preflight.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/preflight.py) script acts as the system's startup gate:
+The [preflight.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/preflight.py) script acts as the system's startup gate:
 * **Native API Probes:** Uses Windows `icacls` command execution and POSIX `stat` to check private key file permissions. Inspects certificate capabilities (`CA:TRUE` and `keyCertSign` extensions) using local `openssl` executions.
 * **Network & Environment Checks:** Queries active system proxies (`reg query HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings` on Windows) and parses active interfaces (`netsh` or `ip link`) to flag active VPN/TUN boundaries. Probes target loopback ports to verify listener status.
 * **Failure Modes:** Exits with code 2 if any critical preflight gate (e.g., exposed loopback port, open CA key) is violated.
@@ -793,7 +793,7 @@ The config-src pipeline manages configuration assembly:
 * **`config_src_build.py` & `config_src_validate.py` (Orchestrators):** Executes validation sequences as subprocesses (`route_rule_linter.py`, `ja3_pool_validate.py`, `route_intent_sync.py`). Asserts that compiled output matches tracked target configurations via `check-runtime-sync` and `check-profile-sync` gates.
 
 ### 24.3 Active Diagnostics & Failure Classification
-The [failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/failure_classifier.py) module provides in-memory network path diagnostics:
+The [failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/failure_classifier.py) module provides in-memory network path diagnostics:
 * **Four-Phase Diagnosis:**
   1. *DNS Phase:* Resolves IPv4/IPv6 records via `socket.getaddrinfo` (classifies `dns_timeout` or `dns_resolution_failed`).
   2. *TCP Phase:* Connects sequentially via `socket.socket` (classifies `tcp_timeout_blackhole`, `tcp_refused`, or `tcp_failed`).
@@ -801,7 +801,7 @@ The [failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFr
   4. *Viability Phase:* Sends minimal L7 verification data. For HTTP/1.1, writes a `HEAD` request. For HTTP/2, writes the connection preface and an empty `SETTINGS` frame. If no frame header returns, registers a `first_byte_timeout`.
 
 ### 24.4 Isolated Browser Trust Broker
-The [trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/trust_broker.py) and [cdp_client.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/cdp_client.py) modules coordinate browser launching:
+The [trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/trust_broker.py) and [cdp_client.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/cdp_client.py) modules coordinate browser launching:
 * **Chrome Profile Isolation:** Prepares a clean data directory via `--user-data-dir`, binds proxy settings via `--proxy-server`, and exposes a debugger port via `--remote-debugging-port`.
 * **CDP Assist (Non-Silent Trust):** Rather than writing directly to NSS trust databases, the script connects via HTTP and WebSocket protocols to trigger user-facing certificate settings (`chrome://settings/security`) for manual confirmation, adhering to local privacy policies.
 
@@ -858,7 +858,7 @@ The Python control center utilizes native OS bindings for system interaction:
   Queries `GetIfTable` from `iphlpapi.dll` using `MibIfRow` structs to retrieve real-time non-loopback network metrics, bypassing high-overhead external subprocesses.
 
 ### 24.6 Persona-Based Automation Playbooks
-The control plane implements context-aware operator playbooks via [automation_playbook.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/automation_playbook.py) and [intelligent_advisor.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/intelligent_advisor.py):
+The control plane implements context-aware operator playbooks via [automation_playbook.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/automation_playbook.py) and [intelligent_advisor.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/intelligent_advisor.py):
 * **Persona Mapping (`infer_persona`):** Automatically maps the system state and failure classifications to one of three operator personas:
   * `newcomer`: Triggers when the workspace is unconfigured, certificate private-keys are missing, or basic readiness gates fail. Maps steps to compile base configs and run preflight checks.
   * `maintainer`: Triggers when all basic diagnostics pass and the system is ready for release. Maps steps to validate schema files, verify config compilation synchronization, and check release checklists.
@@ -878,8 +878,8 @@ The control plane implements context-aware operator playbooks via [automation_pl
   Each step specifies an automated executable command sequence (`argv`), target execution timeout, and references documentation indices to guide the operator through recovery processes.
 
 ### 24.7 DPI Replay & PCAP Wire-Proof Lab Harness
-To prevent overclaims regarding DPI bypass efficacy on active censorship networks, the control plane includes a dedicated wire verification harness in [wire_proof_suricata.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/wire_proof_suricata.py):
-* **Harness Schema and Rules:** Relies on [wire-proof-manifest.json](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/config-src/lab/wire-proof-manifest.json) and [suricata-sni-block.rules](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/config-src/lab/suricata-sni-block.rules) to check rules line counts and extract required tshark fields.
+To prevent overclaims regarding DPI bypass efficacy on active censorship networks, the control plane includes a dedicated wire verification harness in [wire_proof_suricata.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/wire_proof_suricata.py):
+* **Harness Schema and Rules:** Relies on [wire-proof-manifest.json](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/config-src/lab/wire-proof-manifest.json) and [suricata-sni-block.rules](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/config-src/lab/suricata-sni-block.rules) to check rules line counts and extract required tshark fields.
 * **PCAP Analysis Mechanics:** Extracts TLS Handshake client hellos from a user-supplied PCAP capture using `tshark`:
   ```bash
   tshark -r capture.pcap -Y "tls.handshake.type == 1" -T fields -E separator=| -e tls.handshake.ja3_hash -e tls.handshake.extensions_server_name -e frame.number
@@ -897,7 +897,7 @@ This checklist tracks the implementation status, verification methods, success c
 |---|---|---|---|---|---|---|
 | **Phase 1: Bootstrapping & Binaries** | Validate and setup Python venv; verify Xray-core binary checksum | `bootstrap.py`, `scripts/core/version_utils.py` | `py -3 bootstrap.py` | Exit code 0; `.venv/` is active; Xray version parsed >= 1.8.0 | `xray/xray.exe`, `.venv/` folder | **Shipped** |
 | **Phase 2: CA Key Management** | Restrict CA key permissions; wrap CA key with DPAPI sidecar; support plaintext removal | `scripts/core/key_at_rest.py`, `tests/python/key_at_rest_test.py` | `py -3 main.py test` (runs `key_at_rest_test.py`) | Restricts ACL via `icacls` on Windows or `chmod 600` on POSIX; roundtrip wrap/unwrap passes | `Xray-config/mycert.key.dpapi`, ACL verification log | **Shipped with caveat** |
-| **Phase 3: Config Compilation** | Compile base config and fragments; validate routing rules; generate evasion profiles | `scripts/build_config.py`, `scripts/config_src_validate.py` | `py -3 scripts/build_config.py --generate-profiles --check-profile-sync` | Syntactically correct JSON; synchronizes base config with profiles; rules lint pass | `Xray-config/MITM-DomainFronting.json`, `build/config/MITM-DomainFronting.*.json` | **Shipped** |
+| **Phase 3: Config Compilation** | Compile base config and fragments; validate routing rules; generate evasion profiles | `scripts/build_config.py`, `scripts/config_src_validate.py` | `py -3 scripts/build_config.py --generate-profiles --check-profile-sync` | Syntactically correct JSON; synchronizes base config with profiles; rules lint pass | `Xray-config/Xray-Cooperative-Overlay.json`, `build/config/Xray-Cooperative-Overlay.*.json` | **Shipped** |
 | **Phase 4: Isolated Trust Broker** | Setup isolated Chromium user data directory; invoke CDP port; assist user trust flow | `scripts/core/trust_broker.py`, `scripts/core/cdp_client.py` | `py -3 tests/python/cdp_client_test.py` | Isolated Chrome launches with `--user-data-dir` and correct proxy; CDP client connects to debug port | Isolated profile folder, manual CA verify page loaded | **Shipped with caveat** |
 | **Phase 5: Job Object Containment** | Bind Xray child to supervisor lifecycle; enforce POSIX group kill and kill-on-close | `scripts/core/process_supervisor.py`, `tests/python/ebpf_containment_test.py` | `py -3 main.py test` (runs supervisor lifecycle checks) | Xray kills immediately when supervisor exits; job creation flags set to `0x00002000` | Windows kernel handle logs, POSIX signal group propagation | **Shipped** |
 | **Phase 6: Evasion Selection** | Recommendations via Failure Classifier; remember winner profiles; strategy scoring | `scripts/core/strategy_engine.py`, `scripts/core/failure_classifier.py`, `scripts/core/strategy_winner.py` | `py -3 tests/python/strategy_engine_test.py`, `tests/python/failure_classifier_tests.py` | Failure labels mapped to profiles correctly; winner profiles cached to disk and reloaded | `.local-state/decision-report.latest.json`, `.local-state/strategy_winner.json` | **Shipped** |
@@ -908,8 +908,8 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 1 Verification: Bootstrapping & Binaries
 * **Requirement Verification:** Virtual environment checking and Xray core version parsing.
 * **Underlying Code Elements:**
-  * [bootstrap.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/bootstrap.py): Detects system architecture, creates virtual environment `.venv/`, and runs installation commands.
-  * [scripts/core/version_utils.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/version_utils.py): Implements `parse_xray_version()` and `version_at_least()` to parse semantic versioning tuples.
+  * [bootstrap.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/bootstrap.py): Detects system architecture, creates virtual environment `.venv/`, and runs installation commands.
+  * [scripts/core/version_utils.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/version_utils.py): Implements `parse_xray_version()` and `version_at_least()` to parse semantic versioning tuples.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 bootstrap.py
@@ -917,7 +917,7 @@ This checklist tracks the implementation status, verification methods, success c
   Actual Output:
   ```
   ========================================================================
-   MITM-DomainFronting Bootstrap
+   Xray-Cooperative-Overlay Bootstrap
   ========================================================================
   [...] Creating .venv
   [OK ] Created .venv
@@ -927,8 +927,8 @@ This checklist tracks the implementation status, verification methods, success c
   [WARN] Install browser diagnostics requirements failed with exit code 1
   ========================================================================
   Bootstrap complete
-  Run GUI: D:\GitHub\MITM-DomainFronting\.venv\Scripts\python.exe scripts/gui.py
-  Run audit: D:\GitHub\MITM-DomainFronting\.venv\Scripts\python.exe main.py audit
+  Run GUI: D:\GitHub\Xray-Cooperative-Overlay\.venv\Scripts\python.exe scripts/gui.py
+  Run audit: D:\GitHub\Xray-Cooperative-Overlay\.venv\Scripts\python.exe main.py audit
   ========================================================================
   ```
   Corresponding test run:
@@ -938,7 +938,7 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 2 Verification: CA Key Management & Key-at-Rest
 * **Requirement Verification:** Securing the generated certificate private key `mycert.key` at rest via restrictive ACLs on POSIX and Windows, and optional Crypt32-based DPAPI wrapping.
 * **Underlying Code Elements:**
-  * [scripts/core/key_at_rest.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/key_at_rest.py): Implements `wrap_key_dpapi()`, `unwrap_key_dpapi()`, and `restrict_key_permissions()` using `ctypes.windll.crypt32.CryptProtectData`.
+  * [scripts/core/key_at_rest.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/key_at_rest.py): Implements `wrap_key_dpapi()`, `unwrap_key_dpapi()`, and `restrict_key_permissions()` using `ctypes.windll.crypt32.CryptProtectData`.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/key_at_rest_test.py
@@ -952,10 +952,10 @@ This checklist tracks the implementation status, verification methods, success c
 * **Completion Status:** Shipped with caveat. ACL restriction operates cross-platform. DPAPI wrapping writes the encrypted sidecar `mycert.key.dpapi` but is Windows-only, and plaintext key removal is optional depending on supervisor invocation (`remove_plaintext=True`).
 
 ### Phase 3 Verification: Config Compilation & Synchronization
-* **Requirement Verification:** Dynamically compile `Xray-config/MITM-DomainFronting.json` from yaml files (`routes.yml`, `dns.yml`) and base schema, and generate corresponding evasion profiles.
+* **Requirement Verification:** Dynamically compile `Xray-config/Xray-Cooperative-Overlay.json` from yaml files (`routes.yml`, `dns.yml`) and base schema, and generate corresponding evasion profiles.
 * **Underlying Code Elements:**
-  * [scripts/build_config.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/build_config.py): Compiles core json layouts and merges outbound fragments.
-  * [scripts/config_src_validate.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/config_src_validate.py): Lints routing rules and detects duplicate route tags.
+  * [scripts/build_config.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/build_config.py): Compiles core json layouts and merges outbound fragments.
+  * [scripts/config_src_validate.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/config_src_validate.py): Lints routing rules and detects duplicate route tags.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
@@ -964,16 +964,16 @@ This checklist tracks the implementation status, verification methods, success c
   ```
   config-src validation passed
   {
-    "compiled_output": "D:\\GitHub\\MITM-DomainFronting\\build\\config\\MITM-DomainFronting.json",
-    "source": "D:\\GitHub\\MITM-DomainFronting\\config-src\\base.json",
+    "compiled_output": "D:\\GitHub\\Xray-Cooperative-Overlay\\build\\config\\Xray-Cooperative-Overlay.json",
+    "source": "D:\\GitHub\\Xray-Cooperative-Overlay\\config-src\\base.json",
     "fragments": 0
   }
   {
     "generated_profiles": [
-      "D:\\GitHub\\MITM-DomainFronting\\build\\config\\MITM-DomainFronting.strict.json",
-      "D:\\GitHub\\MITM-DomainFronting\\build\\config\\MITM-DomainFronting.balanced.json",
-      "D:\\GitHub\\MITM-DomainFronting\\build\\config\\MITM-DomainFronting.compatibility.json",
-      "D:\\GitHub\\MITM-DomainFronting\\build\\config\\MITM-DomainFronting.debug.json"
+      "D:\\GitHub\\Xray-Cooperative-Overlay\\build\\config\\Xray-Cooperative-Overlay.strict.json",
+      "D:\\GitHub\\Xray-Cooperative-Overlay\\build\\config\\Xray-Cooperative-Overlay.balanced.json",
+      "D:\\GitHub\\Xray-Cooperative-Overlay\\build\\config\\Xray-Cooperative-Overlay.compatibility.json",
+      "D:\\GitHub\\Xray-Cooperative-Overlay\\build\\config\\Xray-Cooperative-Overlay.debug.json"
     ]
   }
   {
@@ -985,8 +985,8 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 4 Verification: Isolated Trust Broker
 * **Requirement Verification:** Coordinates Chrome launching under custom isolated debug profile directory (`--user-data-dir`) and assists CA trust verification.
 * **Underlying Code Elements:**
-  * [scripts/core/trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/trust_broker.py): Coordinates isolated profile creation.
-  * [scripts/core/cdp_client.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/cdp_client.py): Controls browser settings and UI hooks over WebSocket.
+  * [scripts/core/trust_broker.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/trust_broker.py): Coordinates isolated profile creation.
+  * [scripts/core/cdp_client.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/cdp_client.py): Controls browser settings and UI hooks over WebSocket.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/cdp_client_test.py
@@ -1001,7 +1001,7 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 5 Verification: Job Object Containment
 * **Requirement Verification:** Lifecycle-bound containment of the child data plane processes to prevent orphaned processes when the supervisor exits.
 * **Underlying Code Elements:**
-  * [scripts/core/process_supervisor.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/process_supervisor.py): Enforces `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)` on Windows, and session process-group signals on POSIX.
+  * [scripts/core/process_supervisor.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/process_supervisor.py): Enforces `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x00002000)` on Windows, and session process-group signals on POSIX.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/ebpf_containment_test.py
@@ -1015,9 +1015,9 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 6 Verification: Evasion Selection & Strategy Recommendation
 * **Requirement Verification:** Dynamically score and recommend the optimal evasion profiles matching diagnostic failure classifications without packet-path latency.
 * **Underlying Code Elements:**
-  * [scripts/core/strategy_engine.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/strategy_engine.py): Scores candidate profiles.
-  * [scripts/core/failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/failure_classifier.py): Executes four-phase diagnostics and classifies blockages.
-  * [scripts/core/strategy_winner.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/strategy_winner.py): Manages winner caches.
+  * [scripts/core/strategy_engine.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/strategy_engine.py): Scores candidate profiles.
+  * [scripts/core/failure_classifier.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/failure_classifier.py): Executes four-phase diagnostics and classifies blockages.
+  * [scripts/core/strategy_winner.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/strategy_winner.py): Manages winner caches.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/strategy_engine_test.py
@@ -1033,8 +1033,8 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 7 Verification: eBPF/XDP Filter
 * **Requirement Verification:** Attach fail-secure XDP containment logic to drop raw TCP traffic at the kernel space if the supervisor process exits.
 * **Underlying Code Elements:**
-  * [tools/ebpf/containment_xdp.bpf.c](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/tools/ebpf/containment_xdp.bpf.c): Kernel-space filtering code.
-  * [scripts/ebpf_xdp_loader.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/ebpf_xdp_loader.py): Controls `bpftool` load/attach sequence.
+  * [tools/ebpf/containment_xdp.bpf.c](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/tools/ebpf/containment_xdp.bpf.c): Kernel-space filtering code.
+  * [scripts/ebpf_xdp_loader.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/ebpf_xdp_loader.py): Controls `bpftool` load/attach sequence.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/ebpf_xdp_loader_test.py
@@ -1049,7 +1049,7 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 8 Verification: Measured Wire Verification
 * **Requirement Verification:** Check structural integrity of PCAP analyzing scripts and verify rule lines count and target field extraction metadata.
 * **Underlying Code Elements:**
-  * [scripts/wire_proof_suricata.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/wire_proof_suricata.py): Implements packet analyzer via `tshark` and rules replayer.
+  * [scripts/wire_proof_suricata.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/wire_proof_suricata.py): Implements packet analyzer via `tshark` and rules replayer.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/wire_proof_suricata_test.py
@@ -1063,7 +1063,7 @@ This checklist tracks the implementation status, verification methods, success c
 ### Phase 9 Verification: Geodata Pinning
 * **Requirement Verification:** Pin geoip/geosite databases using SHA-256 validation to prevent silent proxy bypasses from network classification updates.
 * **Underlying Code Elements:**
-  * [scripts/core/provider_policy.py](file:///C:/Users/ACER/Documents/GitHub/MITM-DomainFronting/scripts/core/provider_policy.py): Parses geo-classification rules.
+  * [scripts/core/provider_policy.py](file:///C:/Users/ACER/Documents/GitHub/Xray-Cooperative-Overlay/scripts/core/provider_policy.py): Parses geo-classification rules.
 * **Verification Command & Actual Output:**
   ```powershell
   py -3 tests/python/provider_policy_validator_tests.py

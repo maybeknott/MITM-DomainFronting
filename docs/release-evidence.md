@@ -20,11 +20,11 @@ On Windows, use `py -3 main.py release-check` if `python` is not on `PATH`.
 For release evidence, collect the individual command output:
 
 ```sh
-python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --no-dns --skip-cert --skip-runtime
+python scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --no-dns --skip-cert --skip-runtime
 python tests/python/repository_structure_tests.py
 python scripts/provider_dossier_validate.py
-python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
+python scripts/route_intent_sync.py Xray-config/Xray-Cooperative-Overlay.json
 python scripts/config_src_validate.py --run-steps
 python scripts/transport_experiment_validate.py
 python scripts/geodata_pin.py --verify
@@ -36,7 +36,7 @@ python scripts/build_release_manifest.py --root . --out validation-report.json -
 For GUI release assets, also attach the ZIP verifier result:
 
 ```sh
-python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256 --json
+python scripts/verify_release_artifact.py dist/Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist/Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip.sha256 --json
 ```
 
 ## Related documents
@@ -51,13 +51,13 @@ python scripts/verify_release_artifact.py dist/MITM-DomainFronting-Control-Cente
 For local release verification with generated CA files:
 
 ```sh
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --cert Xray-config/mycert.crt --key Xray-config/mycert.key --no-dns
 ```
 
 If Xray is available:
 
 ```sh
-python scripts/preflight.py --config Xray-config/MITM-DomainFronting.json --xray-bin xray --no-dns
+python scripts/preflight.py --config Xray-config/Xray-Cooperative-Overlay.json --xray-bin xray --no-dns
 python scripts/build_release_manifest.py --root . --out validation-report.json --checksums checksums.txt --xray-bin xray
 ```
 

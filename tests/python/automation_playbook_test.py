@@ -25,7 +25,7 @@ def main() -> int:
         next_action="Ready",
         next_action_detail="ok",
         config_ok=True,
-        config_path="Xray-config/MITM-DomainFronting.json",
+        config_path="Xray-config/Xray-Cooperative-Overlay.json",
         profiles_present=True,
         profiles_synced=True,
         page_check_status="pass",

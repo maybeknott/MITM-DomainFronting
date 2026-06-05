@@ -3,19 +3,19 @@
 ## Purpose
 
 Directory layout contract for reviewers, release engineers, and contributors. The
-**primary runtime artifact** is `Xray-config/MITM-DomainFronting.json`; Python and
+**primary runtime artifact** is `Xray-config/Xray-Cooperative-Overlay.json`; Python and
 Rust tooling surround that config.
 
 **Engineering docs:** start at [reference/00-engineering-handbook.md](reference/00-engineering-handbook.md).
 
 ## Design goal
 
-Keep the repository simple while making it easier to review, test, troubleshoot, and release. The primary user-facing runtime config remains `Xray-config/MITM-DomainFronting.json`; generated profiles, metadata, diagnostics, and the local GUI are supporting tools around that config.
+Keep the repository simple while making it easier to review, test, troubleshoot, and release. The primary user-facing runtime config remains `Xray-config/Xray-Cooperative-Overlay.json`; generated profiles, metadata, diagnostics, and the local GUI are supporting tools around that config.
 
 ## Recommended tree
 
 ```text
-MITM-DomainFronting/
+Xray-Cooperative-Overlay/
   README.md
   SECURITY.md
   PRIVACY.md
@@ -46,7 +46,7 @@ MITM-DomainFronting/
     regression_harness.rs
 
   Xray-config/
-    MITM-DomainFronting.json
+    Xray-Cooperative-Overlay.json
     certificate_generator.bat
     certificate_generator.sh
     mycert.crt                 # local only, ignored by git
@@ -254,7 +254,7 @@ Generated operating profiles and the local GUI are optional repository tools. Th
 
 ## Current safeguards
 
-- `Xray-config/MITM-DomainFronting.json` remains the primary import file.
+- `Xray-config/Xray-Cooperative-Overlay.json` remains the primary import file.
 - `.gitignore` protects local certs, keys, logs, generated profiles, runtime geodata, browser profiles, packaging output, and lab evidence bundles.
 - Routing, DNS, protocol support, platform compatibility, certificate lifecycle, browser checks, release evidence, and recovery workflows are documented under `docs/`.
 - `preflight.py`, `validate_config.py`, route checks, provider checks, transport checks, secret scan, and repository-structure tests cover the release-critical paths.

@@ -329,7 +329,7 @@ def emergency(out_dir: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Local CA helper for MITM-DomainFronting")
+    parser = argparse.ArgumentParser(description="Local CA helper for Xray-Cooperative-Overlay")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("status")

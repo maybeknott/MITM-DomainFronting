@@ -122,10 +122,10 @@ def main() -> int:
     args = parser.parse_args()
 
     errors: List[str] = []
-    config_paths = sorted(args.config_dir.glob("MITM-DomainFronting*.json"))
+    config_paths = sorted(args.config_dir.glob("Xray-Cooperative-Overlay*.json"))
     known_tags = collect_route_tags(config_paths)
     if not known_tags:
-        errors.append("no route tags discovered from Xray-config/MITM-DomainFronting*.json")
+        errors.append("no route tags discovered from Xray-config/Xray-Cooperative-Overlay*.json")
     if not args.providers_dir.exists():
         errors.append(f"{args.providers_dir}: missing providers directory")
     else:

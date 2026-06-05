@@ -6,7 +6,7 @@
       "category": "config-profile",
       "status": "experimental",
       "owner": "maintainers",
-      "config_target": "Xray-config/MITM-DomainFronting.json",
+      "config_target": "Xray-config/Xray-Cooperative-Overlay.json",
       "platforms": ["windows", "macos", "linux", "android"],
       "elevated_privileges": false,
       "raw_sockets": false,

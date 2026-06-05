@@ -73,7 +73,7 @@ def _redact_state(state: ProjectState) -> Dict[str, Any]:
 def _config_hash(root: Path, config_path: Path) -> Dict[str, Any]:
     profile_hashes: Dict[str, Optional[str]] = {}
     for name in PROFILE_NAMES:
-        profile_path = root / "Xray-config" / f"MITM-DomainFronting.{name}.json"
+        profile_path = root / "Xray-config" / f"Xray-Cooperative-Overlay.{name}.json"
         profile_hashes[name] = _sha256_file(profile_path)
     return {
         "config_sha256": _sha256_file(config_path),
@@ -182,7 +182,7 @@ def build_bundle(
         blockers.append("page_check")
 
     bundle: Dict[str, Any] = {
-        "schema": "mitm-domainfronting/verified-session/1",
+        "schema": "xray-cooperative-overlay/verified-session/1",
         "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "generated_by": "scripts/verified_session.py",
         "note": "Review before sharing. Local, redacted runtime evidence only.",
@@ -225,7 +225,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Run a verified runtime session and save one redacted evidence bundle."
     )
-    parser.add_argument("--config", type=Path, default=ROOT / "Xray-config" / "MITM-DomainFronting.json")
+    parser.add_argument("--config", type=Path, default=ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json")
     parser.add_argument("--cert", type=Path, default=ROOT / "Xray-config" / "mycert.crt")
     parser.add_argument("--key", type=Path, default=ROOT / "Xray-config" / "mycert.key")
     parser.add_argument("--skip-trust", action="store_true", help="skip local trust-store matching")

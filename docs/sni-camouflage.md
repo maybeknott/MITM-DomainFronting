@@ -33,7 +33,7 @@ When an outbound uses TLS or REALITY, the wire SNI is whatever you set in config
 
 REALITY uses the same idea on `realitySettings.serverName` (required for REALITY outbounds).
 
-The primary import config (`Xray-config/MITM-DomainFronting.json`) already fronts repack outbounds with camouflage SNIs such as `www.microsoft.com`, `www.google.com`, and `github.githubassets.com`. That **is** anti-censorship SNI control done correctly.
+The primary import config (`Xray-config/Xray-Cooperative-Overlay.json`) already fronts repack outbounds with camouflage SNIs such as `www.microsoft.com`, `www.google.com`, and `github.githubassets.com`. That **is** anti-censorship SNI control done correctly.
 
 ## Inspection helper (strategy layer)
 
@@ -46,7 +46,7 @@ The primary import config (`Xray-config/MITM-DomainFronting.json`) already front
 
 ```bash
 py -3 scripts/core/sni_camouflage.py
-py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json --json
+py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json --json
 ```
 
 Tests: `py -3 tests/python/sni_camouflage_tests.py`

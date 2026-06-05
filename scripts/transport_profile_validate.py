@@ -49,7 +49,7 @@ def catchall_rule(config: Dict[str, Any]) -> Dict[str, Any] | None:
 def validate_registry_text(text: str) -> List[str]:
     errors: List[str] = []
     for needle in [
-        "single_primary_config: Xray-config/MITM-DomainFronting.json",
+        "single_primary_config: Xray-config/Xray-Cooperative-Overlay.json",
         "profile_policies:",
         "external_engine_transports:",
         "evidence_commands:",
@@ -70,7 +70,7 @@ def validate_registry_text(text: str) -> List[str]:
 
 def validate_profile_configs() -> List[str]:
     errors: List[str] = []
-    base = load_config(CONFIG_DIR / "MITM-DomainFronting.json")
+    base = load_config(CONFIG_DIR / "Xray-Cooperative-Overlay.json")
     if first_udp443_rule(base) is not None:
         errors.append("base config must keep UDP/443 policy in generated profiles, not primary config")
     base_catchall = catchall_rule(base)
@@ -78,7 +78,7 @@ def validate_profile_configs() -> List[str]:
         errors.append("base config must keep direct global catch-all")
 
     for profile, expected in EXPECTED_PROFILE_POLICIES.items():
-        path = CONFIG_DIR / f"MITM-DomainFronting.{profile}.json"
+        path = CONFIG_DIR / f"Xray-Cooperative-Overlay.{profile}.json"
         if not path.exists():
             errors.append(f"{path}: missing generated profile")
             continue

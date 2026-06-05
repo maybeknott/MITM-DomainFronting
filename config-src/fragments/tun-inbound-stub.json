@@ -8,7 +8,7 @@
       "tag": "tun-in",
       "protocol": "tun",
       "settings": {
-        "name": "mitm-domainfronting-tun",
+        "name": "xray-cooperative-overlay-tun",
         "MTU": 1500,
         "stack": "system"
       },

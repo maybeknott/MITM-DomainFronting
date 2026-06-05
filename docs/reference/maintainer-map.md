@@ -18,16 +18,16 @@ doc owns policy** for each product area.
 | GUI / UX | `scripts/gui.py`, `scripts/core/gui_readiness.py`, `assets/` | `py -3 scripts/gui.py --self-test`, `py -3 tests/python/gui_readiness_tests.py` |
 | Shared readiness | `scripts/core/readiness.py`, `main.py probe` | `py -3 tests/python/readiness_tests.py` |
 | Intelligent automation | `scripts/core/intelligent_advisor.py`, `scripts/intelligent_advise.py`, `scripts/lab_prepare.py` | `py -3 tests/python/intelligent_advisor_test.py`, `py -3 main.py advise --skip-runtime` |
-| Evasion lab profiles | `scripts/generate_evasion_profiles.py`, `Xray-config/MITM-DomainFronting.evasion-*.json` | `py -3 main.py lab-prepare --allow-warn` |
+| Evasion lab profiles | `scripts/generate_evasion_profiles.py`, `Xray-config/Xray-Cooperative-Overlay.evasion-*.json` | `py -3 main.py lab-prepare --allow-warn` |
 | Xray config | `config-src/`, `Xray-config/` | `py -3 scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync` |
-| Routing | `Xray-config/*.json`, `configs/route-intent.json`, `scripts/route_*` | `py -3 tests/python/route_policy_tests.py`, `py -3 scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json` |
+| Routing | `Xray-config/*.json`, `configs/route-intent.json`, `scripts/route_*` | `py -3 tests/python/route_policy_tests.py`, `py -3 scripts/route_graph_verify.py Xray-config/Xray-Cooperative-Overlay.json` |
 | Browser integration | `scripts/browser_common.py`, `scripts/browser_diagnostics.py`, `scripts/browser_stealth.py`, `configs/browser-integration.json` | `py -3 tests/python/browser_probe_semantics_test.py` |
 | Certificate / trust | `scripts/mitm_trust.py`, `scripts/trust_store_check.py`, `scripts/core/trust_assistant.py` | `py -3 scripts/mitm_trust.py status --json`, `py -3 main.py probe --json` |
-| DNS / profiles | `configs/dns-profiles.yml`, `scripts/check_dns.py`, `scripts/generate_profiles.py` | `py -3 scripts/validate_metadata.py`, `py -3 scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json` |
+| DNS / profiles | `configs/dns-profiles.yml`, `scripts/check_dns.py`, `scripts/generate_profiles.py` | `py -3 scripts/validate_metadata.py`, `py -3 scripts/generate_profiles.py --base Xray-config/Xray-Cooperative-Overlay.json` |
 | Release | `.github/workflows/build-gui.yml`, `scripts/build_gui_exe.py`, `scripts/release_check.py`, `scripts/verify_release_artifact.py` | `py -3 main.py release-check` |
 | Rust validation crate | `src/`, `Cargo.toml` | `py -3 tests/python/rust_core_tests.py`, `cargo test --locked` |
 | SNI camouflage | `scripts/core/sni_camouflage.py`, `docs/sni-camouflage.md` | `py -3 tests/python/sni_camouflage_tests.py` |
-| Live data plane | `xray/xray.exe`, `Xray-config/MITM-DomainFronting.json` | Preflight + manual smoke; not Rust `src/` |
+| Live data plane | `xray/xray.exe`, `Xray-config/Xray-Cooperative-Overlay.json` | Preflight + manual smoke; not Rust `src/` |
 
 ---
 

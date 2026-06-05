@@ -119,7 +119,7 @@ def lint(config: dict[str, Any]) -> tuple[list[str], list[str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Lint first-match route shadowing and decrypted inbound isolation")
-    parser.add_argument("config", type=Path, nargs="?", default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser.add_argument("config", type=Path, nargs="?", default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--quiet", action="store_true", help="suppress warning output when checks pass")
     args = parser.parse_args()
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Stealth / anti-bot browser path for MITM-DomainFronting.
+Stealth / anti-bot browser path for Xray-Cooperative-Overlay.
 
 Default engine: CloakBrowser (https://github.com/CloakHQ/CloakBrowser) — application-layer
 fingerprint and behavioral evasion. Traffic still egresses through the local Xray mixed
@@ -148,7 +148,7 @@ def run_stealth_probe(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "MITM-DomainFronting stealth browser probe (default: CloakBrowser). "
+            "Xray-Cooperative-Overlay stealth browser probe (default: CloakBrowser). "
             f"Project: {CLOAKBROWSER_PROJECT_URL}"
         )
     )

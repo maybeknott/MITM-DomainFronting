@@ -1,11 +1,5 @@
 {
-  "__Credits__": {
-    "creator": "@patterniha",
-    "donate1": "USDT (BEP20): 0x76a768B53Ca77B43086946315f0BDF21156bF424",
-    "donate2": "USDT (TRC20): TU5gKvKqcXPn8itp1DouBCwcqGHMemBm8o",
-    "donate3": "TON (TON): UQAc-mZB3y7uxWHKiMmq0ORZEYgycWDWZ4V1k73HsXvTJx-i"
-  },
-  "remarks": "MITM-DomainFronting.evasion-fragment",
+  "remarks": "Xray-Cooperative-Overlay_v23_Hardened_compatibility",
   "version": {
     "min": "26.2.6"
   },
@@ -296,10 +290,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fragment"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "compatibility"
       }
     },
     {
@@ -330,10 +324,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fragment"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "compatibility"
       }
     },
     {
@@ -361,10 +355,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fragment"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "compatibility"
       }
     },
     {
@@ -395,10 +389,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fragment"
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "compatibility"
       }
     },
     {
@@ -426,24 +420,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-grease-stripped",
-        "ja3_template_index": 0,
-        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-        "operating_profile": "evasion-fragment"
-      }
-    },
-    {
-      "tag": "fragment-lab-stub",
-      "protocol": "freedom",
-      "settings": {},
-      "streamSettings": {
-        "sockopt": {
-          "fragment": {
-            "packets": "tlshello",
-            "length": "100-200",
-            "interval": "10-20"
-          }
-        }
+        "ja3_template_id": "rust-fixture-empty-curves",
+        "ja3_template_index": 1,
+        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+        "operating_profile": "compatibility"
       }
     }
   ],
@@ -485,6 +465,12 @@
           "geosite:khanacademy"
         ],
         "ruleTag": "r040_direct_private_regional"
+      },
+      {
+        "outboundTag": "direct",
+        "network": "udp",
+        "port": 443,
+        "ruleTag": "r050_direct_quic_udp443"
       },
       {
         "outboundTag": "tls-repack-google",
@@ -634,13 +620,12 @@
       }
     ]
   },
-  "__comment": "Reference TLS ClientHello record fragment overlay — optional lab profiles only.",
   "mitm": {
     "ja3_pool_id": "chrome-baseline-v1",
-    "ja3_template_id": "rust-fixture-grease-stripped",
-    "ja3_template_index": 0,
-    "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
-    "operating_profile": "evasion-fragment",
+    "ja3_template_id": "rust-fixture-empty-curves",
+    "ja3_template_index": 1,
+    "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
+    "operating_profile": "compatibility",
     "ja3_pool_file": "config-src/templates/ja3-pools/chrome-baseline-pool.json"
   }
 }

@@ -128,7 +128,7 @@ def main() -> int:
         print(f"route intent manifest missing: {intent_path}")
         return 2
 
-    paths = args.configs or [Path("Xray-config/MITM-DomainFronting.json")]
+    paths = args.configs or [Path("Xray-config/Xray-Cooperative-Overlay.json")]
     errors: List[str] = []
     for path in paths:
         if not path.exists():

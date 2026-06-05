@@ -1,6 +1,6 @@
 version: 1
 default_runtime_profile: base
-single_primary_config: Xray-config/MITM-DomainFronting.json
+single_primary_config: Xray-config/Xray-Cooperative-Overlay.json
 
 profile_policies:
   base:

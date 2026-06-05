@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Diagnostics browser path for MITM-DomainFronting.
+Diagnostics browser path for Xray-Cooperative-Overlay.
 
 Uses stock Chromium (Playwright + optional system Chrome/Edge) through the local
 mixed inbound proxy. This path validates proxy wiring, certificate trust, and
@@ -145,7 +145,7 @@ def run_diagnostics_probe(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="MITM-DomainFronting diagnostics browser probe (stock Chromium / Playwright)."
+        description="Xray-Cooperative-Overlay diagnostics browser probe (stock Chromium / Playwright)."
     )
     parser.add_argument("--url", default="https://example.com", help="Target URL to load")
     parser.add_argument("--proxy", default=None, help="Proxy URL (default: socks5://127.0.0.1:10808)")

@@ -24,14 +24,14 @@ The expected local health checks and profile failure policies are defined in [he
 ## Command
 
 ```bash
-python scripts/decision_report.py --config Xray-config/MITM-DomainFronting.json --profile balanced
+python scripts/decision_report.py --config Xray-config/Xray-Cooperative-Overlay.json --profile balanced
 ```
 
 ## Report Shape
 
 ```json
 {
-  "config_version": "MITM-DomainFronting_v22",
+  "config_version": "Xray-Cooperative-Overlay_v22",
   "xray_min_required": "26.2.6",
   "profile": "balanced",
   "cert": {

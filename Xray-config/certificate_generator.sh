@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-# Easy offline certificate generator for MITM-DomainFronting.
+# Easy offline certificate generator for Xray-Cooperative-Overlay.
 # Usage: sh certificate_generator.sh [OUT_DIR]
 # Default OUT_DIR is the current directory.
 

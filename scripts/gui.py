@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local desktop GUI for MITM-DomainFronting maintenance and diagnostics."""
+"""Local desktop GUI for Xray-Cooperative-Overlay maintenance and diagnostics."""
 from __future__ import annotations
 
 import argparse
@@ -38,7 +38,7 @@ from core.version_utils import version_at_least
 IS_FROZEN = bool(getattr(sys, "frozen", False))
 ROOT = Path(sys.executable).resolve().parent if IS_FROZEN else Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-CONFIG = ROOT / "Xray-config" / "MITM-DomainFronting.json"
+CONFIG = ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json"
 CERT = ROOT / "Xray-config" / "mycert.crt"
 KEY = ROOT / "Xray-config" / "mycert.key"
 BROWSER_CONFIG = ROOT / "configs" / "browser-integration.json"
@@ -656,7 +656,7 @@ class LogMultiplexer:
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("MITM-DomainFronting Control Center")
+        self.title("Xray-Cooperative-Overlay Control Center")
         self.protocol("WM_DELETE_WINDOW", self.close_app)
         self.scaling_factor = self._query_hardware_dpi_scale()
         self.fonts = self._build_fonts()
@@ -4013,7 +4013,7 @@ class App(tk.Tk):
         selected_config = self.active_config_path()
         proxy_endpoint = config_proxy_endpoint(selected_config)
         proxy_port = int(proxy_endpoint.get("port") or 10808)
-        profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        profiles = sorted((ROOT / "Xray-config").glob("Xray-Cooperative-Overlay.*.json"))
         host_python = find_host_python()
         runtime = xray_runtime_status()
         local_xray = runtime["executable"]
@@ -4757,7 +4757,7 @@ class App(tk.Tk):
         if path.resolve() == CONFIG.resolve():
             return f"Standard (recommended) - {rel}"
         name = path.name
-        label = name.removeprefix("MITM-DomainFronting.").removesuffix(".json")
+        label = name.removeprefix("Xray-Cooperative-Overlay.").removesuffix(".json")
         label = label.replace(".altports", " alternate ports")
         friendly = {
             "strict": "Strict (advanced)",
@@ -4774,7 +4774,7 @@ class App(tk.Tk):
 
     def _profile_lookup(self) -> dict[str, Path]:
         paths = [CONFIG]
-        paths.extend(path for path in sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json")) if path.resolve() != CONFIG.resolve())
+        paths.extend(path for path in sorted((ROOT / "Xray-config").glob("Xray-Cooperative-Overlay.*.json")) if path.resolve() != CONFIG.resolve())
         return {self._profile_display_name(path): path for path in paths}
 
     def _select_profile(self, _event: object | None = None) -> None:
@@ -4985,7 +4985,7 @@ class App(tk.Tk):
             data = {}
         remarks = data.get("remarks", "unknown")
         min_version = data.get("version", {}).get("min") if isinstance(data.get("version"), dict) else "unknown"
-        profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        profiles = sorted((ROOT / "Xray-config").glob("Xray-Cooperative-Overlay.*.json"))
         snapshot = self._status_snapshot()
         level, detail = self._status_level(snapshot)
         self.status_refresh_count += 1
@@ -5234,9 +5234,9 @@ class App(tk.Tk):
 
     def copy_issue_summary(self) -> None:
         data = read_json_config()
-        profiles = sorted((ROOT / "Xray-config").glob("MITM-DomainFronting.*.json"))
+        profiles = sorted((ROOT / "Xray-config").glob("Xray-Cooperative-Overlay.*.json"))
         summary = "\n".join([
-            "MITM-DomainFronting redacted issue summary",
+            "Xray-Cooperative-Overlay redacted issue summary",
             f"Config: {short_path(CONFIG)}",
             f"Remarks: {data.get('remarks', 'unknown')}",
             f"Xray min: {data.get('version', {}).get('min') if isinstance(data.get('version'), dict) else 'unknown'}",
@@ -5488,7 +5488,7 @@ class App(tk.Tk):
 
         summary = "\n".join(
             [
-                "MITM-DomainFronting phase summary (redacted)",
+                "Xray-Cooperative-Overlay phase summary (redacted)",
                 f"Target: {phase_diag.get('target', 'unknown')}",
                 f"Provider family: {phase_diag.get('provider_family', 'unknown')}",
                 f"Phase: {phase_diag.get('phase_classification', 'unknown')}",
@@ -5731,9 +5731,9 @@ class App(tk.Tk):
     def _active_profile_intent(self) -> str:
         path = self.active_config_path()
         stem = path.stem
-        if stem == "MITM-DomainFronting":
+        if stem == "Xray-Cooperative-Overlay":
             return "balanced"
-        suffix = stem.replace("MITM-DomainFronting.", "", 1)
+        suffix = stem.replace("Xray-Cooperative-Overlay.", "", 1)
         base = suffix.split(".")[0] if suffix else "balanced"
         if base in {"strict", "balanced", "compatibility", "debug"}:
             return base
@@ -5777,7 +5777,7 @@ class App(tk.Tk):
             profile_id = decision.selected_profile_id
             reason = decision.reason
             confidence = decision.confidence
-        target = ROOT / "Xray-config" / f"MITM-DomainFronting.{profile_id}.json"
+        target = ROOT / "Xray-config" / f"Xray-Cooperative-Overlay.{profile_id}.json"
         if not target.exists():
             messagebox.showwarning("Profile missing", f"Recommended profile file not found: {short_path(target)}")
             return
@@ -6157,7 +6157,7 @@ def self_test() -> int:
 def main() -> int:
     if len(sys.argv) >= 3 and sys.argv[1] == "--backend":
         return run_backend(sys.argv[2], sys.argv[3:])
-    parser = argparse.ArgumentParser(description="Launch the MITM-DomainFronting local GUI")
+    parser = argparse.ArgumentParser(description="Launch the Xray-Cooperative-Overlay local GUI")
     parser.add_argument("--self-test", action="store_true", help="validate GUI dependencies without opening a window")
     args = parser.parse_args()
     if args.self_test:

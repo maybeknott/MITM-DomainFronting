@@ -41,19 +41,19 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           if (-not $tag) { $tag = "dev" }
-          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
+          $zip = "dist/Xray-Cooperative-Overlay-Control-Center-$tag-windows-x64.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
-          Compress-Archive -Path "dist/MITM-DomainFronting-Control-Center" -DestinationPath $zip -CompressionLevel Optimal
+          Compress-Archive -Path "dist/Xray-Cooperative-Overlay-Control-Center" -DestinationPath $zip -CompressionLevel Optimal
           $hash = Get-FileHash -Algorithm SHA256 $zip
           "$($hash.Hash)  $(Split-Path $zip -Leaf)" | Set-Content -Encoding ascii "$zip.sha256"
-          Get-ChildItem dist -Filter "MITM-DomainFronting-Control-Center-*.zip*" | Format-Table -AutoSize
+          Get-ChildItem dist -Filter "Xray-Cooperative-Overlay-Control-Center-*.zip*" | Format-Table -AutoSize
 
       - name: Verify release artifact contents
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
           if (-not $tag) { $tag = "dev" }
-          $zip = "dist/MITM-DomainFronting-Control-Center-$tag-windows-x64.zip"
+          $zip = "dist/Xray-Cooperative-Overlay-Control-Center-$tag-windows-x64.zip"
           python main.py release-check --zip $zip --checksum "$zip.sha256"
 
       - name: Upload GUI build artifact
@@ -62,9 +62,9 @@ jobs:
         with:
           name: gui-dist
           path: |
-            dist/MITM-DomainFronting-Control-Center/**
-            dist/MITM-DomainFronting-Control-Center-*.zip
-            dist/MITM-DomainFronting-Control-Center-*.zip.sha256
+            dist/Xray-Cooperative-Overlay-Control-Center/**
+            dist/Xray-Cooperative-Overlay-Control-Center-*.zip
+            dist/Xray-Cooperative-Overlay-Control-Center-*.zip.sha256
           if-no-files-found: error
 
   publish-release:
@@ -83,12 +83,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: MITM-DomainFronting ${{ github.ref_name }}
+          name: Xray-Cooperative-Overlay ${{ github.ref_name }}
           body: |
             Download the Windows app bundle asset below.
 
             GitHub also shows automatic source-code archives for every tag; those are not the final product package.
           files: |
-            release-artifacts/dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip
-            release-artifacts/dist/MITM-DomainFronting-Control-Center-${{ github.ref_name }}-windows-x64.zip.sha256
+            release-artifacts/dist/Xray-Cooperative-Overlay-Control-Center-${{ github.ref_name }}-windows-x64.zip
+            release-artifacts/dist/Xray-Cooperative-Overlay-Control-Center-${{ github.ref_name }}-windows-x64.zip.sha256
           fail_on_unmatched_files: true

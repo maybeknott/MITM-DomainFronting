@@ -1,10 +1,10 @@
 {
-  "remarks": "MITM-DomainFronting_v23_Hardened_debug",
+  "remarks": "Xray-Cooperative-Overlay_v23_Hardened_balanced",
   "version": {
     "min": "26.2.6"
   },
   "log": {
-    "loglevel": "info",
+    "loglevel": "warning",
     "dnsLog": false,
     "access": "none"
   },
@@ -290,10 +290,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-empty-curves",
-        "ja3_template_index": 1,
-        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-        "operating_profile": "debug"
+        "ja3_template_id": "rust-fixture-grease-stripped",
+        "ja3_template_index": 0,
+        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+        "operating_profile": "balanced"
       }
     },
     {
@@ -324,10 +324,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-empty-curves",
-        "ja3_template_index": 1,
-        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-        "operating_profile": "debug"
+        "ja3_template_id": "rust-fixture-grease-stripped",
+        "ja3_template_index": 0,
+        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+        "operating_profile": "balanced"
       }
     },
     {
@@ -355,10 +355,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-empty-curves",
-        "ja3_template_index": 1,
-        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-        "operating_profile": "debug"
+        "ja3_template_id": "rust-fixture-grease-stripped",
+        "ja3_template_index": 0,
+        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+        "operating_profile": "balanced"
       }
     },
     {
@@ -389,10 +389,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-empty-curves",
-        "ja3_template_index": 1,
-        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-        "operating_profile": "debug"
+        "ja3_template_id": "rust-fixture-grease-stripped",
+        "ja3_template_index": 0,
+        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+        "operating_profile": "balanced"
       }
     },
     {
@@ -420,10 +420,10 @@
       },
       "mitmMeta": {
         "ja3_pool_id": "chrome-baseline-v1",
-        "ja3_template_id": "rust-fixture-empty-curves",
-        "ja3_template_index": 1,
-        "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-        "operating_profile": "debug"
+        "ja3_template_id": "rust-fixture-grease-stripped",
+        "ja3_template_index": 0,
+        "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+        "operating_profile": "balanced"
       }
     }
   ],
@@ -467,10 +467,10 @@
         "ruleTag": "r040_direct_private_regional"
       },
       {
-        "outboundTag": "block",
+        "outboundTag": "direct",
         "network": "udp",
         "port": 443,
-        "ruleTag": "r050_block_quic_udp443"
+        "ruleTag": "r050_direct_quic_udp443"
       },
       {
         "outboundTag": "tls-repack-google",
@@ -622,10 +622,10 @@
   },
   "mitm": {
     "ja3_pool_id": "chrome-baseline-v1",
-    "ja3_template_id": "rust-fixture-empty-curves",
-    "ja3_template_index": 1,
-    "ja3_hash_md5": "1e7c622032b0cb79401b0f7be3793a1a",
-    "operating_profile": "debug",
+    "ja3_template_id": "rust-fixture-grease-stripped",
+    "ja3_template_index": 0,
+    "ja3_hash_md5": "e5e1e38579ae55ca3ec29f347d63149e",
+    "operating_profile": "balanced",
     "ja3_pool_file": "config-src/templates/ja3-pools/chrome-baseline-pool.json"
   }
 }

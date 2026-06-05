@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Local preflight checks for MITM-DomainFronting.
+Local preflight checks for Xray-Cooperative-Overlay.
 
 The script validates config shape, local certificate/key presence, key file
 permissions, port/listener exposure, and optional DNS reachability. It does not
@@ -291,7 +291,7 @@ def captive_portal_warning_check(timeout: float = 3.0) -> Dict[str, str]:
 
         req = urllib.request.Request(
             "http://connectivitycheck.gstatic.com/generate_204",
-            headers={"User-Agent": "mitm-domainfronting-preflight"},
+            headers={"User-Agent": "xray-cooperative-overlay-preflight"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as response:
             code = int(response.getcode())
@@ -412,7 +412,7 @@ def emit_report(report: Dict[str, Any]) -> str:
     lines = [
         "",
         "=" * 72,
-        " MITM-DomainFronting Preflight",
+        " Xray-Cooperative-Overlay Preflight",
         "=" * 72,
     ]
     for check in report.get("checks", []):
@@ -431,8 +431,8 @@ def emit_report(report: Dict[str, Any]) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run local MITM-DomainFronting preflight checks")
-    parser.add_argument("--config", type=Path, default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser = argparse.ArgumentParser(description="Run local Xray-Cooperative-Overlay preflight checks")
+    parser.add_argument("--config", type=Path, default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     parser.add_argument("--cert", type=Path, default=Path("Xray-config/mycert.crt"))
     parser.add_argument("--key", type=Path, default=Path("Xray-config/mycert.key"))
     parser.add_argument("--json-out", type=Path, default=None)

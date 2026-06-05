@@ -1,6 +1,6 @@
 version: 1
 source: configs/route-intent.json
-runtime_target: Xray-config/MITM-DomainFronting.json
+runtime_target: Xray-config/Xray-Cooperative-Overlay.json
 taxonomy:
   rule_tag_format: rNNN_slug
   order_policy: first_match

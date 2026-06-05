@@ -1,2 +1,2 @@
-"""Shared local tooling helpers for MITM-DomainFronting scripts."""
+"""Shared local tooling helpers for Xray-Cooperative-Overlay scripts."""
 

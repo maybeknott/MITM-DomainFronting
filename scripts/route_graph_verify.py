@@ -74,7 +74,7 @@ def verify(config: Dict[str, Any]) -> List[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify decrypted route isolation")
-    parser.add_argument("config", type=Path, nargs="?", default=Path("Xray-config/MITM-DomainFronting.json"))
+    parser.add_argument("config", type=Path, nargs="?", default=Path("Xray-config/Xray-Cooperative-Overlay.json"))
     args = parser.parse_args()
     errors = verify(load_config(args.config))
     if errors:

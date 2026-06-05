@@ -16,9 +16,9 @@ from core.readiness import build_project_state  # noqa: E402
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Guided onboarding automation for MITM-DomainFronting")
+    parser = argparse.ArgumentParser(description="Guided onboarding automation for Xray-Cooperative-Overlay")
     parser.add_argument("--persona", choices=("newcomer", "maintainer", "lab"), default="newcomer")
-    parser.add_argument("--config", default="Xray-config/MITM-DomainFronting.json")
+    parser.add_argument("--config", default="Xray-config/Xray-Cooperative-Overlay.json")
     parser.add_argument("--dry-run", action="store_true", help="list steps without executing")
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--skip-playbook", action="store_true", help="only emit advisor plan")

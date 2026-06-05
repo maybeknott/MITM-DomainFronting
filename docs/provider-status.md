@@ -34,7 +34,7 @@ When a provider stops working, **do not** add domains blindly. Collect:
 | Step | Action |
 |---|---|
 | 1 | Route tag that should have matched — check `providers/*.yml` → `ruleTag` |
-| 2 | Outbound `tls-repack-*` tag and camouflage `serverName`: `py -3 scripts/core/sni_camouflage.py Xray-config/MITM-DomainFronting.json` |
+| 2 | Outbound `tls-repack-*` tag and camouflage `serverName`: `py -3 scripts/core/sni_camouflage.py Xray-config/Xray-Cooperative-Overlay.json` |
 | 3 | Client and Xray version; platform and browser/app |
 | 4 | Failure class: DNS, certificate, connection, HTTP status, media-only, or app-only |
 | 5 | TCP/443 with QUIC disabled vs enabled |

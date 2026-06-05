@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Describe optional generated profiles that make failure policy explicit for testing and support. The primary import file remains `Xray-config/MITM-DomainFronting.json`; profiles adjust UDP/443 handling, catch-all behavior, and logging without replacing the main workflow.
+Describe optional generated profiles that make failure policy explicit for testing and support. The primary import file remains `Xray-config/Xray-Cooperative-Overlay.json`; profiles adjust UDP/443 handling, catch-all behavior, and logging without replacing the main workflow.
 
-The primary import file remains `Xray-config/MITM-DomainFronting.json`. Additional profiles make failure policy explicit for testing and support.
+The primary import file remains `Xray-config/Xray-Cooperative-Overlay.json`. Additional profiles make failure policy explicit for testing and support.
 
 ## Profiles
 
@@ -18,16 +18,16 @@ The primary import file remains `Xray-config/MITM-DomainFronting.json`. Addition
 ## Generated Files
 
 ```text
-Xray-config/MITM-DomainFronting.strict.json
-Xray-config/MITM-DomainFronting.balanced.json
-Xray-config/MITM-DomainFronting.compatibility.json
-Xray-config/MITM-DomainFronting.debug.json
+Xray-config/Xray-Cooperative-Overlay.strict.json
+Xray-config/Xray-Cooperative-Overlay.balanced.json
+Xray-config/Xray-Cooperative-Overlay.compatibility.json
+Xray-config/Xray-Cooperative-Overlay.debug.json
 ```
 
 Regenerate them with:
 
 ```bash
-python scripts/generate_profiles.py --base Xray-config/MITM-DomainFronting.json
+python scripts/generate_profiles.py --base Xray-config/Xray-Cooperative-Overlay.json
 ```
 
 ## Alternate Local Ports
@@ -36,13 +36,13 @@ If `10808`, `11666`, or `11777` are already occupied, generate a temporary alter
 
 ```bash
 python scripts/generate_profiles.py \
-  --base Xray-config/MITM-DomainFronting.json \
+  --base Xray-config/Xray-Cooperative-Overlay.json \
   --out-dir Xray-config \
   --port-offset 100 \
   --suffix .altports
 ```
 
-That example creates files such as `MITM-DomainFronting.strict.altports.json` using `10908`, `11766`, and `11877`. Do not commit local alternate-port outputs unless they are intentionally promoted as supported profiles.
+That example creates files such as `Xray-Cooperative-Overlay.strict.altports.json` using `10908`, `11766`, and `11877`. Do not commit local alternate-port outputs unless they are intentionally promoted as supported profiles.
 
 ## Safety Rules
 

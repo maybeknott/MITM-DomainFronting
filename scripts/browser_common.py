@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared settings for MITM-DomainFronting browser integration (diagnostics + stealth)."""
+"""Shared settings for Xray-Cooperative-Overlay browser integration (diagnostics + stealth)."""
 from __future__ import annotations
 
 import json

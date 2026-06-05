@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 
-rem Easy offline certificate generator for MITM-DomainFronting.
+rem Easy offline certificate generator for Xray-Cooperative-Overlay.
 rem Put this file in the v2rayN bin folder or any folder where xray.exe is available.
 rem It creates mycert.crt and mycert.key in the current folder.
 

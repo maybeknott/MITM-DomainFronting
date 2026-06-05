@@ -21,7 +21,7 @@ python scripts/mitm_trust.py status --cert Xray-config/mycert.crt --key Xray-con
 
 ## مرحله ۲: بررسی ارجاعات در کانفیگ Xray
 
-فایل کانفیگ `Xray-config/MITM-DomainFronting.json` را باز کنید و مطمئن شوید که بخش certificate به فایلهای زیر ارجاع می‌دهد:
+فایل کانفیگ `Xray-config/Xray-Cooperative-Overlay.json` را باز کنید و مطمئن شوید که بخش certificate به فایلهای زیر ارجاع می‌دهد:
 
 ```json
 "certificateFile": "mycert.crt",

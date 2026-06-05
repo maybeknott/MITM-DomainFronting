@@ -1,6 +1,6 @@
 version: 1
 source_directory: providers
-runtime_target: Xray-config/MITM-DomainFronting.json
+runtime_target: Xray-config/Xray-Cooperative-Overlay.json
 required_fields:
   - id
   - status

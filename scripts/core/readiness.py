@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared readiness model for MITM-DomainFronting.
+"""Shared readiness model for Xray-Cooperative-Overlay.
 
 This module is the first common "truth layer" for CLI, GUI, health probes, and
 future release checks. It intentionally gathers only local, redacted facts.
@@ -234,7 +234,7 @@ def load_config(config_path: Path) -> tuple[dict[str, Any] | None, CheckResult]:
             "Primary Xray config is missing.",
             evidence=str(config_path),
             impact="Xray cannot be started from the expected runtime config.",
-            recommended_action="Regenerate or restore Xray-config/MITM-DomainFronting.json.",
+            recommended_action="Regenerate or restore Xray-config/Xray-Cooperative-Overlay.json.",
             fix_command="py -3 scripts\\build_config.py --check-runtime-sync --generate-profiles --check-profile-sync",
             safe_to_auto_fix=True,
         )
@@ -291,7 +291,7 @@ def config_metadata(config: dict[str, Any] | None) -> tuple[str, str, bool]:
 def profile_checks(root: Path) -> tuple[bool, bool, List[CheckResult]]:
     checks: List[CheckResult] = []
     profile_paths = [
-        root / "Xray-config" / f"MITM-DomainFronting.{name}.json"
+        root / "Xray-config" / f"Xray-Cooperative-Overlay.{name}.json"
         for name in PROFILE_NAMES
     ]
     missing = [path.name for path in profile_paths if not path.exists()]
@@ -305,11 +305,11 @@ def profile_checks(root: Path) -> tuple[bool, bool, List[CheckResult]]:
             evidence=", ".join(missing) if missing else ", ".join(path.name for path in profile_paths),
             impact="Users may not have strict/balanced/compatibility/debug choices." if missing else "",
             recommended_action="Regenerate profiles from the base config." if missing else "",
-            fix_command="py -3 scripts\\generate_profiles.py --base Xray-config\\MITM-DomainFronting.json" if missing else "",
+            fix_command="py -3 scripts\\generate_profiles.py --base Xray-config\\Xray-Cooperative-Overlay.json" if missing else "",
             safe_to_auto_fix=bool(missing),
         )
     )
-    code, output = run_cmd(["git", "diff", "--quiet", "--", "Xray-config/MITM-DomainFronting.*.json"], timeout=6)
+    code, output = run_cmd(["git", "diff", "--quiet", "--", "Xray-config/Xray-Cooperative-Overlay.*.json"], timeout=6)
     if code == 0:
         profiles_synced = True
         checks.append(_check("profiles.git_sync", "profiles", "pass", "Generated profiles have no working-tree diff."))
@@ -324,7 +324,7 @@ def profile_checks(root: Path) -> tuple[bool, bool, List[CheckResult]]:
                 evidence=output.strip(),
                 impact="CI profile-sync checks may fail until generated files are refreshed and committed.",
                 recommended_action="Regenerate profiles and review the diff.",
-                fix_command="py -3 scripts\\generate_profiles.py --base Xray-config\\MITM-DomainFronting.json",
+                fix_command="py -3 scripts\\generate_profiles.py --base Xray-config\\Xray-Cooperative-Overlay.json",
                 safe_to_auto_fix=True,
             )
         )
@@ -847,7 +847,7 @@ def build_project_state(
     skip_trust: bool = False,
     skip_runtime: bool = False,
 ) -> ProjectState:
-    config_path = config_path or root / "Xray-config" / "MITM-DomainFronting.json"
+    config_path = config_path or root / "Xray-config" / "Xray-Cooperative-Overlay.json"
     cert_path = cert_path or root / "Xray-config" / "mycert.crt"
     key_path = key_path or root / "Xray-config" / "mycert.key"
     checks: List[CheckResult] = []
@@ -1014,7 +1014,7 @@ def emit_json(state: ProjectState) -> str:
 
 def emit_text(state: ProjectState) -> str:
     lines = [
-        "MITM-DomainFronting Readiness",
+        "Xray-Cooperative-Overlay Readiness",
         "=" * 72,
         f"Overall: {state.overall}",
         f"Next action: {state.next_action}",
@@ -1046,8 +1046,8 @@ def emit_text(state: ProjectState) -> str:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Emit shared MITM-DomainFronting readiness state")
-    parser.add_argument("--config", type=Path, default=ROOT / "Xray-config" / "MITM-DomainFronting.json")
+    parser = argparse.ArgumentParser(description="Emit shared Xray-Cooperative-Overlay readiness state")
+    parser.add_argument("--config", type=Path, default=ROOT / "Xray-config" / "Xray-Cooperative-Overlay.json")
     parser.add_argument("--cert", type=Path, default=ROOT / "Xray-config" / "mycert.crt")
     parser.add_argument("--key", type=Path, default=ROOT / "Xray-config" / "mycert.key")
     parser.add_argument("--skip-trust", action="store_true")

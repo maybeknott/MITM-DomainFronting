@@ -29,8 +29,8 @@ def sample_state(**overrides: object) -> ProjectState:
         next_action="Ready",
         next_action_detail="Core setup is ready.",
         config_ok=True,
-        config_path="Xray-config/MITM-DomainFronting.json",
-        config_remarks="MITM-DomainFronting_v23_Hardened",
+        config_path="Xray-config/Xray-Cooperative-Overlay.json",
+        config_remarks="Xray-Cooperative-Overlay_v23_Hardened",
         config_min_xray_version="26.2.6",
         profiles_present=True,
         profiles_synced=True,
@@ -76,7 +76,7 @@ def test_readiness_snapshot_fields() -> None:
     assert_equal("overall", fields["readiness_overall"], "pass")
     assert_equal("action", fields["readiness_next_action"], "Trust Certificate")
     assert_equal("detail", fields["readiness_next_action_detail"], "Trust is not matched.")
-    assert_equal("remarks", fields["config_remarks"], "MITM-DomainFronting_v23_Hardened")
+    assert_equal("remarks", fields["config_remarks"], "Xray-Cooperative-Overlay_v23_Hardened")
     assert_equal("trust", fields["trust_status"], "pass")
     assert_equal("browser", fields["playwright_ok"], True)
     assert_equal("intelligent_hint_key", "intelligent_hint" in fields, True)

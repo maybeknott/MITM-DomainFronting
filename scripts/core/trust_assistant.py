@@ -16,7 +16,7 @@ class TrustAssistant:
         resolved = self.cert_path.resolve()
         lines = [
             "=" * 72,
-            "MITM-DomainFronting Trust Assistant",
+            "Xray-Cooperative-Overlay Trust Assistant",
             "=" * 72,
             f"Certificate: {resolved}",
             "This tool prints instructions only. It does not elevate privileges or modify trust stores.",
@@ -53,11 +53,11 @@ class TrustAssistant:
         elif self.system == "linux":
             lines.extend([
                 "Debian/Ubuntu system trust store:",
-                f'  sudo cp "{resolved}" /usr/local/share/ca-certificates/mitm-domainfronting.crt',
+                f'  sudo cp "{resolved}" /usr/local/share/ca-certificates/xray-cooperative-overlay.crt',
                 "  sudo update-ca-certificates",
                 "",
                 "Linux verification:",
-                "  openssl x509 -in /etc/ssl/certs/mitm-domainfronting.pem -text -noout",
+                "  openssl x509 -in /etc/ssl/certs/xray-cooperative-overlay.pem -text -noout",
                 "",
                 "Firefox may use its own NSS store. Import the certificate in Firefox certificate settings if needed.",
             ])

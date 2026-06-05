@@ -172,7 +172,7 @@ py -3 scripts\build_gui_exe.py
 خروجی:
 
 ```text
-dist\MITM-DomainFronting-Control-Center\
+dist\Xray-Cooperative-Overlay-Control-Center\
 ```
 
 اگر runtime محلی در `xray/` موجود باشد، build فایل‌های `xray.exe`، `geoip.dat` و `geosite.dat` را در خروجی کپی می‌کند تا نسخه ساخته‌شده self-contained باشد. فایل‌های `mycert.crt` و `mycert.key` عمداً کپی نمی‌شوند.
@@ -180,7 +180,7 @@ dist\MITM-DomainFronting-Control-Center\
 اجرای self-test روی نسخه ساخته‌شده:
 
 ```powershell
-dist\MITM-DomainFronting-Control-Center\MITM-DomainFronting-Control-Center.exe --self-test
+dist\Xray-Cooperative-Overlay-Control-Center\Xray-Cooperative-Overlay-Control-Center.exe --self-test
 ```
 
 ## انتشار از طریق GitHub Actions

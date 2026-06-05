@@ -14,7 +14,7 @@ sh Xray-config/certificate_generator.sh Xray-config
 ```
 
 3. فایل `mycert.crt` را در مخزن گواهی‌های معتبر توزیع لینوکس خود نصب کنید (در بخش زیر آمده است).
-4. فایل کانفیگ `MITM-DomainFronting.json` را در کلاینت خود ایمپورت کرده یا Xray را مستقیماً با آن اجرا کنید.
+4. فایل کانفیگ `Xray-Cooperative-Overlay.json` را در کلاینت خود ایمپورت کرده یا Xray را مستقیماً با آن اجرا کنید.
 5. وضعیت پورت‌ها را با دستور زیر بررسی کنید:
 
 ```bash
@@ -28,14 +28,14 @@ ss -ltnp | grep -E ':10808|:11666|:11777'
 دبیان / اوبونتو (Debian/Ubuntu):
 
 ```bash
-sudo cp Xray-config/mycert.crt /usr/local/share/ca-certificates/mitm-domainfronting-mycert.crt
+sudo cp Xray-config/mycert.crt /usr/local/share/ca-certificates/xray-cooperative-overlay-mycert.crt
 sudo update-ca-certificates
 ```
 
 فدورا / رد‌هت (Fedora/RHEL):
 
 ```bash
-sudo cp Xray-config/mycert.crt /etc/pki/ca-trust/source/anchors/mitm-domainfronting-mycert.crt
+sudo cp Xray-config/mycert.crt /etc/pki/ca-trust/source/anchors/xray-cooperative-overlay-mycert.crt
 sudo update-ca-trust
 ```
 

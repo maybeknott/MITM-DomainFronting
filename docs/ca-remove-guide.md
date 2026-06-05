@@ -28,13 +28,13 @@
 لینوکس (Linux):
 دبیان / اوبونتو (Debian/Ubuntu):
 ```bash
-sudo rm -f /usr/local/share/ca-certificates/mitm-domainfronting-mycert.crt
+sudo rm -f /usr/local/share/ca-certificates/xray-cooperative-overlay-mycert.crt
 sudo update-ca-certificates --fresh
 ```
 
 فدورا / رد‌هت (Fedora/RHEL):
 ```bash
-sudo rm -f /etc/pki/ca-trust/source/anchors/mitm-domainfronting-mycert.crt
+sudo rm -f /etc/pki/ca-trust/source/anchors/xray-cooperative-overlay-mycert.crt
 sudo update-ca-trust
 ```
 

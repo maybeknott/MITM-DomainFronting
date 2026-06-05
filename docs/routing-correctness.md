@@ -61,9 +61,9 @@ r999_block_final
 Maintain this table in `docs/routing-correctness.md`. The machine-readable source of truth is `configs/route-intent.json`, verified by:
 
 ```bash
-python scripts/route_intent_sync.py Xray-config/MITM-DomainFronting.json
-python scripts/route_graph_verify.py Xray-config/MITM-DomainFronting.json
-python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json
+python scripts/route_intent_sync.py Xray-config/Xray-Cooperative-Overlay.json
+python scripts/route_graph_verify.py Xray-config/Xray-Cooperative-Overlay.json
+python scripts/route_rule_linter.py Xray-config/Xray-Cooperative-Overlay.json
 ```
 
 `route_graph_verify.py` is a conservative decrypted-inbound isolation check. `route_rule_linter.py` is a first-match shadowing check: it reports absolute catch-all rules that make later rules unreachable, warns about broad fallback boundaries, and fails if decrypted `tls-decrypt-*` traffic can hit a scoped direct route or global fallback before a scoped terminal block.
@@ -94,7 +94,7 @@ python scripts/route_rule_linter.py Xray-config/MITM-DomainFronting.json
 
 ## Required validation checks
 
-`python scripts/validate_config.py Xray-config/MITM-DomainFronting.json` should verify:
+`python scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json` should verify:
 
 - JSON parses.
 - Inbound tags are unique.
@@ -132,14 +132,14 @@ This document does not replace the primary single-config workflow. Generated str
 
 ## Config-src boundary
 
-The user import path remains `Xray-config/MITM-DomainFronting.json`. `config-src/base.json` is the source JSON, while `config-src/manifest.json` declares the runtime target, source metadata files, generated profiles, and validation steps (`validate_config`, `route_intent_sync`, `route_policy_tests`, `transport_experiment_validate`, `config_src_runtime_sync`). Run:
+The user import path remains `Xray-config/Xray-Cooperative-Overlay.json`. `config-src/base.json` is the source JSON, while `config-src/manifest.json` declares the runtime target, source metadata files, generated profiles, and validation steps (`validate_config`, `route_intent_sync`, `route_policy_tests`, `transport_experiment_validate`, `config_src_runtime_sync`). Run:
 
 ```bash
 python scripts/config_src_validate.py --run-steps
 python scripts/build_config.py --check-runtime-sync --generate-profiles --check-profile-sync
 ```
 
-Fragments under `config-src/fragments/` merge into `build/config/MITM-DomainFronting.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy of `config-src/base.json`, and CI requires that copy to remain identical to the runtime import target.
+Fragments under `config-src/fragments/` merge into `build/config/Xray-Cooperative-Overlay.json` (gitignored) via `scripts/config_src_merge.py`. With an empty `fragments` array the compiled artifact is a validated copy of `config-src/base.json`, and CI requires that copy to remain identical to the runtime import target.
 
 ## Related documents
 

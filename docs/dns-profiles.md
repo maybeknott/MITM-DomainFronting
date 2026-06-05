@@ -32,7 +32,7 @@ The primary config keeps one DNS block, but support and release validation shoul
 Minimum validation:
 
 ```bash
-python scripts/validate_config.py Xray-config/MITM-DomainFronting.json
+python scripts/validate_config.py Xray-config/Xray-Cooperative-Overlay.json
 python scripts/check_dns.py --domain example.com --resolver 1.1.1.1 --resolver 8.8.8.8
 ```
 

@@ -34,16 +34,16 @@ src/
 These are generated outputs that are committed because users and release bundles consume them directly:
 
 ```text
-Xray-config/MITM-DomainFronting.json
-Xray-config/MITM-DomainFronting.strict.json
-Xray-config/MITM-DomainFronting.balanced.json
-Xray-config/MITM-DomainFronting.compatibility.json
-Xray-config/MITM-DomainFronting.debug.json
-Xray-config/MITM-DomainFronting.evasion-fragment.json
-Xray-config/MITM-DomainFronting.evasion-reality-stub.json
-Xray-config/MITM-DomainFronting.evasion-tun-stub.json
-Xray-config/MITM-DomainFronting.evasion-fakedns.json
-Xray-config/MITM-DomainFronting.evasion-high-stealth.json
+Xray-config/Xray-Cooperative-Overlay.json
+Xray-config/Xray-Cooperative-Overlay.strict.json
+Xray-config/Xray-Cooperative-Overlay.balanced.json
+Xray-config/Xray-Cooperative-Overlay.compatibility.json
+Xray-config/Xray-Cooperative-Overlay.debug.json
+Xray-config/Xray-Cooperative-Overlay.evasion-fragment.json
+Xray-config/Xray-Cooperative-Overlay.evasion-reality-stub.json
+Xray-config/Xray-Cooperative-Overlay.evasion-tun-stub.json
+Xray-config/Xray-Cooperative-Overlay.evasion-fakedns.json
+Xray-config/Xray-Cooperative-Overlay.evasion-high-stealth.json
 ```
 
 Regenerate operating profiles and evasion lab configs with:
@@ -110,7 +110,7 @@ Release ZIPs may include runtime files such as `xray/xray.exe`, `xray/geoip.dat`
 Verify a ZIP with:
 
 ```powershell
-py -3 scripts\verify_release_artifact.py dist\MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist\MITM-DomainFronting-Control-Center-vX.Y.Z-windows-x64.zip.sha256
+py -3 scripts\verify_release_artifact.py dist\Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip --checksum dist\Xray-Cooperative-Overlay-Control-Center-vX.Y.Z-windows-x64.zip.sha256
 ```
 
 ## Related documents
